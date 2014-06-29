@@ -16,7 +16,7 @@ fi
 
 for a in *.raw ; do
 ../cut-and-downmix-2.py $a
-done > cut-output
+done |tee cut-output|grep "File:"
 
 for a in *-f*.raw ; do 
 ../demod.py $a

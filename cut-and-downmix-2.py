@@ -102,6 +102,8 @@ print 'correction', correction
 print 'corrected max', max_index - correction
 print 'corrected offset', offset_freq
 
+print 'File:',basename,"f=",offset_freq
+
 single_turn = sample_rate / offset_freq
 
 shift_signal = [cmath.rect(1, -float(x)/(float(sample_rate)/offset_freq) * 2 * math.pi) for x in range(len(signal))]

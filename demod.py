@@ -157,7 +157,8 @@ for s in symbols[12:]:
 ok="not ok"
 if access=="022220002002": ok="OK"
 
-print "File:",basename," access: ",access," ",ok," data:",data
+print "File:",basename,"access: ",ok,"(",access,") e=",errors
+print "File:",basename,"data: ",data
 
 # Create r / phi file
 #filename= re.sub('\.raw','.rphi',sys.argv[1])
