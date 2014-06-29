@@ -1,0 +1,23 @@
+#!/bin/sh
+
+file=$1
+
+dir=`basename ${file%.raw}`
+
+if [ ! -d $dir ] ; then
+	mkdir $dir
+	cd $dir
+
+	../detector2.py ../$file
+else
+	cd $dir
+	rm *-f*.raw
+fi
+
+for a in *.raw ; do
+../cut-and-downmix-2.py $a
+done > cut-output
+
+for a in *-f*.raw ; do 
+../demod.py $a
+done |tee demod-output |grep access
