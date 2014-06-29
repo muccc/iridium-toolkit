@@ -27,6 +27,7 @@ def qpsk(angle):
     return sym
 
 file_name = sys.argv[1]
+basename= filename= re.sub('\.[^.]*$','',file_name)
 schneider=0
 
 if file_name == "-p":
@@ -96,6 +97,7 @@ peaks=[complex(-lmax,0)]*len(signal)
 
 mapping= [2,1,-2,-1]
 
+print "len: ",len(signal)
 while True:
     peaks[i]=complex(0,lmax/10.)
 
@@ -170,7 +172,7 @@ for s in symbols[12:]:
 ok="not ok"
 if access=="022220002002": ok="OK"
 
-print "File:",file_name," access: ",access," ",ok," data:",data
+print "File:",basename," access: ",access," ",ok," data:",data
 
 # Create r / phi file
 #filename= re.sub('\.raw','.rphi',sys.argv[1])
@@ -183,12 +185,8 @@ print "File:",file_name," access: ",access," ",ok," data:",data
 #    s = "<" + len(signal) * 'f'
 #    out.write(struct.Struct(s).pack(*signal))
 
-
-filename= re.sub('\.raw','.peaks',file_name)
-if file_name == filename: raise Exception("filename replacement error")
-
 signal=peaks
-with open(filename, 'wb') as out:
+with open("%s.peaks" % (os.path.basename(basename)), 'wb') as out:
     signal = [item for sample
         in signal for item
         in [sample.real, sample.imag]]

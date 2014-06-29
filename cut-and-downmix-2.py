@@ -1,3 +1,5 @@
+#!/usr/bin/python
+# vim: set ts=4 sw=4 tw=0 et pm=:
 import struct
 import sys
 import math
@@ -6,6 +8,7 @@ import os.path
 import cmath
 import filters
 import scipy.signal
+import re
 
 from itertools import izip
 import matplotlib.pyplot as plt
@@ -15,6 +18,8 @@ def grouped(iterable, n):
     return izip(*[iter(iterable)]*n)
 
 file_name = sys.argv[1]
+basename= filename= re.sub('\.[^.]*$','',file_name)
+
 sample_rate = 2000000
 symbols_per_second = 25000
 preamble_length = 64
@@ -150,7 +155,7 @@ with open(file_name, "rb") as f:
     #print max(([abs(x.real) for x in signal]))
     #print max(([abs(x.imag) for x in signal]))
 
-    with open(sys.argv[2], 'wb') as out:
+    with open("%s-f%10d.raw" % (os.path.basename(basename), 1626270833-offset_freq), 'wb') as out:
         signal = [item for sample
                     in signal for item
                     in [sample.real, sample.imag]]
