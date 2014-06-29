@@ -155,7 +155,7 @@ while True:
     print "Symbol @ ",i,": ",symbol," (",ang,",",lvl,")"
     peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
     i+=samples_per_symbol
-    if i>len(signal) : break
+    if i>=len(signal) : break
 
 print "Done."
 
