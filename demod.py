@@ -13,12 +13,19 @@ import sync_search
 import iq
 import matplotlib.pyplot as plt
 
+errors=0
+nsymbols=0
 def qpsk(angle):
+    global errors
+    global nsymbols
+    nsymbols+=1
     if angle<0: angle+=360
     sym=int(angle)/90
     off=abs(45-(angle % 90))
 
-    if (off>20): print "Symbol offset >20"
+    if (off>20):
+        print "Symbol offset >20"
+        errors+=1
     return sym
 
 file_name = sys.argv[1]
@@ -157,7 +164,7 @@ for s in symbols[12:]:
 ok="not ok"
 if access=="022220002002": ok="OK"
 
-print "File:",basename,"access: ",ok,"(",access,") e=",errors
+print "File:",basename,"access: ",ok,"(",access,") len=",nsymbols,"confidence=%3d%%"%((1-float(errors)/nsymbols)*100)
 print "File:",basename,"data: ",data
 
 # Create r / phi file
