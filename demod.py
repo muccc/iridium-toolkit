@@ -10,6 +10,7 @@ import filters
 import scipy.signal
 import re
 import sync_search
+import iq
 
 from itertools import izip
 import matplotlib.pyplot as plt
@@ -50,17 +51,7 @@ def normalize(v):
 
     return [x/m for x in v]
 
-with open(file_name, "rb") as f:
-    data = f.read()
-    if len(data) % 8 != 0: raise Exception("Bad file len")
-
-    struct_fmt = '<' +  len(data)/8 * '2f'
-    struct_unpack = struct.Struct(struct_fmt).unpack_from
-    s = struct_unpack(data)
-    signal = []
-    for i, q in grouped(s, 2):
-        signal.append(complex(i, q))
-    
+signal = iq.read(file_name)
 signal_mag = [abs(x) for x in signal]
 
 level=abs(numpy.mean(signal[skip:skip+samples_per_symbol]))
@@ -185,11 +176,4 @@ print "File:",basename," access: ",access," ",ok," data:",data
 #    s = "<" + len(signal) * 'f'
 #    out.write(struct.Struct(s).pack(*signal))
 
-signal=peaks
-with open("%s.peaks" % (os.path.basename(basename)), 'wb') as out:
-    signal = [item for sample
-        in signal for item
-        in [sample.real, sample.imag]]
-    s = "<" + len(signal) * 'f'
-    out.write(struct.Struct(s).pack(*signal))
-
+iq.write("%s.peaks" % (os.path.basename(basename)), peaks)
