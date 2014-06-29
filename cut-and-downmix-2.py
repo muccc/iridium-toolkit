@@ -127,11 +127,9 @@ print "Corrected preamble phase", math.degrees(preamble_phase)
 #print max(([abs(x.real) for x in signal]))
 #print max(([abs(x.imag) for x in signal]))
 
-#rrc = filters.rrcosfilter(10001, 0.4, 1./25000., 2e6)[1]
-rrc = filters.rrcosfilter(1001, 0.4, 1./25000., 2e6)[1]
-#rrc = filters.rrcosfilter(161, 0.4, 1./25000., 2e6)[1]
-#rrc = filters.rrcosfilter(41, 0.4, 1./25000., 2e6)[1]
-signal = scipy.signal.convolve(signal, rrc)
+ntaps= 1001 # 10001, 1001, 161, 41
+rrc = filters.rrcosfilter(ntaps, 0.4, 1./symbols_per_second, sample_rate)[1]
+signal = scipy.signal.convolve(signal, rrc, 'same')
 
 #plt.plot([x.real for x in signal])
 #plt.plot([x.imag for x in signal])
