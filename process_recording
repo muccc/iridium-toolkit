@@ -8,7 +8,7 @@ if [ ! -d $dir ] ; then
 	mkdir $dir
 	cd $dir
 
-	../detector2.py ../$file
+	../detector-fft.py ../$file
 else
 	cd $dir
 	rm *-f*.raw
