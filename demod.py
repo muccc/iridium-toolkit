@@ -29,13 +29,13 @@ def qpsk(angle):
     return sym
 
 file_name = sys.argv[1]
-basename= filename= re.sub('\.[^.]*$','',file_name)
 schneider=0
 
 if file_name == "-p":
     file_name=sys.argv[2]
     schneider=1
 
+basename= filename= re.sub('\.[^.]*$','',file_name)
 sample_rate = 2000000
 symbols_per_second = 25000
 
