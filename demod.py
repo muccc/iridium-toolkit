@@ -11,13 +11,7 @@ import scipy.signal
 import re
 import sync_search
 import iq
-
-from itertools import izip
 import matplotlib.pyplot as plt
-
-def grouped(iterable, n):
-    "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
-    return izip(*[iter(iterable)]*n)
 
 def qpsk(angle):
     if angle<0: angle+=360
