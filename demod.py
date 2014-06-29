@@ -23,8 +23,8 @@ def qpsk(angle):
     sym=int(angle)/90
     off=abs(45-(angle % 90))
 
-    if (off>20):
-        print "Symbol offset >20"
+    if (off>22):
+        print "Symbol offset >22"
         errors+=1
     return sym
 
@@ -72,11 +72,14 @@ if schneider==0:
             transition=i
             break
 
+    if 1:
+        mag = [abs(x) for x in signal[transition:transition+samples_per_symbol]]
+        peak=max(mag)
+        peakidx=transition+mag.index(peak) - 6 # -6 is "magic best feeling"
+        print "peak is @",peakidx, " (",peak/level,")"
+    else:
+        peakidx=transition-samples_per_symbol/2
 
-    mag = [abs(x) for x in signal[transition:transition+samples_per_symbol]]
-    peak=max(mag)
-    peakidx=transition+mag.index(peak)
-    print "peak is @",peakidx, " (",peak/level,")"
     start=peakidx-samples_per_symbol
 else:
     start=sync_search.estimate_sync_word_start(signal, sample_rate, symbols_per_second)
@@ -91,7 +94,7 @@ mapping= [2,1,-2,-1]
 
 print "len: ",len(signal)
 while True:
-    peaks[i]=complex(0,lmax/10.)
+    peaks[i]=complex(-lmax,lmax/10.)
 
     sdiff=2
 
@@ -120,7 +123,6 @@ while True:
             cur=signal[i].imag
             pre=signal[i-samples_per_symbol].imag
             post=signal[i+samples_per_symbol].imag
-            post=cur
             curpre=signal[i-sdiff].imag
             curpost=signal[i+sdiff].imag
 
@@ -158,8 +160,11 @@ for s in symbols[:12]:
     access+=str(s)
 
 data=""
+oldsym=symbols[12]
 for s in symbols[12:]:
-    data+=str(s)
+    bits=(oldsym-s)%4
+    oldsym=s
+    data+=str((bits&2)/2)+str(bits&1)
 
 ok="not ok"
 if access=="022220002002": ok="OK"
