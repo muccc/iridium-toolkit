@@ -48,9 +48,16 @@ samples_per_symbol=int(samples_per_symbol)
 skip = 5*samples_per_symbol # beginning might be flakey
 
 def normalize(v):
-    m = max(v)
-
+    m = max([abs(x) for x in v])
     return [x/m for x in v]
+
+def mynormalize(v):
+    reals = normalize([x.real for x in samples])
+    imags = normalize([x.imag for x in samples])
+    zip=[]
+    for i in xrange(len(reals)):
+        zip.append(complex(reals[i],imags[i]))
+    return zip
 
 signal = iq.read(file_name)
 signal_mag = [abs(x) for x in signal]
@@ -87,6 +94,7 @@ else:
 i=start
 bpskbits=12
 symbols=[]
+samples=[]
 
 peaks=[complex(-lmax,0)]*len(signal)
 
@@ -147,6 +155,7 @@ while True:
     ang= cmath.phase(signal[i])/math.pi*180
     symbol=qpsk(ang)
     symbols=symbols+[symbol]
+    samples=samples+[signal[i]]
 
     print "Symbol @ ",i,": ",symbol," (",ang,",",lvl,")"
     peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
@@ -184,3 +193,4 @@ print "File:",basename,"data: ",data
 #    out.write(struct.Struct(s).pack(*signal))
 
 iq.write("%s.peaks" % (os.path.basename(basename)), peaks)
+iq.write("%s.samples" % (os.path.basename(basename)), mynormalize(samples))
