@@ -65,6 +65,7 @@ signal_mag = [abs(x) for x in signal]
 level=abs(numpy.mean(signal[skip:skip+samples_per_symbol]))
 lmax=abs(numpy.max(signal[skip:skip+samples_per_symbol]))
 print "level: ",level
+print 'lmax: ', lmax
 
 if schneider==0:
     # Skip a few samples to have a clean signal
