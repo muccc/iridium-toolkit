@@ -199,3 +199,8 @@ print "File:",basename,"data: ",data
 
 iq.write("%s.peaks" % (os.path.basename(basename)), peaks)
 iq.write("%s.samples" % (os.path.basename(basename)), mynormalize(samples))
+
+#if ok == 'OK' and confidence > 90 and lead_out_ok: 
+#    lead_out_index = data.find(lead_out)
+#    padding = ' ' * (289 - lead_out_index)
+#    print "OK File:",basename,"data: ", padding + data
