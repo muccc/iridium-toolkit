@@ -118,10 +118,10 @@ print "Original preamble phase", math.degrees(preamble_phase)
 
 signal = [cmath.rect(abs(x), cmath.phase(x) - preamble_phase + math.pi/4) for x in signal]
 #plt.plot([cmath.phase(x) for x in signal[:fft_length]])
-sin_avg = numpy.average([math.sin(cmath.phase(x)) for x in signal[:fft_length]])
-cos_avg = numpy.average([math.cos(cmath.phase(x)) for x in signal[:fft_length]])
-preamble_phase = math.atan2(sin_avg, cos_avg)
-print "Corrected preamble phase", math.degrees(preamble_phase)
+#sin_avg = numpy.average([math.sin(cmath.phase(x)) for x in signal[:fft_length]])
+#cos_avg = numpy.average([math.cos(cmath.phase(x)) for x in signal[:fft_length]])
+#preamble_phase = math.atan2(sin_avg, cos_avg)
+#print "Corrected preamble phase", math.degrees(preamble_phase)
 
 #print numpy.average([x.real for x in signal[:fft_length]])
 #print numpy.average([x.imag for x in signal[:fft_length]])
