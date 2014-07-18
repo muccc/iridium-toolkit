@@ -161,6 +161,8 @@ while True:
     peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
     i+=samples_per_symbol
     if i>=len(signal) : break
+    if abs(signal[i]) < lmax/5:
+        break
 
 print "Done."
 
