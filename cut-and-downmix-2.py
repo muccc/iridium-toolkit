@@ -129,7 +129,7 @@ signal = [cmath.rect(abs(x), cmath.phase(x) - preamble_phase + math.pi/4) for x 
 #print max(([abs(x.real) for x in signal]))
 #print max(([abs(x.imag) for x in signal]))
 
-ntaps= 1001 # 10001, 1001, 161, 41
+ntaps= 161 # 10001, 1001, 161, 41
 rrc = filters.rrcosfilter(ntaps, 0.4, 1./symbols_per_second, sample_rate)[1]
 signal = scipy.signal.convolve(signal, rrc, 'same')
 
