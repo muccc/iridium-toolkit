@@ -179,8 +179,11 @@ for s in symbols[12:]:
 
 ok="not ok"
 if access=="022220002002": ok="OK"
+lead_out = "0110101101111100111100010001010"
+lead_out_ok = lead_out in data
+confidence = (1-float(errors)/nsymbols)*100
 
-print "File:",basename,"access: ",ok,"(",access,") len=",nsymbols,"confidence=%3d%%"%((1-float(errors)/nsymbols)*100)
+print "File:",basename,"access: ",ok,"(",access,"), lo=", lead_out_ok, "len=",nsymbols,"confidence=%3d%%"%(confidence)
 print "File:",basename,"data: ",data
 
 # Create r / phi file
