@@ -92,7 +92,6 @@ else:
     start=sync_search.estimate_sync_word_start(signal, sample_rate, symbols_per_second)
 
 i=start
-bpskbits=12
 symbols=[]
 samples=[]
 
