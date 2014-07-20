@@ -173,13 +173,22 @@ for s in symbols[:12]:
 data=""
 oldsym=symbols[12]
 for s in symbols[12:]:
-    bits=(oldsym-s)%4
+    bits=(s-oldsym)%4
+    if bits==0:
+        bits=0
+    elif bits==1:
+        bits=1
+    elif bits==2:
+        bits=3
+    else:
+        bits=2
     oldsym=s
     data+=str((bits&2)/2)+str(bits&1)
 
 ok="not ok"
 if access=="022220002002": ok="OK"
-lead_out = "0110101101111100111100010001010"
+#lead_out = "0110101101111100111100010001010" # old differential decoding
+lead_out = "011010110101111001110011001111"
 lead_out_ok = lead_out in data
 confidence = (1-float(errors)/nsymbols)*100
 
