@@ -172,6 +172,7 @@ for s in symbols[:12]:
 
 data=""
 oldsym=symbols[12]
+dataarray=[]
 for s in symbols[12:]:
     bits=(s-oldsym)%4
     if bits==0:
@@ -184,6 +185,7 @@ for s in symbols[12:]:
         bits=2
     oldsym=s
     data+=str((bits&2)/2)+str(bits&1)
+    dataarray+=[(bits&2)/2,bits&1]
 
 ok="not ok"
 if access=="022220002002": ok="OK"
@@ -214,6 +216,9 @@ if(ok =="OK" and lead_out_ok and confidence >80):
 
 iq.write("%s.peaks" % (os.path.basename(basename)), peaks)
 iq.write("%s.samples" % (os.path.basename(basename)), mynormalize(samples))
+with open("%s.dsamples" % (os.path.basename(basename)), 'wb') as out:
+    for c in dataarray:
+        out.write(chr(c))
 
 #if ok == 'OK' and confidence > 90 and lead_out_ok: 
 #    lead_out_index = data.find(lead_out)
