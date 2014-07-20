@@ -194,6 +194,12 @@ confidence = (1-float(errors)/nsymbols)*100
 
 print "File:",basename,"access: ",ok,"(",access,"), lo=", lead_out_ok, "len=",nsymbols,"confidence=%3d%%"%(confidence)
 print "File:",basename,"data: ",data
+if(ok =="OK" and lead_out_ok and confidence >80):
+    p=re.compile('.*-(\d+)-f(\d+)')
+    m=p.match(basename)
+    lead_out_index = data.find(lead_out)
+    padding = ' ' * (289 - lead_out_index)
+    print "OK:",m.group(1),m.group(2),padding + data
 
 # Create r / phi file
 #filename= re.sub('\.raw','.rphi',sys.argv[1])
