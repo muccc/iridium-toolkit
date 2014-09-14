@@ -80,6 +80,9 @@ preamble = preamble + [complex(0, 0)] * fft_length * 15
 #fft_length = fft_length * 16
 preamble = preamble * numpy.blackman(len(preamble))
 fft_result = numpy.fft.fft(preamble)
+fft_freq = numpy.fft.fftfreq(len(preamble))
+fft_result = numpy.fft.fftshift(fft_result)
+fft_freq = numpy.fft.fftshift(fft_freq)
 
 # Use magnitude of FFT to detect maximum and correct the used bin
 mag = [abs(x) for x in fft_result]
@@ -89,14 +92,14 @@ max_index = mag.index(max(mag))
 print 'max_index', max_index
 print 'max_value', fft_result[max_index]
 
-print 'offset', float(sample_rate)/(fft_length*16)*max_index
+print 'offset', fft_freq[max_index] * sample_rate
 
 # see http://www.embedded.com/design/configurable-systems/4007643/DSP-Tricks-Spectral-peak-location-algorithm
 Xmk = fft_result[max_index]
 Xmkp1 = fft_result[max_index+1]
 Xmkm1 = fft_result[max_index-1]
 correction = ((Xmkp1 - Xmkm1) / (2*Xmk - Xmkm1 - Xmkp1)).real
-offset_freq = float(sample_rate)/float(fft_length * 16)*(max_index - correction)
+offset_freq = fft_freq[max_index - correction] * sample_rate
 
 print 'correction', correction
 print 'corrected max', max_index - correction
@@ -141,7 +144,7 @@ print "preamble Q avg", numpy.average([x.imag for x in signal[:fft_length]])
 #print max(([abs(x.real) for x in signal]))
 #print max(([abs(x.imag) for x in signal]))
 
-iq.write("%s-f%10d.raw" % (os.path.basename(basename), 1626270833-offset_freq), signal)
+iq.write("%s-f%10d.raw" % (os.path.basename(basename), 1626270833+offset_freq), signal)
 #plt.plot(fft_result)
 #plt.plot(mag)
 #plt.plot(preamble)
