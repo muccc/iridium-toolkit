@@ -187,35 +187,42 @@ for s in symbols:
     data+=str((bits&2)/2)+str(bits&1)
     dataarray+=[(bits&2)/2,bits&1]
 
-ok=False
-if access=="022220002002": ok=True
+access_ok=False
+if access=="022220002002": access_ok=True
 #lead_out = "0110101101111100111100010001010" # old differential decoding
 lead_out = "011010110101111001110011001111"
 lead_out_ok = lead_out in data
 confidence = (1-float(errors)/nsymbols)*100
 
 oks="not ok"
-if ok: oks="OK"
+if access_ok: oks="OK"
 
 print "File:",basename,"access: ",oks,"(",access,"), lo=", lead_out_ok, "len=",nsymbols,"confidence=%3d%%"%(confidence)
 print "File:",basename,"data: ",data
-if(ok and lead_out_ok and confidence >80):
+if(access_ok and lead_out_ok and confidence >80):
     p=re.compile('.*-(\d+)-f(\d+)')
     m=p.match(basename)
     lead_out_index = data.find(lead_out)
     padding = ' ' * (289 - lead_out_index)
 
+# Nice output format
 p=re.compile('(.*)-(\d+)-f(\d+)')
 m=p.match(basename)
+
 oks="A:no"
-if ok: oks="A:OK"
+if access_ok: oks="A:OK"
+
 los="L:no"
 if lead_out_ok: los="L:OK"
-if ok:
-    data=data[:24]+"."+data[24:]
+
+if access_ok:
+    data="<"+data[:24]+"> "+data[24:]
+
 if lead_out_ok:
     lead_out_index = data.find(lead_out)
-    data=data[:lead_out_index]+"."+data[lead_out_index:]
+    data=data[:lead_out_index]+"["+data[lead_out_index:]+"]"
+
+data=re.sub(r'([01]{32})',r'\1 ',data)
 print "RAW:",m.group(1),m.group(2),m.group(3),oks,los,"%3d%%"%(confidence),"%3d"%(nsymbols),data
 
 # Create r / phi file
