@@ -73,14 +73,12 @@ preamble = signal[:fft_length]
 
 #plt.plot([begin+skip, begin+skip], [0, 1], 'r')
 #plt.plot([begin+skip+fft_length, begin+skip+fft_length], [0, 1], 'r')
-#preamble = preamble * numpy.blackman(len(preamble))
 
-# Increase size of FFT to inrease resolution
-preamble = preamble + [complex(0, 0)] * fft_length * 15
-#fft_length = fft_length * 16
 preamble = preamble * numpy.blackman(len(preamble))
-fft_result = numpy.fft.fft(preamble)
-fft_freq = numpy.fft.fftfreq(len(preamble))
+# Increase size of FFT to inrease resolution
+#fft_result = numpy.fft.fft(preamble * 16)
+fft_result = numpy.fft.fft(preamble, len(preamble) * 16)
+fft_freq = numpy.fft.fftfreq(len(fft_result))
 fft_result = numpy.fft.fftshift(fft_result)
 fft_freq = numpy.fft.fftshift(fft_freq)
 
@@ -99,7 +97,9 @@ Xmk = fft_result[max_index]
 Xmkp1 = fft_result[max_index+1]
 Xmkm1 = fft_result[max_index-1]
 correction = ((Xmkp1 - Xmkm1) / (2*Xmk - Xmkm1 - Xmkp1)).real
-offset_freq = fft_freq[max_index - correction] * sample_rate
+
+real_index = max_index - correction
+offset_freq = (fft_freq[math.floor(real_index)] + (real_index - math.floor(real_index)) * (fft_freq[math.floor(real_index) + 1] - fft_freq[math.floor(real_index)])) * sample_rate
 
 print 'correction', correction
 print 'corrected max', max_index - correction
