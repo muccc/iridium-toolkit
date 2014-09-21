@@ -1,5 +1,6 @@
 #!/bin/sh
 
+pdir=`pwd`
 file=$1
 
 dir=`basename ${file%.raw}`
@@ -8,16 +9,18 @@ if [ ! -d $dir ] ; then
 	mkdir $dir
 	cd $dir
 
-	../detector-fft.py ../$file
+	$pdir/detector-fft.py ../$file
+
+	rm *-f*.raw
+	for a in *.raw ; do
+	$pdir/cut-and-downmix-2.py $a
+	done |tee cut-output|grep "File:"
+
+#	exit
 else
 	cd $dir
-	rm *-f*.raw
 fi
 
-for a in *.raw ; do
-../cut-and-downmix-2.py $a
-done |tee cut-output|grep "File:"
-
 for a in *-f*.raw ; do 
-../demod.py $a
+$pdir/demod.py $a
 done |tee demod-output |grep access
