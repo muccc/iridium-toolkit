@@ -89,7 +89,7 @@ with open(file_name, "rb") as f:
         start_bin = abins[0]
         if start_bin > 3: start_bin -= 5
         f.seek(struct_len * start_bin)
-        with open("%s-%06d.raw" % (os.path.basename(basename), start_bin * bin_size), "wb") as wf:
+        with open("%s-%07d.raw" % (os.path.basename(basename), start_bin * bin_size), "wb") as wf:
             wf.write(f.read(struct_len * (len(abins) + 10)))
 
 #plt.plot(range(0, bin_size * len(bins), bin_size), bins, 'b')

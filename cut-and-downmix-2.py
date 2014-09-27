@@ -105,7 +105,7 @@ print 'correction', correction
 print 'corrected max', max_index - correction
 print 'corrected offset', offset_freq
 
-print 'File:',basename,"f=",offset_freq
+print 'File:',basename,"f=%10.2f"%offset_freq
 
 single_turn = sample_rate / offset_freq
 
