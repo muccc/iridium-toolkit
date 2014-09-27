@@ -15,27 +15,28 @@ def grouped(iterable, n):
 file_name = sys.argv[1]
 basename= filename= re.sub('\.[^.]*$','',file_name)
 
+# roughtly a 1ms window
 sample_rate = 2000000
-fft_size = 4096
-bin_size = int(float(fft_size)/sample_rate * 1000)
-min_std = 4
+fft_size = 2048
+bin_size = int(float(fft_size)/sample_rate * 1000) * 5
+min_std = 1.7
 
-struct_fmt = '<' +  fft_size * '2f'
+struct_fmt = '<' +  fft_size * 5 * '2f'
 struct_len = struct.calcsize(struct_fmt)
 struct_unpack = struct.Struct(struct_fmt).unpack_from
 
 window = numpy.blackman(fft_size)
-#bins_avg = []
 bins = []
 
-file_size = os.path.getsize(file_name)/8./fft_size
+file_size = os.path.getsize(file_name)/8./fft_size/5
 reported_percentage = -100
 
 index = 0
+
 with open(file_name, "rb") as f:
-    f.read(struct_len)
+    #f.read(struct_len)
     #bins_avg.append(0)
-    bins.append(0)
+    #bins.append(0)
     while True:
         data = f.read(struct_len)
         if not data: break
@@ -43,7 +44,7 @@ with open(file_name, "rb") as f:
         s = struct_unpack(data)
         slice = []
         index += 1
-        for i, q in grouped(s, 2):
+        for i, q in grouped(s[:fft_size*2], 2):
             slice.append(complex(i, q))
 
         fft_result = numpy.fft.fft(slice * window)
@@ -91,11 +92,11 @@ with open(file_name, "rb") as f:
         with open("%s-%06d.raw" % (os.path.basename(basename), start_bin * bin_size), "wb") as wf:
             wf.write(f.read(struct_len * (len(abins) + 10)))
 
-plt.plot(range(0, bin_size * len(bins), bin_size), bins, 'b')
+#plt.plot(range(0, bin_size * len(bins), bin_size), bins, 'b')
 #plt.plot(range(0, bin_size * len(bins), bin_size), bins_avg, 'g')
 
-for abins in active_bins:
-    bin = abins[0]
-    plt.plot([bin * bin_size], [bins[bin]], 'rs')
+#for abins in active_bins:
+#    bin = abins[0]
+#    plt.plot([bin * bin_size], [bins[bin]], 'rs')
 #plt.show()
 
