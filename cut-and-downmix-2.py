@@ -41,7 +41,7 @@ def signal_start(signal):
         slice = signal[i:i+fft_length]
         #fft_result = numpy.fft.fft(slice * numpy.blackman(len(slice)))
         fft_result = numpy.fft.fft(slice)
-        max_mag = max([abs(x) for x in fft_result])
+        max_mag = numpy.amax(numpy.absolute(fft_result))
         max_fft.append(max_mag)
         l.append(i)
     #plt.plot(l, normalize(max_fft))
