@@ -11,7 +11,7 @@ import scipy.signal
 import re
 import iq
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 file_name = sys.argv[1]
 basename= filename= re.sub('\.[^.]*$','',file_name)
@@ -61,7 +61,7 @@ def signal_start(signal):
     return t
 
 signal = iq.read(file_name)
-signal_mag = [abs(x) for x in signal]
+#signal_mag = [abs(x) for x in signal]
 #plt.plot(normalize(signal_mag))
 begin = signal_start(signal)
 print 'begin', begin
@@ -81,11 +81,12 @@ fft_result = numpy.fft.fft(preamble, len(preamble) * 16)
 fft_freq = numpy.fft.fftfreq(len(fft_result))
 fft_result = numpy.fft.fftshift(fft_result)
 fft_freq = numpy.fft.fftshift(fft_freq)
+print 'binsize', (fft_freq[100] - fft_freq[101]) * sample_rate
 
 # Use magnitude of FFT to detect maximum and correct the used bin
-mag = [abs(x) for x in fft_result]
+mag = numpy.absolute(fft_result)
 #max_index = list(fft_result.flat).index(numpy.amax(fft_result))
-max_index = mag.index(max(mag))
+max_index = list(mag).index(numpy.amax(mag))
 
 print 'max_index', max_index
 print 'max_value', fft_result[max_index]
@@ -93,12 +94,19 @@ print 'max_value', fft_result[max_index]
 print 'offset', fft_freq[max_index] * sample_rate
 
 # see http://www.embedded.com/design/configurable-systems/4007643/DSP-Tricks-Spectral-peak-location-algorithm
-Xmk = fft_result[max_index]
-Xmkp1 = fft_result[max_index+1]
-Xmkm1 = fft_result[max_index-1]
-correction = ((Xmkp1 - Xmkm1) / (2*Xmk - Xmkm1 - Xmkp1)).real
+#Xmk = fft_result[max_index]
+#Xmkp1 = fft_result[max_index+1]
+#Xmkm1 = fft_result[max_index-1]
+#correction = ((Xmkp1 - Xmkm1) / (2*Xmk - Xmkm1 - Xmkp1)).real
+#real_index = max_index - correction
 
-real_index = max_index - correction
+#see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
+alpha = abs(fft_result[max_index-1])
+beta = abs(fft_result[max_index])
+gamma = abs(fft_result[max_index+1])
+correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma)
+real_index = max_index + correction
+
 offset_freq = (fft_freq[math.floor(real_index)] + (real_index - math.floor(real_index)) * (fft_freq[math.floor(real_index) + 1] - fft_freq[math.floor(real_index)])) * sample_rate
 
 print 'correction', correction
@@ -145,7 +153,9 @@ print "preamble Q avg", numpy.average([x.imag for x in signal[:fft_length]])
 #print max(([abs(x.imag) for x in signal]))
 
 iq.write("%s-f%10d.raw" % (os.path.basename(basename), 1626270833+offset_freq), signal)
-#plt.plot(fft_result)
+#plt.plot(numpy.absolute(fft_result))
+#plt.plot(fft_freq, numpy.absolute(fft_result))
+#plt.plot([], [bins[bin]], 'rs')
 #plt.plot(mag)
 #plt.plot(preamble)
 #plt.show()
