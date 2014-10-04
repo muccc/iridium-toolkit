@@ -220,7 +220,7 @@ if access_ok:
 
 if lead_out_ok:
     lead_out_index = data.find(lead_out)
-    data=data[:lead_out_index]+"["+data[lead_out_index:]+"]"
+    data=data[:lead_out_index]+"["+data[lead_out_index:lead_out_index+len(lead_out)]+"]"  +data[lead_out_index+len(lead_out):]
 
 data=re.sub(r'([01]{32})',r'\1 ',data)
 print "RAW:",m.group(1),m.group(2),m.group(3),oks,los,"%3d%%"%(confidence),"%3d"%(nsymbols-12),data

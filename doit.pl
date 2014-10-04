@@ -7,7 +7,7 @@ use warnings;
 use Cwd;
 use File::Basename;
 
-my $cpus=1;
+my $cpus=4;
 
 my $pwd=cwd();
 my $pdir="../iridium";
@@ -22,11 +22,19 @@ my ($one,$two,$three);
 my $auto=1;
 if ($#ARGV >=0){
 	if ($ARGV[0] =~ /^-/){
-		shift:
 		$one= 1 if $ARGV[0]=~/1/;
-		$two= 1 if $ARGV[0]=~/1/;
-		$three= 1 if $ARGV[0]=~/1/;
+		$two= 1 if $ARGV[0]=~/2/;
+		$three= 1 if $ARGV[0]=~/3/;
 		$auto=0;
+		shift:
+	};
+};
+
+my $foff=0;
+if ($#ARGV >=0){
+	if ($ARGV[0] =~ /^\+/){
+		($foff=$ARGV[0])=~s/^\+//;
+		shift;
 	};
 };
 
@@ -37,7 +45,7 @@ sub do_stage1{
 	system(qq(cd "$dir";$pdir/detector-fft.py ../$file));
 	if($? != 0){
 		if($! !~ /Not a directory/){
-			die "system exit: $?: $!";
+			warn "system exit: $?: $!";
 		};
 	};
 };
@@ -46,7 +54,7 @@ sub do_stage2{
 	my $arg=shift;
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	system(qq(cd "$dir";$pdir/cut-and-downmix-2.py $file | tee -a cut-output |grep ^File));
+	system(qq(cd "$dir";$pdir/cut-and-downmix-2.py $file $foff| tee -a cut-output |grep ^File));
 	if($? != 0){
 		if($! !~ /Not a directory/){
 			die "system exit: $?: $!";
@@ -70,7 +78,7 @@ sub do_stage23{
 	my $file=basename($arg);
 	system(qq(
 		cd $dir;
-		file=`$pdir/cut-and-downmix-2.py $file | tee .${file}.cut |grep ^output=|cut -d= -f2`;
+		file=`$pdir/cut-and-downmix-2.py $file $foff| tee .${file}.cut |grep ^output=|cut -d= -f2|cut -c 2-`;
 		echo stage2=\$file;
 		$pdir/demod.py \$file |tee .\$file.demod | grep RAW;true
 	));
@@ -224,5 +232,6 @@ while($#processes >-1){
 };
 
 while(scalar keys%run >0){
+	print "waiting for: ",(keys %run),"\n";
 	sleep(1);
 };

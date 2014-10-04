@@ -159,7 +159,7 @@ print "preamble Q avg", numpy.average([x.imag for x in signal[:fft_length]])
 #print max(([abs(x.imag) for x in signal]))
 
 iq.write("%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq), signal)
-print "output=%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq)
+print "output=","%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq)
 #plt.plot(numpy.absolute(fft_result))
 #plt.plot(fft_freq, numpy.absolute(fft_result))
 #plt.plot([], [bins[bin]], 'rs')
