@@ -26,7 +26,7 @@ if ($#ARGV >=0){
 		$two= 1 if $ARGV[0]=~/2/;
 		$three= 1 if $ARGV[0]=~/3/;
 		$auto=0;
-		shift:
+		shift;
 	};
 };
 
