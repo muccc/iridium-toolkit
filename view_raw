@@ -1,0 +1,3 @@
+#!/bin/sh
+
+gr_time_plot_c --no-auto-scale -N 1000 -r 2000000  */*-$1-*.raw */*-$1-*.peaks
