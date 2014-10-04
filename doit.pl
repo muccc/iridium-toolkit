@@ -96,7 +96,13 @@ sub auto_stage23{
 	my @out=<$out-f*.cut>;
 	if ($#out==0){
 		print "auto: skipping -2 $file\n";
-		process("do_stage3",$out[0]);
+		my $s3;
+		($s3=$out[0])=~s/\.cut$/.samples/;
+		if ( -f $s3){
+			print "auto: skipping -3 $out[0]\n";
+		}else{
+			process("do_stage3",$out[0]);
+		};
 	}else{
 		process("do_stage23",$file);
 	};
