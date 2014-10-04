@@ -15,7 +15,12 @@ import matplotlib.pyplot as plt
 
 file_name = sys.argv[1]
 basename= filename= re.sub('\.[^.]*$','',file_name)
+if(len(sys.argv)>2):
+   f_off= int(sys.argv[2])
+else:
+   f_off=0
 
+center= 1626270833
 sample_rate = 2000000
 symbols_per_second = 25000
 preamble_length = 64
@@ -107,6 +112,7 @@ print 'corrected offset', offset_freq
 
 print 'File:',basename,"f=%10.2f"%offset_freq
 
+offset_freq+=f_off
 single_turn = sample_rate / offset_freq
 
 shift_signal = [cmath.rect(1, -float(x)/(float(sample_rate)/offset_freq) * 2 * math.pi) for x in range(len(signal))]
@@ -144,7 +150,8 @@ print "preamble Q avg", numpy.average([x.imag for x in signal[:fft_length]])
 #print max(([abs(x.real) for x in signal]))
 #print max(([abs(x.imag) for x in signal]))
 
-iq.write("%s-f%10d.raw" % (os.path.basename(basename), 1626270833+offset_freq), signal)
+iq.write("%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq), signal)
+print "output=%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq)
 #plt.plot(fft_result)
 #plt.plot(mag)
 #plt.plot(preamble)

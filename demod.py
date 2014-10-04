@@ -223,7 +223,7 @@ if lead_out_ok:
     data=data[:lead_out_index]+"["+data[lead_out_index:]+"]"
 
 data=re.sub(r'([01]{32})',r'\1 ',data)
-print "RAW:",m.group(1),m.group(2),m.group(3),oks,los,"%3d%%"%(confidence),"%3d"%(nsymbols),data
+print "RAW:",m.group(1),m.group(2),m.group(3),oks,los,"%3d%%"%(confidence),"%3d"%(nsymbols-12),data
 
 # Create r / phi file
 #filename= re.sub('\.raw','.rphi',sys.argv[1])
