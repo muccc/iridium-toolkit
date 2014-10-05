@@ -237,7 +237,8 @@ while($#processes >-1){
 	sleep(1);
 };
 
+print "waiting for: ",(keys %run),"\n";
+
 while(scalar keys%run >0){
-	print "waiting for: ",(keys %run),"\n";
 	sleep(1);
 };
