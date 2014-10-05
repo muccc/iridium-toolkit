@@ -9,6 +9,8 @@ use File::Basename;
 
 my $cpus=4;
 
+$|=1;
+
 my $pwd=cwd();
 my $pdir="../iridium";
 
@@ -54,39 +56,27 @@ sub do_stage2{
 	my $arg=shift;
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	system(qq(cd "$dir";$pdir/cut-and-downmix-2.py $file $foff| tee -a cut-output |grep ^File));
-	if($? != 0){
-		if($! !~ /Not a directory/){
-			die "system exit: $?: $!";
-		};
-	};
+	exec(qq(cd "$dir";$pdir/cut-and-downmix-2.py $file $foff| tee -a cut-output |grep ^File));
+	die "system exit: $?: $!";
 };
 sub do_stage3{
 	my $arg=shift;
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	system(qq(cd $dir;$pdir/demod.py $file | tee -a demod-output |grep ^RAW));
-	if($? != 0){
-		if($! !~ /Not a directory/){
-			die "system exit: $?: $!";
-		};
-	};
+	exec(qq(cd $dir;$pdir/demod.py $file | tee -a demod-output |grep ^RAW));
+	die "system exit: $?: $!";
 };
 sub do_stage23{
 	my $arg=shift;
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	system(qq(
+	exec(qq(
 		cd $dir;
 		file=`$pdir/cut-and-downmix-2.py $file $foff| tee .${file}.cut |grep ^output=|cut -d= -f2|cut -c 2-`;
 		echo stage2=\$file;
 		$pdir/demod.py \$file |tee .\$file.demod | grep RAW;true
 	));
-	if($? != 0){
-		if($! !~ /Not a directory/){
-			die "system exit: $?: $!";
-		};
-	};
+	die "system exit: $?: $!";
 };
 
 sub auto_stage23{
@@ -126,8 +116,8 @@ sub startone{
 				$func->($arg);
 				exit(0);
 			};
-			print "run: $func $arg ($pid)\n";
 			$run{$pid}=1;
+			print "run: $func $arg ($pid)\n";
 		};
 	};
 };
@@ -139,6 +129,8 @@ sub sigchld {
 		print "One down, ",scalar(@processes)," to go...\n";
 		delete $run{$pid};
 		startone();
+	}else{
+		print "Unknown child $pid\n";
 	};
 };
 $SIG{CHLD}='sigchld';
@@ -237,7 +229,8 @@ while($#processes >-1){
 	sleep(1);
 };
 
-print "waiting for: ",(keys %run),"\n";
+sleep(1);
+print "waiting for: ",join(" ",(keys %run)),"\n";
 
 while(scalar keys%run >0){
 	sleep(1);
