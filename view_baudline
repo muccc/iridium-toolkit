@@ -4,25 +4,28 @@ file=$1
 base=""
 
 if [ "$1" = "-1" ] ; then
-	file=*/*-$1.det
+	shift
+	file="*/*-$1.det"
 	base="-basefrequency 1626270833"
 else
 	if [ "$1" = "-2" ] ; then
-		file=*/*-$1-*.cut
+		shift
+		file="*/*-$1-*.cut"
+	else 
+		if [ ! -f "$file" ] ; then 
+			file="*/*-$1.det"
+			base="-basefrequency 1626270833"
+		fi
 	fi
 fi
 
-if [ ! -f $file ] ; then 
-	file=*/*-$1.det
-	base="-basefrequency 1626270833"
-fi
+file=$(echo $file)
 
-if [ ! -f $file ] ; then 
+if [ ! -f "$file" ] ; then 
 	echo "Can't find $file" >&2
 	exit 1
 fi
 
-file=$(echo $file)
 tmp=/tmp/$(echo $(basename $file)|sed 's!/!_!g').wav
 
 sox -r 2000k -e floating-point -b 32 -c 2 -t raw $file $tmp
