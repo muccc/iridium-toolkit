@@ -15,17 +15,43 @@ import matplotlib.pyplot as plt
 
 errors=0
 nsymbols=0
-def qpsk(angle):
+phase_offset = 0
+last_phase = 0
+
+def qpsk(phase):
     global errors
     global nsymbols
+    global phase_offset
+    global last_phase
     nsymbols+=1
-    if angle<0: angle+=360
-    sym=int(angle)/90
-    off=abs(45-(angle % 90))
+    phase = phase % 360
 
+    # In theory we should only see 0, 90, 180 and 270 here.
+    #print "diff to last phase:", phase - last_phase
+    last_phase = phase
+
+    input_phase = phase
+    #print "input phase", input_phase
+
+    # Correct the input phase using the offset
+    # calculated from the last symbol
+    phase = (phase + phase_offset)%360
+    #print "corrected phase", phase
+
+    sym=int(phase)/90
+    #print "symbol", sym
+
+    off=abs(45-(phase % 90))
     if (off>22):
         print "Symbol offset >22"
         errors+=1
+
+    # Use the perfect phase for this symbol
+    # to calculate the current offset of the input
+    # signal.
+    phase_offset = (45 + 90 * sym) - input_phase
+    #print "phase_offset", phase_offset
+
     return sym
 
 file_name = sys.argv[1]
