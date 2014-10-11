@@ -251,24 +251,21 @@ if lead_out_ok:
 data=re.sub(r'([01]{32})',r'\1 ',data)
 print "RAW:",m.group(1),m.group(2),m.group(3),oks,los,"%3d%%"%(confidence),"%3d"%(nsymbols-12),data
 
-# Create r / phi file
-#filename= re.sub('\.raw','.rphi',sys.argv[1])
-#if filename == sys.argv[1]: raise Exception("filename replacement error")
-#
-#with open(filename, 'wb') as out:
-#    signal = [item for sample
-#        in signal for item
-#        in [abs(sample), cmath.phase(sample)]]
-#    s = "<" + len(signal) * 'f'
-#    out.write(struct.Struct(s).pack(*signal))
+if 0: # Create r / phi file
+    with open("%s.rphi" % (os.path.basename(basename)), 'wb') as out:
+        signal = [item for sample
+            in signal for item
+            in [abs(sample), cmath.phase(sample)]]
+        s = "<" + len(signal) * 'f'
+        out.write(struct.Struct(s).pack(*signal))
 
-iq.write("%s.peaks" % (os.path.basename(basename)), peaks)
-iq.write("%s.samples" % (os.path.basename(basename)), mynormalize(samples))
-with open("%s.dsamples" % (os.path.basename(basename)), 'wb') as out:
-    for c in dataarray:
-        out.write(chr(c))
+if 1: # The graphical debugging file
+    iq.write("%s.peaks" % (os.path.basename(basename)), peaks)
 
-#if ok == 'OK' and confidence > 90 and lead_out_ok: 
-#    lead_out_index = data.find(lead_out)
-#    padding = ' ' * (289 - lead_out_index)
-#    print "OK File:",basename,"data: ", padding + data
+if 0: # The actual samples we used
+    iq.write("%s.samples" % (os.path.basename(basename)), mynormalize(samples))
+
+if 1: # The data bitstream
+    with open("%s.data" % (os.path.basename(basename)), 'wb') as out:
+        for c in dataarray:
+            out.write(chr(c))
