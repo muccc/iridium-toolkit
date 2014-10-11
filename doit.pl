@@ -7,7 +7,7 @@ use warnings;
 use Cwd;
 use File::Basename;
 
-my $cpus=4;
+my $cpus=6;
 
 $|=1;
 
@@ -44,26 +44,22 @@ sub do_stage1{
 	my $file=shift;
 	my $dir;
 	($dir=$file)=~s/\.raw$//;
-	system(qq(cd "$dir";$pdir/detector-fft.py ../$file));
-	if($? != 0){
-		if($! !~ /Not a directory/){
-			warn "system exit: $?: $!";
-		};
-	};
+	exec(qq(cd "$dir";$pdir/detector-fft.py ../$file));
+	die "system exit: $?: $!";
 };
 
 sub do_stage2{
 	my $arg=shift;
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	exec(qq(cd "$dir";$pdir/cut-and-downmix-2.py $file $foff| tee -a cut-output |grep ^File));
+	exec(qq(cd "$dir";$pdir/cut-and-downmix-2.py $file $foff| tee ${file}.cut.out |grep ^File));
 	die "system exit: $?: $!";
 };
 sub do_stage3{
 	my $arg=shift;
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	exec(qq(cd $dir;$pdir/demod.py $file | tee -a demod-output |grep ^RAW));
+	exec(qq(cd $dir;$pdir/demod.py $file | tee ${file}.demod |grep ^RAW));
 	die "system exit: $?: $!";
 };
 sub do_stage23{
@@ -72,9 +68,9 @@ sub do_stage23{
 	my $file=basename($arg);
 	exec(qq(
 		cd $dir;
-		file=`$pdir/cut-and-downmix-2.py $file $foff| tee .${file}.cut |grep ^output=|cut -d= -f2|cut -c 2-`;
+		file=`$pdir/cut-and-downmix-2.py $file $foff| tee ${file}.cut.out |grep ^output=|cut -d= -f2|cut -c 2-`;
 		echo stage2=\$file;
-		$pdir/demod.py \$file |tee .\$file.demod | grep RAW;true
+		$pdir/demod.py \$file |tee \$file.demod | grep RAW;true
 	));
 	die "system exit: $?: $!";
 };
@@ -87,7 +83,7 @@ sub auto_stage23{
 	if ($#out==0){
 		print "auto: skipping -2 $file\n";
 		my $s3;
-		($s3=$out[0])=~s/\.cut$/.samples/;
+		($s3=$out[0])=~s/\.cut$/.data/;
 		if ( -f $s3){
 			print "auto: skipping -3 $out[0]\n";
 		}else{
