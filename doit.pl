@@ -65,8 +65,10 @@ sub do_stage1{
 	checkrate($file);
 	my $dir;
 	($dir=$file)=~s/\.raw$//;
-	exec(qq(cd "$dir";$pdir/detector-fft.py -r $rate ../$file));
-	die "system exit: $?: $!";
+	system(qq(cd "$dir";$pdir/detector-fft.py -r $rate ../$file));
+	if($? != 0){
+		warn "system exit: $?: $!";
+	};
 };
 
 sub do_stage2{
