@@ -1,5 +1,6 @@
 #!/usr/bin/python
-# vim: set ts=4 sw=4 tw=0 et pm=:
+# coding: utf-8
+# vim: set ts=4 sw=4 tw=0 et fenc=utf8 pm=:
 import struct
 import sys
 import math
@@ -44,11 +45,17 @@ basename= filename= re.sub('\.[^.]*$','',file_name)
 sample_rate = 2000000
 symbols_per_second = 25000
 
+print "File:",basename
+print "rate:",sample_rate
+print "symbol rate:",symbols_per_second
+
 samples_per_symbol= float(sample_rate)/float(symbols_per_second)
 
 if int(samples_per_symbol)!=samples_per_symbol: raise Exception("Non-int sps")
 
 samples_per_symbol=int(samples_per_symbol)
+
+print "samples per symbol:",samples_per_symbol
 
 skip = 5*samples_per_symbol # beginning might be flaky
 
@@ -69,12 +76,12 @@ signal_mag = [abs(x) for x in signal]
 
 level=abs(numpy.mean(signal[skip:skip+samples_per_symbol]))
 lmax=abs(numpy.max(signal[skip:skip+samples_per_symbol]))
-print "level: ",level
-print 'lmax: ', lmax
+print "level:",level
+print 'lmax:', lmax
 
 if schneider==0:
     # Skip a few samples to have a clean signal
-    print "skip: ",skip
+    print "skip:",skip
 
     for i in xrange(skip,len(signal)):
         lvl= abs(signal[i])/level
@@ -105,7 +112,7 @@ samples=[]
 peaks=[complex(-lmax,0)]*len(signal)
 mapping= [2,1,-2,-1] # mapping: symbols->*.peaks output
 
-print "len: ",len(signal)
+print "len:",len(signal)
 phase=0 # Current phase offset
 alpha=2 # How many degrees is still fine.
 
@@ -127,16 +134,20 @@ while True:
             if curpre>cur and cur>curpost:
                 print "Sampled late"
                 i-=sdiff
+                delay-=sdiff
             if curpre<cur and cur<curpost:
                 print "Sampled early"
                 i+=sdiff
+                delay-=sdiff
         elif pre>0 and post>0 and cur<0:
             if curpre>cur and cur>curpost:
                 print "Sampled early"
                 i+=sdiff
+                delay+=sdiff
             if curpre<cur and cur<curpost:
                 print "Sampled late"
                 i-=sdiff
+                delay-=sdiff
         else:
             cur=signal[i].imag
             pre=signal[i-samples_per_symbol].imag
@@ -148,16 +159,20 @@ while True:
                 if curpre>cur and cur>curpost:
                     print "Sampled late"
                     i-=sdiff
+                    delay-=sdiff
                 if curpre<cur and cur<curpost:
                     print "Sampled early"
                     i+=sdiff
+                    delay+=sdiff
             elif pre>0 and post>0 and cur<0:
                 if curpre>cur and cur>curpost:
                     print "Sampled early"
                     i+=sdiff
+                    delay+=sdiff
                 if curpre<cur and cur<curpost:
                     print "Sampled late"
                     i-=sdiff
+                    delay-=sdiff
     except IndexError:
         print "Last sample"
 
@@ -176,7 +191,7 @@ while True:
     symbols=symbols+[symbol]
     samples=samples+[signal[i]]
 
-    print "Symbol @ ",i,": ",symbol," (",ang,",",lvl,")"
+    print "Symbol @%06d (%3d°,%3.0f%%)=%d delay=%d phase=%d"%(i,ang%360,lvl*100,symbol,delay,phase)
     peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
     i+=samples_per_symbol
     if i>=len(signal) : break
@@ -189,6 +204,7 @@ access=""
 for s in symbols[:12]:
     access+=str(s)
 
+# Do gray code on symbols
 data=""
 oldsym=0
 dataarray=[]
@@ -208,31 +224,33 @@ for s in symbols:
 
 access_ok=False
 if access=="022220002002": access_ok=True
-#lead_out = "0110101101111100111100010001010" # old differential decoding
+
 lead_out = "011010110101111001110011001111"
 lead_out_ok = lead_out in data
+
 confidence = (1-float(errors)/nsymbols)*100
 
-oks="not ok"
-if access_ok: oks="OK"
-
-print "File:",basename,"access: ",oks,"(",access,"), lo=", lead_out_ok, "len=",nsymbols,"confidence=%3d%%"%(confidence)
-print "File:",basename,"data: ",data
-if(access_ok and lead_out_ok and confidence >80):
-    p=re.compile('.*-(\d+)-f(\d+)')
-    m=p.match(basename)
-    lead_out_index = data.find(lead_out)
-    padding = ' ' * (289 - lead_out_index)
+print "access:",access_ok,"(%s)"%access
+print "leadout:",lead_out_ok
+print "len:",nsymbols
+print "confidence:",confidence
+print "data:",data
+print "final delay",delay
+print "final phase",phase
 
 # Nice output format
 p=re.compile('(.*)-(\d+)-f(\d+)')
 m=p.match(basename)
-
-oks="A:no"
-if access_ok: oks="A:OK"
-
-los="L:no"
-if lead_out_ok: los="L:OK"
+if(m):
+    rawfile=m.group(1)
+    timestamp=int(m.group(2))
+    freq=int(m.group(3))
+else:
+    rawfile=basename
+    timestamp=0
+    freq=0
+print "raw filename:",rawfile
+print "base freq:",freq
 
 if access_ok:
     data="<"+data[:24]+"> "+data[24:]
@@ -242,7 +260,7 @@ if lead_out_ok:
     data=data[:lead_out_index]+"["+data[lead_out_index:lead_out_index+len(lead_out)]+"]"  +data[lead_out_index+len(lead_out):]
 
 data=re.sub(r'([01]{32})',r'\1 ',data)
-print "RAW:",m.group(1),m.group(2),m.group(3),oks,los,"%3d%%"%(confidence),"%3d"%(nsymbols-12),data
+print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
 
 if 0: # Create r / phi file
     with open("%s.rphi" % (os.path.basename(basename)), 'wb') as out:
