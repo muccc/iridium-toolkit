@@ -71,15 +71,15 @@ if int(samples_per_symbol)!=samples_per_symbol: raise Exception("Non-int sps")
 
 samples_per_symbol=int(samples_per_symbol)
 
-skip = 5*samples_per_symbol # beginning might be flakey
+skip = 5*samples_per_symbol # beginning might be flaky
 
 def normalize(v):
     m = max([abs(x) for x in v])
     return [x/m for x in v]
 
 def mynormalize(v):
-    reals = normalize([x.real for x in samples])
-    imags = normalize([x.imag for x in samples])
+    reals = normalize([x.real for x in v])
+    imags = normalize([x.imag for x in v])
     zip=[]
     for i in xrange(len(reals)):
         zip.append(complex(reals[i],imags[i]))
