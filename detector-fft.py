@@ -19,7 +19,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'r:v', ['rate=',
 # roughtly a 1ms window
 sample_rate = 2000000
 fft_size = 2048
-bin_size = int(float(fft_size)/sample_rate * 1000 * 5)
+bin_size = float(fft_size)/sample_rate * 1000 * 5
 min_std = 1.7
 verbose = False
 
@@ -90,7 +90,7 @@ for i in range(len(bins)):
                 (i-1) not in active_bins[-1]
                 and (i-2) not in active_bins[-1]
                 and (i-3) not in active_bins[-1]):
-            print "%d ms: %f" % (i * bin_size, bins[i])#, bins_avg[i]
+            print "%d ms: %f" % (int(i * bin_size), bins[i])#, bins_avg[i]
             active_bins.append([i])
         else:
             active_bins[-1].append(i)
@@ -100,7 +100,7 @@ with open(file_name, "rb") as f:
         start_bin = abins[0]
         if start_bin > 3: start_bin -= 5
         f.seek(struct_len * start_bin)
-        with open("%s-%07d.det" % (os.path.basename(basename), start_bin * bin_size), "wb") as wf:
+        with open("%s-%07d.det" % (os.path.basename(basename), int(start_bin * bin_size)), "wb") as wf:
             wf.write(f.read(struct_len * (len(abins) + 10)))
 
 #plt.plot(range(0, bin_size * len(bins), bin_size), bins, 'b')
