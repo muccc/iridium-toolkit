@@ -15,44 +15,23 @@ import matplotlib.pyplot as plt
 
 errors=0
 nsymbols=0
-phase_offset = 0
-last_phase = 0
 
 def qpsk(phase):
     global errors
     global nsymbols
-    global phase_offset
-    global last_phase
     nsymbols+=1
     phase = phase % 360
 
     # In theory we should only see 0, 90, 180 and 270 here.
-    #print "diff to last phase:", phase - last_phase
-    last_phase = phase
-
-    input_phase = phase
-    #print "input phase", input_phase
-
-    # Correct the input phase using the offset
-    # calculated from the last symbol
-    phase = (phase + phase_offset)%360
-    #print "corrected phase", phase
-
     sym=int(phase)/90
     #print "symbol", sym
 
-    off=abs(45-(phase % 90))
-    if (off>22):
+    off=(45-(phase % 90))
+    if (abs(off)>22):
         print "Symbol offset >22"
         errors+=1
 
-    # Use the perfect phase for this symbol
-    # to calculate the current offset of the input
-    # signal.
-    phase_offset = (45 + 90 * sym) - input_phase
-    #print "phase_offset", phase_offset
-
-    return sym
+    return sym,off
 
 file_name = sys.argv[1]
 schneider=0
@@ -122,16 +101,21 @@ i=start
 symbols=[]
 samples=[]
 
+#Graphical debugging stuff (the *.peaks file)
 peaks=[complex(-lmax,0)]*len(signal)
-
-mapping= [2,1,-2,-1]
+mapping= [2,1,-2,-1] # mapping: symbols->*.peaks output
 
 print "len: ",len(signal)
+phase=0 # Current phase offset
+alpha=2 # How many degrees is still fine.
+
+delay=0
+sdiff=2 # Timing check difference
+
 while True:
     peaks[i]=complex(-lmax,lmax/10.)
 
-    sdiff=2
-
+    # Adjust our sample rate to reality
     try:
         cur=signal[i].real
         pre=signal[i-samples_per_symbol].real
@@ -179,7 +163,16 @@ while True:
 
     lvl= abs(signal[i])/level
     ang= cmath.phase(signal[i])/math.pi*180
-    symbol=qpsk(ang)
+    symbol,offset =qpsk(ang+phase)
+    if(offset>alpha):
+        peaks[i+samples_per_symbol/10]=complex(-lmax*0.8,0);
+        print "offset forward"
+        phase+=1
+    if(offset<-alpha):
+        peaks[i-samples_per_symbol/10]=complex(-lmax*0.8,0);
+        print "offset backward"
+        phase-=1
+
     symbols=symbols+[symbol]
     samples=samples+[signal[i]]
 
