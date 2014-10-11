@@ -8,6 +8,8 @@ use Cwd;
 use File::Basename;
 
 my $cpus=6;
+my $center;
+my $rate;
 
 $|=1;
 
@@ -40,36 +42,58 @@ if ($#ARGV >=0){
 	};
 };
 
+sub checkrate {
+	my $file=shift;
+	if($file=~/-([vs])\d+(?:\.|\/|-|$)/){
+		if($1 eq "v"){
+			$center=1626270833;
+			$rate=2000000;
+		}elsif($1 eq "s"){
+			$center=1626440000;
+			$rate=250000;
+		}else{
+			warn "No idea what center/rate 1 $file\n";
+		};
+
+	}else{
+		warn "No idea what center/rate 2 $file\n";
+	};
+};
+
 sub do_stage1{
 	my $file=shift;
+	checkrate($file);
 	my $dir;
 	($dir=$file)=~s/\.raw$//;
-	exec(qq(cd "$dir";$pdir/detector-fft.py ../$file));
+	exec(qq(cd "$dir";$pdir/detector-fft.py -r $rate ../$file));
 	die "system exit: $?: $!";
 };
 
 sub do_stage2{
 	my $arg=shift;
+	checkrate($arg);
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	exec(qq(cd "$dir";$pdir/cut-and-downmix-2.py $file $foff| tee ${file}.cut.out |grep ^File));
+	exec(qq(cd "$dir";$pdir/cut-and-downmix-2.py -r $rate -c $center $file $foff| tee ${file}.cut.out |grep ^File));
 	die "system exit: $?: $!";
 };
 sub do_stage3{
 	my $arg=shift;
+	checkrate($arg);
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	exec(qq(cd $dir;$pdir/demod.py $file | tee ${file}.demod |grep ^RAW|cut -c 1-77));
+	exec(qq(cd $dir;$pdir/demod.py -r $rate $file | tee ${file}.demod |grep ^RAW|cut -c 1-77));
 	die "system exit: $?: $!";
 };
 sub do_stage23{
 	my $arg=shift;
+	checkrate($arg);
 	my $dir=dirname($arg);
 	my $file=basename($arg);
 	exec(qq(
 		cd $dir;
-		file=`$pdir/cut-and-downmix-2.py $file $foff| tee ${file}.cut.out |sed -n 's/^output= *//p'`;
-		$pdir/demod.py \$file |tee \$file.demod |grep ^RAW|cut -c 1-77;true
+		file=`$pdir/cut-and-downmix-2.py -r $rate -c $center $file $foff| tee ${file}.cut.out |sed -n 's/^output= *//p'`;
+		$pdir/demod.py -r $rate \$file |tee \$file.demod |grep ^RAW|cut -c 1-77;true
 	));
 	die "system exit: $?: $!";
 };

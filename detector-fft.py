@@ -7,19 +7,30 @@ import os.path
 from itertools import izip
 import re
 import matplotlib.pyplot as plt
+import getopt
 
 def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
     return izip(*[iter(iterable)]*n)
 
-file_name = sys.argv[1]
-basename= filename= re.sub('\.[^.]*$','',file_name)
-
+options, remainder = getopt.getopt(sys.argv[1:], 'r:v', ['rate=', 
+                                                         'verbose',
+                                                         ])
 # roughtly a 1ms window
 sample_rate = 2000000
 fft_size = 2048
-bin_size = int(float(fft_size)/sample_rate * 1000) * 5
+bin_size = int(float(fft_size)/sample_rate * 1000 * 5)
 min_std = 1.7
+verbose = False
+
+for opt, arg in options:
+    if opt in ('-r', '--rate'):
+        sample_rate = int(arg)
+    elif opt in ('-v', '--verbose'):
+        verbose = True
+
+file_name = remainder[0]
+basename= filename= re.sub('\.[^.]*$','',file_name)
 
 struct_fmt = '<' +  fft_size * 5 * '2f'
 struct_len = struct.calcsize(struct_fmt)

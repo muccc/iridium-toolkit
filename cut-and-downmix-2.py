@@ -10,11 +10,18 @@ import filters
 import scipy.signal
 import re
 import iq
+import getopt
 
 #import matplotlib.pyplot as plt
 
-file_name = sys.argv[1]
+options, remainder = getopt.getopt(sys.argv[1:], 'o:c:r:v', ['offset=', 
+                                                         'center=',
+                                                         'rate=',
+                                                         'verbose',
+                                                         ])
+file_name = remainder[0]
 basename= filename= re.sub('\.[^.]*$','',file_name)
+
 if(len(sys.argv)>2):
    f_off= int(sys.argv[2])
 else:
@@ -24,6 +31,17 @@ center= 1626270833
 sample_rate = 2000000
 symbols_per_second = 25000
 preamble_length = 64
+
+for opt, arg in options:
+    if opt in ('-o', '--offset'):
+        f_off = int(arg)
+    elif opt in ('-c', '--center'):
+        center = int(arg)
+    elif opt in ('-r', '--rate'):
+        sample_rate = int(arg)
+    elif opt == '-v':
+        verbose = True
+
 fft_length = int(math.pow(2, int(math.log(sample_rate/symbols_per_second*preamble_length,2))))
 #fft_length = int(sample_rate/symbols_per_second*preamble_length*0.85)
 #fft_length = int(sample_rate/symbols_per_second*preamble_length*1)

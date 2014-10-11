@@ -13,6 +13,7 @@ import re
 import sync_search
 import iq
 import matplotlib.pyplot as plt
+import getopt
 
 errors=0
 nsymbols=0
@@ -34,16 +35,26 @@ def qpsk(phase):
 
     return sym,off
 
-file_name = sys.argv[1]
+options, remainder = getopt.getopt(sys.argv[1:], 'r:pv', [
+                                                         'rate=',
+                                                         'schneider',
+                                                         'verbose',
+                                                         ])
+
 schneider=0
-
-if file_name == "-p":
-    file_name=sys.argv[2]
-    schneider=1
-
-basename= filename= re.sub('\.[^.]*$','',file_name)
 sample_rate = 2000000
 symbols_per_second = 25000
+
+for opt, arg in options:
+    if opt in ('-r', '--rate'):
+        sample_rate=int(arg)
+    elif opt in ('-v', '--verbose'):
+        verbose = True
+    elif opt in ('-p', '--schneider'):
+        schneider=1
+
+file_name = remainder[0]
+basename= filename= re.sub('\.[^.]*$','',file_name)
 
 print "File:",basename
 print "rate:",sample_rate
@@ -118,6 +129,9 @@ alpha=2 # How many degrees is still fine.
 
 delay=0
 sdiff=2 # Timing check difference
+
+if(samples_per_symbol<20):
+    sdiff=1
 
 while True:
     peaks[i]=complex(-lmax,lmax/10.)
