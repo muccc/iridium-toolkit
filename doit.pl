@@ -59,7 +59,7 @@ sub do_stage3{
 	my $arg=shift;
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	exec(qq(cd $dir;$pdir/demod.py $file | tee ${file}.demod |grep ^RAW));
+	exec(qq(cd $dir;$pdir/demod.py $file | tee ${file}.demod |grep ^RAW|cut -c 1-77));
 	die "system exit: $?: $!";
 };
 sub do_stage23{
@@ -68,9 +68,8 @@ sub do_stage23{
 	my $file=basename($arg);
 	exec(qq(
 		cd $dir;
-		file=`$pdir/cut-and-downmix-2.py $file $foff| tee ${file}.cut.out |grep ^output=|cut -d= -f2|cut -c 2-`;
-		echo stage2=\$file;
-		$pdir/demod.py \$file |tee \$file.demod | grep RAW;true
+		file=`$pdir/cut-and-downmix-2.py $file $foff| tee ${file}.cut.out |sed -n 's/^output= *//p'`;
+		$pdir/demod.py \$file |tee \$file.demod |grep ^RAW|cut -c 1-77;true
 	));
 	die "system exit: $?: $!";
 };
