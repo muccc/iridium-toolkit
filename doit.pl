@@ -143,19 +143,6 @@ sub startone{
 	};
 };
 
-sub sigchld {
-	my $pid=wait();
-#	print "pid:$pid\n";
-	if ($run{$pid}){
-		print "One down, ",scalar(@processes)," to go...\n";
-		delete $run{$pid};
-		startone();
-	}else{
-		print "Unknown child $pid\n";
-	};
-};
-$SIG{CHLD}='sigchld';
-
 for my $file (@ARGV){
 	if($file =~ /\d+/ && ! -f $file && ! -d $file){
 		my @guess=glob("*/*-${file}.det");
@@ -247,12 +234,25 @@ for(1..$cpus){
 };
 
 while($#processes >-1){
-	sleep(1);
+	my $pid=wait();
+
+	if ($run{$pid}){
+		print "One down, ",scalar(@processes)," to go...\n";
+		delete $run{$pid};
+		startone();
+	}else{
+		print "Unknown child $pid\n";
+	};
 };
 
-sleep(1);
 print "waiting for: ",join(" ",(keys %run)),"\n";
 
 while(scalar keys%run >0){
-	sleep(1);
+	my $pid=wait();
+	if ($run{$pid}){
+		print "One down, waiting for ",scalar keys %run," more...\n";
+		delete $run{$pid};
+	}else{
+		print "Unknown child $pid\n";
+	};
 };
