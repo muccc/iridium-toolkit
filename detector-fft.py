@@ -18,7 +18,6 @@ options, remainder = getopt.getopt(sys.argv[1:], 'r:v', ['rate=',
                                                          ])
 # roughtly a 1ms window
 sample_rate = 2000000
-fft_size = 2048
 min_std = 1.7
 verbose = False
 
@@ -30,16 +29,18 @@ for opt, arg in options:
 
 file_name = remainder[0]
 basename= filename= re.sub('\.[^.]*$','',file_name)
-bin_size = float(fft_size)/sample_rate * 1000 * 5
+fft_size=int(math.pow(2, 1+int(math.log(sample_rate/1000,2)))) # fft is approx 1ms long
+search_size=5
+bin_size = float(fft_size)/sample_rate * 1000 * search_size
 
-struct_fmt = '<' +  fft_size * 5 * '2f'
+struct_fmt = '<' +  fft_size * search_size * '2f'
 struct_len = struct.calcsize(struct_fmt)
 struct_unpack = struct.Struct(struct_fmt).unpack_from
 
 window = numpy.blackman(fft_size)
 bins = []
 
-file_size = os.path.getsize(file_name)/8./fft_size/5
+file_size = os.path.getsize(file_name)/8./fft_size/search_size
 reported_percentage = -100
 
 index = 0
