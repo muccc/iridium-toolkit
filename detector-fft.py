@@ -19,7 +19,6 @@ options, remainder = getopt.getopt(sys.argv[1:], 'r:v', ['rate=',
 # roughtly a 1ms window
 sample_rate = 2000000
 fft_size = 2048
-bin_size = float(fft_size)/sample_rate * 1000 * 5
 min_std = 1.7
 verbose = False
 
@@ -31,6 +30,7 @@ for opt, arg in options:
 
 file_name = remainder[0]
 basename= filename= re.sub('\.[^.]*$','',file_name)
+bin_size = float(fft_size)/sample_rate * 1000 * 5
 
 struct_fmt = '<' +  fft_size * 5 * '2f'
 struct_len = struct.calcsize(struct_fmt)
