@@ -1,3 +1,25 @@
 #!/bin/sh
 
-gr_time_plot_c --no-auto-scale -N 1000 -r 2000000  */*-$1-*.raw */*-$1-*.peaks
+file=$(echo */*-$1-*.cut)
+
+echo $file
+
+case $file in 
+*-v*)
+	f=1626270833
+	r=2000000
+	n=1000
+	;;
+*-s*)
+    f=1626440000
+    r=250000
+	n=100
+	;;
+*)
+	echo "No idea... " >&2
+	exit 1
+	;;
+esac
+
+
+gr_time_plot_c --no-auto-scale -N $n -r $r  */*-$1-*.cut */*-$1-*.peaks

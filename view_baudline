@@ -6,7 +6,7 @@ base=""
 if [ "$1" = "-1" ] ; then
 	shift
 	file="*/*-$1.det"
-	base="-basefrequency 1626270833"
+	base=yes
 else
 	if [ "$1" = "-2" ] ; then
 		shift
@@ -14,12 +14,30 @@ else
 	else 
 		if [ ! -f "$file" ] ; then 
 			file="*/*-$1.det"
-			base="-basefrequency 1626270833"
+			base=yes
 		fi
 	fi
 fi
 
 file=$(echo $file)
+
+case $file in 
+*-v*)
+	f=1626270833
+	r=2000000
+	;;
+*-s*)
+    f=1626440000
+    r=250000
+	;;
+*)
+	echo "No idea... " >&2
+	;;
+esac
+
+if [ "$base" = "yes" ] ; then
+	base="-basefrequency $f"
+fi
 
 if [ ! -f "$file" ] ; then 
 	echo "Can't find $file" >&2
@@ -28,6 +46,6 @@ fi
 
 tmp=/tmp/$(echo $(basename $file)|sed 's!/!_!g').wav
 
-sox -r 2000k -e floating-point -b 32 -c 2 -t raw $file $tmp
-baudline -format le32f -quadrature -samplerate 2000000 $base -fftsize 1024 -channels 2 -flipcomplex $tmp
+sox -r $r -e floating-point -b 32 -c 2 -t raw $file $tmp
+baudline -format le32f -quadrature -samplerate $r $base -fftsize 1024 -channels 2 -flipcomplex $tmp
 rm $tmp
