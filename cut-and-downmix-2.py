@@ -22,10 +22,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'o:c:r:v', ['offset=',
 file_name = remainder[0]
 basename= filename= re.sub('\.[^.]*$','',file_name)
 
-if(len(sys.argv)>2):
-   f_off= int(sys.argv[2])
-else:
-   f_off=0
+f_off=0
 
 center= 1626270833
 sample_rate = 2000000
