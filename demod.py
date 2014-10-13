@@ -239,6 +239,7 @@ access_ok=False
 if access=="022220002002": access_ok=True
 
 lead_out = "011010110101111001110011001111"
+lead_out = "100101111010110110110011001111"
 lead_out_ok = lead_out in data
 
 confidence = (1-float(errors)/nsymbols)*100
