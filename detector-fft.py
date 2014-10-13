@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 import struct
 import sys
 import math
@@ -6,7 +6,7 @@ import numpy
 import os.path
 from itertools import izip
 import re
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import getopt
 
 def grouped(iterable, n):

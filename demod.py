@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 # coding: utf-8
 # vim: set ts=4 sw=4 tw=0 et fenc=utf8 pm=:
 import struct
@@ -12,7 +12,6 @@ import scipy.signal
 import re
 import sync_search
 import iq
-import matplotlib.pyplot as plt
 import getopt
 
 errors=0
