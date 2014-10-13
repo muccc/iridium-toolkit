@@ -15,6 +15,7 @@ $|=1;
 
 my $pwd=cwd();
 my $pdir="../iridium";
+my $verbose;
 
 if ($pdir =~ m!^/!){
 	# absolute;
@@ -22,15 +23,24 @@ if ($pdir =~ m!^/!){
 	$pdir="../".$pdir;
 };
 
-my ($one,$two,$three);
-my $auto=1;
+my ($gone,$gtwo,$gthree,$gfour);
+my $gauto=1;
 if ($#ARGV >=0){
-	if ($ARGV[0] =~ /^-/){
-		$one= 1 if $ARGV[0]=~/1/;
-		$two= 1 if $ARGV[0]=~/2/;
-		$three= 1 if $ARGV[0]=~/3/;
-		$auto=0;
-		shift;
+	while ($ARGV[0] =~ /^-/){
+		if($ARGV[0] eq "-n"){
+			shift;
+			$cpus=shift;
+		}elsif($ARGV[0] eq "-v"){
+			shift;
+			$verbose=1;
+		}else{
+			$gone= 1   if $ARGV[0]=~/1/;
+			$gtwo= 1   if $ARGV[0]=~/2/;
+			$gthree= 1 if $ARGV[0]=~/3/;
+			$gfour= 1  if $ARGV[0]=~/4/;
+			$gauto=0;
+			shift;
+		}
 	};
 };
 
@@ -52,11 +62,10 @@ sub checkrate {
 			$center=1626440000;
 			$rate=250000;
 		}else{
-			warn "No idea what center/rate 1 $file\n";
+			warn "No idea what center/rate type $1 unknown\n";
 		};
-
 	}else{
-		warn "No idea what center/rate 2 $file\n";
+		warn "No idea what center/rate for $file\n";
 	};
 };
 
@@ -69,24 +78,30 @@ sub do_stage1{
 	if($? != 0){
 		warn "system exit: $?: $!";
 	};
-};
+}
 
 sub do_stage2{
 	my $arg=shift;
 	checkrate($arg);
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	exec(qq(cd "$dir";$pdir/cut-and-downmix-2.py -r $rate -c $center $file $foff| tee ${file}.cut.out |grep ^File));
+	my $base=$file;
+	$base=~s!\.*?$!!;
+	exec(qq(cd "$dir";$pdir/cut-and-downmix-2.py -r $rate -c $center $file $foff| tee ${base}.cut.out |grep ^File));
 	die "system exit: $?: $!";
-};
+}
+
 sub do_stage3{
 	my $arg=shift;
 	checkrate($arg);
 	my $dir=dirname($arg);
 	my $file=basename($arg);
-	exec(qq(cd $dir;$pdir/demod.py -r $rate $file | tee ${file}.demod |grep ^RAW|cut -c 1-77));
+	my $base=$file;
+	$base=~s!\.*?$!!;
+	exec(qq(cd $dir;$pdir/demod.py -r $rate $file | tee ${base}.demod |grep ^RAW|cut -c 1-77));
 	die "system exit: $?: $!";
-};
+}
+
 sub do_stage23{
 	my $arg=shift;
 	checkrate($arg);
@@ -100,24 +115,11 @@ sub do_stage23{
 	die "system exit: $?: $!";
 };
 
-sub auto_stage23{
-	my $file=shift;
-	my $out;
-	($out=$file)=~s/\.det//;
-	my @out=<$out-f*.cut>;
-	if ($#out==0){
-		print "auto: skipping -2 $file\n";
-		my $s3;
-		($s3=$out[0])=~s/\.cut$/.data/;
-		if ( -f $s3){
-			print "auto: skipping -3 $out[0]\n";
-		}else{
-			process("do_stage3",$out[0]);
-		};
-	}else{
-		process("do_stage23",$file);
-	};
-};
+sub do_stage4{
+	my $dir=shift;
+	exec(qq(echo -n "A:OK Signals:";grep -h ^RAW $dir/*.demod | grep A:OK |tee $dir.bits |wc -l));
+	die "system exit: $?: $!";
+}
 
 my @processes;
 sub process{
@@ -138,106 +140,117 @@ sub startone{
 				exit(0);
 			};
 			$run{$pid}=1;
-			print "run: $func $arg ($pid)\n";
+			$arg=~s!.*/!!;
+			print "[",scalar keys @processes,"] run: $func $arg ($pid)\n";
 		};
+	}else{
+		print "run: no more tasks to do\n";
 	};
 };
 
+my @gather;
+
 for my $file (@ARGV){
+	my($auto,$one,$two,$three)=($gauto,$gone,$gtwo,$gthree);
+
+	# It's just a single stage2/3 by time id
 	if($file =~ /\d+/ && ! -f $file && ! -d $file){
+		if($auto){
+			print STDERR "auto mode not possible: doing -3\n";
+			$three=1;
+		};
+		if($one){
+			print STDERR "-1 not possible here\n";
+		};
 		my @guess=glob("*/*-${file}.det");
 		if($#guess==0){
 			$file=$guess[0];
 		}elsif($#guess==-1){
 			print STDERR "$file matches nothing here\n";
+			next;
 		}else{
-			print STDERR "$file matches @guess\n";
-		};
-	};
-	if ($auto){
-		my $dir;
-		if ($file =~ /\.raw$/){
-			($dir=$file)=~s/\.raw$//;
-			if ( ! -d $dir){
-				mkdir($dir);
-				do_stage1(basename($file));
-			}else{
-				print "auto: skipping 1 $file\n";
-			};
-			$file=$dir;
-		};
-		if ( -d $file ) {
-			for my $sub (<$file/*.det>){
-				auto_stage23($sub);
-			};
-		}elsif( -f "$file" ) {
-			if ($file =~ /\.det$/){
-				process("do_stage23",$file);
-			}elsif($file =~ /\.cut$/){
-				process("do_stage3",$file);
-			}else{
-				print STDERR "auto: no idea what to do with file: $file\n";
-			};
-		}else{
-			print STDERR "auto: no idea what to do with $file\n";
-		};
-	}else{ # no auto
-		if($one){
-			if ($file =~ /\.raw$/){
-				my $dir;
-				($dir=$file)=~s/\.raw$//;
-				if ( ! -d $dir){
-					mkdir($dir);
-				};
-				do_stage1(basename($file));
-				$file=$dir;
-			}else{
-				print STDERR "-1 set, but no idea what $file is\n";
-			};
+			print STDERR "$file matches (@guess)\n";
+			next;
 		};
 		if($two && $three){
-			if( -f $file){
-				process("do_stage23",$file);
-			}elsif( -d $file){
-				for my $sub (<$file/*.det>){
-					process("do_stage23",$sub);
-				};
-			}else{
-				print STDERR "-23 set, but no idea what $file is\n";
-			};
+				do_stage23($file);
 		}elsif($two){
-			if( -f $file){
-				process("do_stage2",$file);
-			}elsif( -d $file){
-				for my $sub (<$file/*.det>){
-					process("do_stage2",$sub);
-				};
-			}else{
-				print STDERR "-2 set, but no idea what $file is\n";
-			};
+				do_stage2($file);
 		}elsif($three){
-			if( -f $file){
-				process("do_stage3",$file);
-			}elsif( -d $file){
-				for my $sub (<$file/*.cut>){
-					process("do_stage3",$sub);
+				do_stage3($file);
+		};
+		next;
+	};
+
+	# It's ok to use the raw filename or the directory.
+	my ($dir);
+	if (-f $file && $file =~ /\.raw$/){
+		($dir=$file)=~s/\.raw$//;
+	}elsif(-d $file or -f "$file.raw"){
+		$dir=$file;
+		$file.=".raw";
+	}else{
+		print STDERR "Canonify: no idea about $file\n";
+		next;
+	};
+	if($auto && ! -d $dir ){
+			$one=1;
+			$auto=0;$two=1;$three=1;
+	};
+	checkrate($file);
+	print "$file uses center=$center, rate=$rate\n";
+	if($one){
+		if (! -d $dir){
+			mkdir($dir);
+		};
+		do_stage1(basename($file));
+	};
+	if($auto){ # Make missing s2/s3 files
+		my($s1,@s2,$s3);
+		for my $sub (glob("$dir/*.det")){
+			($s1=$sub)=~s/\..*?$//;
+			@s2=glob("$s1-f*.cut");
+			if (defined($s2[0])){ #s2 already done
+				print "auto: skipping -2: ",basename($sub),"\n" if ($verbose);
+				($s3=$s2[0])=~s/\..*?$//;
+				if (-f "$s3.data"){				 # s3 also done
+					print "auto: skipping -3: ",basename($s2[0]),"\n" if($verbose);
+				}else{
+					process("do_stage3",$s2[0])
 				};
 			}else{
-				print STDERR "-3 set, but no idea what $file is\n";
+				process("do_stage23",$sub);
 			};
 		};
-	};
-};
+		push @gather,$dir;
+	}elsif($two && $three){
+		for my $sub (glob("$dir/*.det")){
+			process("do_stage23",$sub);
+		}
+		push @gather,$dir;
+	}elsif($two){
+		for my $sub (glob("$dir/*.det")){
+			process("do_stage2",$sub);
+		};
+	}elsif($three){
+		for my $sub (glob("$dir/*.cut")){
+			process("do_stage3",$sub);
+		}
+		push @gather,$dir;
+	}elsif($gfour){
+		push @gather,$dir;
+	}
+}
 
 for(1..$cpus){
 	startone();
-};
+}
 
 while($#processes >-1){
 	my $pid=wait();
 
 	if ($run{$pid}){
-		print "One down, ",scalar(@processes)," to go...\n";
+		print "One down, ",scalar(@processes)," to go...\n" if ($verbose);
 		delete $run{$pid};
 		startone();
 	}else{
@@ -245,14 +258,22 @@ while($#processes >-1){
 	};
 };
 
-print "waiting for: ",join(" ",(keys %run)),"\n";
+if(scalar keys %run >0){
+	print "waiting for: ",join(" ",(keys %run)),"\n";
+	while(scalar keys%run >0){
+		my $pid=wait();
+		if ($run{$pid}){
+			delete $run{$pid};
+			print "One down, waiting for ",scalar keys %run," more...\n"
+				if scalar keys %run;
+		}else{
+			print "Unknown child $pid\n";
+		};
+	};
+};
 
-while(scalar keys%run >0){
-	my $pid=wait();
-	if ($run{$pid}){
-		print "One down, waiting for ",scalar keys %run," more...\n";
-		delete $run{$pid};
-	}else{
-		print "Unknown child $pid\n";
+if($gfour || $gauto){
+	for my $sub (@gather){
+		do_stage4($sub);
 	};
 };
