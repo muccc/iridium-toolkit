@@ -226,11 +226,11 @@ for s in symbols:
     if bits==0:
         bits=0
     elif bits==1:
-        bits=1
+        bits=2
     elif bits==2:
         bits=3
     else:
-        bits=2
+        bits=1
     oldsym=s
     data+=str((bits&2)/2)+str(bits&1)
     dataarray+=[(bits&2)/2,bits&1]
