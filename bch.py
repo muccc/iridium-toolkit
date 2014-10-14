@@ -13,7 +13,7 @@ def divide(a,b):
             return "0";
 
     #    print "lb-o: ",len(bb)-one,"la",len(aa)
-        if(len(bb)-one<=len(aa)):
+        if(len(bb)-one<len(aa)):
           break
 
 #        print "b:   ",stringify(bb),one
