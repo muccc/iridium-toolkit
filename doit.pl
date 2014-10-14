@@ -119,8 +119,10 @@ sub do_stage23{
 
 sub do_stage4{
 	my $dir=shift;
-	exec(qq(echo -n "A:OK Signals:";grep -h ^RAW $dir/*.demod | grep A:OK |tee $dir.bits |wc -l));
-	die "system exit: $?: $!";
+	system(qq(echo -n "A:OK Signals in $dir:";grep -h ^RAW $dir/*.demod | grep A:OK |tee $dir.bits |wc -l));
+	if($? != 0){
+		warn "system exit: $?: $!";
+	};
 }
 
 my @processes;
