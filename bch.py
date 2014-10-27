@@ -2,7 +2,31 @@
 # vim: set ts=4 sw=4 tw=0 et pm=:
 from fec import stringify, listify
 
-def divide(a,b):
+def divide(a,b): # returns b%a in GF(2) fast/binary version
+    aa=int(a,2)
+    bb=int(b,2)
+    if(bb==0):
+        return 0
+    alen=len(a)-a.index("1")
+    blen=len(b)-b.index("1")
+
+    bits=blen-alen
+    pow=1<<(blen-1)
+    
+#    print "a:",a,"=",aa,"len=",alen
+#    print "b:",b,"=",bb,"len=",blen
+
+    while bits>=0:
+#        print "bits:",bits,"pow:",pow,"bb:",bb
+        if (bb>=pow):
+            bb^=(aa<<bits)
+        pow>>=1
+        bits-=1
+
+#    print "res=",bb
+    return bb
+
+def sdivide(a,b): # returns b%a in GF(2) slow/ascii version
     aa=listify (a);
     bb=listify (b);
 
@@ -10,7 +34,7 @@ def divide(a,b):
         try:
             one=bb.index(1);
         except:
-            return "0";
+            return 0;
 
     #    print "lb-o: ",len(bb)-one,"la",len(aa)
         if(len(bb)-one<len(aa)):
@@ -27,7 +51,7 @@ def divide(a,b):
     #    print "b:   ",stringify(bb),one
 
 #    print "Result: ",stringify(bb)
-    return stringify(bb)
+    return int(stringify(bb),2)
 
 def add(a,b): # unneccessary, as actually add(a,b) == a^b
     aa=listify(a)
