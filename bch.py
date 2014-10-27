@@ -85,3 +85,23 @@ def polystr(a):
 
 def poly(a):
     return polystr("{0:b}".format(a))
+
+def repair(a,b): # "repair" two bit errors by brute force.
+    r=divide(a,b)
+    if(r==0):
+        return (0,b)
+    blen=len(b)
+    bnum=int(b,2)
+    for b1 in xrange(len(b)):
+        bnum1=bnum^(1<<b1)
+        bnum1str=("{0:0%db}"%blen).format(bnum1)
+        r=divide(a,bnum1str)
+        if(r==0):
+            return (1,bnum1str)
+        for b2 in xrange(b1+1,len(b)):
+            bnum2=bnum1^(1<<b2)
+            bnum2str=("{0:0%db}"%blen).format(bnum2)
+            r=divide(a,bnum2str)
+            if(r==0):
+                return (2,bnum2str)
+    return(-1,b)
