@@ -2,23 +2,18 @@
 # vim: set ts=4 sw=4 tw=0 et pm=:
 import sys
 import re
-from fec import stringify, listify
-from bch import divide, repair
+from bch import repair
 import fileinput
 import getopt
 import types
 import copy
-
 from itertools import izip
-def grouped(iterable, n):
-    "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
-    return izip(*[iter(iterable)]*n)
-
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vi:', [
                                                          'verbose',
                                                          'input',
                                                          ])
+
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
 iridium_lead_out="100101111010110110110011001111"
 header_messaging="00110011111100110011001111110011"
@@ -50,7 +45,7 @@ class Message(object):
         self.confidence=int(m.group(6))
         self.level=float(m.group(7))
 #        self.raw_length=m.group(8)
-        self.bitstream_raw=re.sub("[\[\]<> ]","",m.group(9)) # raw string
+        self.bitstream_raw=re.sub("[\[\]<> ]","",m.group(9)) # raw bitstring
         self.error=False
         self.error_msg=[]
         if m.group(10):
@@ -59,23 +54,28 @@ class Message(object):
     def upgrade(self):
         if self.error: return self
         if(self.bitstream_raw.startswith(iridium_access)):
-            return IridiumMessage(self).upgrade()
+            try:
+                return IridiumMessage(self).upgrade()
+            except ParserError,e:
+                self._new_error(str(e))
+                return self
         return self
     def _new_error(self,msg):
         self.error=True
         msg=str(type(self).__name__) + ": "+msg
         if not self.error_msg or self.error_msg[-1] != msg:
-            self.error_msg.append(str(type(self).__name__) + ": "+msg)
+            self.error_msg.append(msg)
     def _pretty_header(self):
        return "%s %07d %010d %3d%% %.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
     def _pretty_trailer(self):
         return ""
     def pretty(self):
-       str= "MSG: "+self._pretty_header()+" "+self.bitstream_raw
-       if("extra_data" in self.__dict__):
+        str= "MSG: "+self._pretty_header()
+        str+= " "+self.bitstream_raw
+        if("extra_data" in self.__dict__):
             str+=" "+self.extra_data
-       str+=self._pretty_trailer()
-       return str
+        str+=self._pretty_trailer()
+        return str
 
 class IridiumMessage(Message):
     def __init__(self,msg):
@@ -106,24 +106,23 @@ class IridiumMessage(Message):
         return self
     def _pretty_header(self):
         str= super(IridiumMessage,self)._pretty_header()
-        return str+ " len:%03d"%(len(self.header+self.bitstream_descrambled+self.descramble_extra)/2)+" L:"+("no","OK")[self.lead_out_ok]+" "+self.header
+        str+= " len:%03d"%(len(self.header+self.bitstream_descrambled+self.descramble_extra)/2)
+        str+=" L:"+("no","OK")[self.lead_out_ok]+" "+self.header
+        return str
     def _pretty_trailer(self):
         str= super(IridiumMessage,self)._pretty_trailer()
-        lead_out_index = self.descramble_extra.find(iridium_lead_out)
-        if(lead_out_index>=0):
-            data=self.descramble_extra[:lead_out_index]+"["+self.descramble_extra[lead_out_index:lead_out_index+len(iridium_lead_out)]+"]"  +self.descramble_extra[lead_out_index+len(iridium_lead_out):]
-        else:
-            data=self.descramble_extra
-        return str+ " descr_extra:"+data
+        str+= " descr_extra:"+re.sub(iridium_lead_out,"["+iridium_lead_out+"]",self.descramble_extra)
+        return str
     def pretty(self):
-       str= "IRI: "+self._pretty_header()+" "+self.bitstream_descrambled
-       str+=self._pretty_trailer()
-       return str
+        str= "IRI: "+self._pretty_header()
+        str+= " "+group(self.bitstream_descrambled,32)
+        str+= self._pretty_trailer()
+        return str
 
 class IridiumMessagingMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
-        poly="{0:011b}".format(messaging_bch_poly);
+        poly="{0:011b}".format(messaging_bch_poly)
         self.bitstream_messaging=""
         self.oddbits=""
         self.fixederrs=0
@@ -137,11 +136,9 @@ class IridiumMessagingMessage(IridiumMessage):
                 msg=bnew[1:21]
                 bch=bnew[21:]
             if(errs<0):
-                self._new_error("BCH decode failed")
                 raise ParserError("BCH decode failed")
-            parity=len(re.sub("0","",odd+msg+bch+parity)) %2
+            parity=len(re.sub("0","",odd+msg+bch+parity))%2
             if parity==1:
-                self._new_error("Parity error")
                 raise ParserError("Parity error")
             self.bitstream_messaging+=msg
             self.oddbits+=odd
@@ -198,7 +195,7 @@ class IridiumMessagingMessage(IridiumMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingMessage,self)._pretty_header()
-        str += " odd:%-26s %1d:%02d %s sec:%d %-80s" % (self.oddbits, self.cycle, self.cell, self.unkown1, self.secondary, self.msg_pre)
+        str+= " odd:%-26s %1d:%02d %s sec:%d %-83s" % (self.oddbits, self.cycle, self.cell, self.unkown1, self.secondary, group(self.msg_pre,20))
         if("msg_format" in self.__dict__):
             str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
         return str
@@ -268,22 +265,14 @@ class IridiumMessagingAscii(IridiumMessagingMessage):
     def _pretty_trailer(self):
         return super(IridiumMessagingAscii,self)._pretty_trailer()
     def pretty(self):
-       str= "MSG: "+self._pretty_header()+" %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest+self._pretty_trailer()
+       str= "MSG: "+self._pretty_header()
+       str+= " %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
+       str+= self._pretty_trailer()
        return str
         
-
-"""
-
-    def prettyprint(self):
-        if self.isa=="raw":
-            print "RW: "
-            print "%s %d %d"%(self.filename,self,timestamp,self.frequency)
-            print " %s"%self.raw
-        elif self.isa=="iridium":
-            print "IR: "
-            print "%s %d %d"%(self.filename,self,timestamp,self.frequency)
-            print "%s %s"%(self.messagetype,self.data)
-"""
+def grouped(iterable, n):
+    "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), ..."
+    return izip(*[iter(iterable)]*n)
 
 def de_interleave(group):
     symbols = [''.join(symbol) for symbol in grouped(group, 2)]
@@ -292,10 +281,13 @@ def de_interleave(group):
     field = odd + even
     return field
 
+def group(string,n): # similar to grouped, but keeps rest at the end
+    string=re.sub('(.{%d})'%n,'\\1 ',string)
+    return string.rstrip()
+
 for line in fileinput.input(remainder):
     line=line.strip()
-    q=Message(line)
-    q=q.upgrade()
+    q=Message(line.strip()).upgrade()
     if(q.error):
         print q.pretty()+" ERR:"+", ".join(q.error_msg)
     else:
