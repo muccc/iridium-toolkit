@@ -185,13 +185,17 @@ class IridiumMessagingMessage(IridiumMessage):
             self.msg_data=rest[27:]
     def upgrade(self):
         if self.error: return self
-        if("msg_format" in self.__dict__):
-            if(self.msg_format == 5):
-                try:
+        try:
+            if("msg_format" in self.__dict__):
+                if(self.msg_format == 5):
                     return IridiumMessagingAscii(self).upgrade()
-                except ParserError,e:
-                    self._new_error(str(e))
-                    return self
+                elif(self.msg_format == 3):
+                    return IridiumMessagingUnknown(self).upgrade()
+                else:
+                    self._new_error("unknown msg_format")
+        except ParserError,e:
+            self._new_error(str(e))
+            return self
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingMessage,self)._pretty_header()
@@ -204,7 +208,7 @@ class IridiumMessagingMessage(IridiumMessage):
     def pretty(self):
         str= "IMS: "+self._pretty_header()
         if("msg_format" in self.__dict__):
-            str+= " "+self.msg_data
+            str+= " "+group(self.msg_data,20)
         str+=self._pretty_trailer()
         return str
         
@@ -267,6 +271,32 @@ class IridiumMessagingAscii(IridiumMessagingMessage):
     def pretty(self):
        str= "MSG: "+self._pretty_header()
        str+= " %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
+       str+= self._pretty_trailer()
+       return str
+        
+class IridiumMessagingUnknown(IridiumMessagingMessage):
+    def __init__(self,immsg):
+        self.__dict__=copy.deepcopy(immsg.__dict__)
+        rest=self.msg_data
+        self.msg_seq=int(rest[0:6],2)
+        self.msg_zero1=int(rest[6:10],2)
+        if(self.msg_zero1 != 0):
+            self._new_error("zero1 is not all-zero")
+        self.msg_unknown1=rest[10:20]
+        rest=rest[20:]
+        self.msg_unknown2=rest[:1]
+        self.msg_msgdata=rest[1:]
+    def upgrade(self):
+        if self.error: return self
+        return self
+    def _pretty_header(self):
+        str= super(IridiumMessagingUnknown,self)._pretty_header()
+        return str+ " seq:%02d %10s %s"%(self.msg_seq,self.msg_unknown1,self.msg_unknown2)
+    def _pretty_trailer(self):
+        return super(IridiumMessagingUnknown,self)._pretty_trailer()
+    def pretty(self):
+       str= "MS3: "+self._pretty_header()
+       str+= " %-65s"%group(self.msg_msgdata,4)
        str+= self._pretty_trailer()
        return str
         
