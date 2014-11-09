@@ -145,9 +145,22 @@ class IridiumMessagingMessage(IridiumMessage):
                 raise ParserError("Parity error")
             self.bitstream_messaging+=msg
             self.oddbits+=odd
+
         rest=self.bitstream_messaging
-        # There is an unparsed 20-bit header
-        self.msg_header=rest[0:20]
+
+        self.zero1 = rest[0:4]
+        if self.zero1 != '0000':
+            self._new_error("zero1 not 0000")
+
+        self.cycle = int(rest[4:4+4], 2)
+        self.cell = int(rest[8:8+6], 2)
+        self.blocks = int(rest[14:18], 2)
+        self.unkown1=rest[18]
+        self.secondary = int(rest[19])
+
+        if len(self.bitstream_messaging) != self.blocks * 40:
+            self._new_error("Incorrect amount of data received")
+
         # If oddbits ends in 1, this is an all-1 block -- remove it
         self.msg_trailer=""
         if(self.oddbits[-1]=="1"):
@@ -185,10 +198,10 @@ class IridiumMessagingMessage(IridiumMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingMessage,self)._pretty_header()
+        str += " odd:%-26s %1d:%02d %s sec:%d %-80s" % (self.oddbits, self.cycle, self.cell, self.unkown1, self.secondary, self.msg_pre)
         if("msg_format" in self.__dict__):
-            return str+ " odd:%-26s %s %-80s ric:%07d fmt:%02d"%(self.oddbits,self.msg_header,self.msg_pre,self.msg_ric,self.msg_format)
-        else:
-            return str+ " odd:%-26s %s %-80s"%(self.oddbits,self.msg_header,self.msg_pre)
+            str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
+        return str
     def _pretty_trailer(self):
         return super(IridiumMessagingMessage,self)._pretty_trailer()
     def pretty(self):
