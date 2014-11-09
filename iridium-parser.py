@@ -63,7 +63,9 @@ class Message(object):
         return self
     def _new_error(self,msg):
         self.error=True
-        self.error_msg.append(str(type(self).__name__) + ": "+msg);
+        msg=str(type(self).__name__) + ": "+msg
+        if not self.error_msg or self.error_msg[-1] != msg:
+            self.error_msg.append(str(type(self).__name__) + ": "+msg)
     def _pretty_header(self):
        return "%s %07d %010d %3d%% %.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
     def _pretty_trailer(self):
@@ -239,7 +241,10 @@ class IridiumMessagingAscii(IridiumMessagingMessage):
                 self.msg_ascii+="[%d]"%character
             else:
                 self.msg_ascii+=chr(character)
-        self.msg_rest=self.msg_msgdata[-(len(self.msg_msgdata)%7):]
+        if len(self.msg_msgdata)%7:
+            self.msg_rest=self.msg_msgdata[-(len(self.msg_msgdata)%7):]
+        else:
+            self.msg_rest=""
         #TODO: maybe checksum checks
     def upgrade(self):
         if self.error: return self
@@ -250,7 +255,7 @@ class IridiumMessagingAscii(IridiumMessagingMessage):
     def _pretty_trailer(self):
         return super(IridiumMessagingAscii,self)._pretty_trailer()
     def pretty(self):
-       str= "MSG: "+self._pretty_header()+" "+self.msg_ascii+" +"+self.msg_rest+self._pretty_trailer()
+       str= "MSG: "+self._pretty_header()+" %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest+self._pretty_trailer()
        return str
         
 
