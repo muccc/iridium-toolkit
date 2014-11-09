@@ -106,7 +106,7 @@ class IridiumMessage(Message):
         return self
     def _pretty_header(self):
         str= super(IridiumMessage,self)._pretty_header()
-        str+= " len:%03d"%(len(self.header+self.bitstream_descrambled+self.descramble_extra)/2)
+        str+= " %03d"%(len(self.header+self.bitstream_descrambled+self.descramble_extra)/2)
         str+=" L:"+("no","OK")[self.lead_out_ok]+" "+self.header
         return str
     def _pretty_trailer(self):
@@ -149,13 +149,13 @@ class IridiumMessagingMessage(IridiumMessage):
         if self.zero1 != '0000':
             self._new_error("zero1 not 0000")
 
-        self.cycle = int(rest[4:4+4], 2)
-        self.cell = int(rest[8:8+6], 2)
-        self.blocks = int(rest[14:18], 2)
-        self.unkown1=rest[18]
-        self.secondary = int(rest[19])
+        self.block = int(rest[4:4+4], 2)        # Block number in the super frame
+        self.frame = int(rest[8:8+6], 2)        # Current frame number (OR: Current cell number)
+        self.bch_blocks = int(rest[14:18], 2)   # Number of BCH blocks in this message
+        self.unknown1=rest[18]                  # ?
+        self.secondary = int(rest[19])          # Something like secondary SV
 
-        if len(self.bitstream_messaging) != self.blocks * 40:
+        if len(self.bitstream_messaging) != self.bch_blocks * 40:
             self._new_error("Incorrect amount of data received")
 
         # If oddbits ends in 1, this is an all-1 block -- remove it
@@ -195,7 +195,7 @@ class IridiumMessagingMessage(IridiumMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingMessage,self)._pretty_header()
-        str+= " odd:%-26s %1d:%02d %s sec:%d %-83s" % (self.oddbits, self.cycle, self.cell, self.unkown1, self.secondary, group(self.msg_pre,20))
+        str+= " odd:%-26s %1d:%02d %s sec:%d %-83s" % (self.oddbits, self.block, self.frame, self.unknown1, self.secondary, group(self.msg_pre,20))
         if("msg_format" in self.__dict__):
             str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
         return str
