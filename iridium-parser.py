@@ -9,9 +9,10 @@ import types
 import copy
 from itertools import izip
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vi:', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:', [
                                                          'verbose',
                                                          'input',
+                                                         'output',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -21,12 +22,15 @@ messaging_bch_poly=1897
 
 verbose = False
 input= "raw"
+output= "line"
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
         verbose = True
     elif opt in ('-i', '--input'):
-        short=arg
+        input=arg
+    elif opt in ('-o', '--output'):
+        output=arg
 
 class ParserError(Exception):
     pass
@@ -97,12 +101,14 @@ class IridiumMessage(Message):
             self.descramble_extra=""
     def upgrade(self):
         if self.error: return self
-        if(self.header == header_messaging):
-            try:
+        try:
+            if(self.header == header_messaging):
                 return IridiumMessagingMessage(self).upgrade()
-            except ParserError,e:
-                self._new_error(str(e))
-                return self
+            else:
+                self._new_error("unknown Iridium message type")
+        except ParserError,e:
+            self._new_error(str(e))
+            return self
         return self
     def _pretty_header(self):
         str= super(IridiumMessage,self)._pretty_header()
@@ -315,13 +321,40 @@ def group(string,n): # similar to grouped, but keeps rest at the end
     string=re.sub('(.{%d})'%n,'\\1 ',string)
     return string.rstrip()
 
+messages=[]
+errors=[]
 for line in fileinput.input(remainder):
     line=line.strip()
     q=Message(line.strip()).upgrade()
     if(q.error):
-        print q.pretty()+" ERR:"+", ".join(q.error_msg)
-    else:
-        print q.pretty()
+        errors.append(q)
+    elif type(q).__name__ == "IridiumMessagingAscii":
+        messages.append(q)
+    if output == "line":
+        if(q.error):
+            print q.pretty()+" ERR:"+", ".join(q.error_msg)
+        else:
+            print q.pretty()
+
+if output == "errors":
+    print "### "
+    print "### Error listing:"
+    print "### "
+    sort={}
+    for m in errors:
+        msg=m.error_msg[0]
+        if(msg in sort):
+            sort[msg].append(m)
+        else:
+            sort[msg]=[m]
+    for msg in sort:
+        print msg+":"
+        for m in sort[msg]:
+            print "- "+m.pretty()
+
+if output == "msg":
+    for m in messages:
+        pass
 
 def objprint(q):
     for i in dir(q):
