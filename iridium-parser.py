@@ -246,7 +246,7 @@ class IridiumMessagingAscii(IridiumMessagingMessage):
         self.msg_zero2=rest[0]
         if(self.msg_zero2 != "0"):
             self._new_error("zero2 is not zero")
-        self.msg_checksum=rest[1:8]
+        self.msg_checksum=int(rest[1:8],2)
         self.msg_msgdata=rest[8:]
         m=re.compile('(\d{7})').findall(self.msg_msgdata)
         self.msg_ascii=""
@@ -317,6 +317,24 @@ def de_interleave(group):
     field = odd + even
     return field
 
+def faketimestamp(self):
+    mm=re.match("(\d\d)-(\d\d)-(20\d\d)T(\d\d)-(\d\d)-(\d\d)-s1",self.filename)
+    if mm:
+        fdt=float(mm.group(3))-2014
+        fdt*=12
+        fdt+=int(mm.group(1))
+        fdt*=31
+        fdt+=int(mm.group(2))
+        fdt*=24
+        fdt+=int(mm.group(4))
+        fdt*=60
+        fdt+=int(mm.group(5))
+        fdt*=60
+        fdt+=int(mm.group(6))
+        fdt*=2
+        fdt+=float(self.timestamp)/1000
+        self.globaltime=fdt
+
 def group(string,n): # similar to grouped, but keeps rest at the end
     string=re.sub('(.{%d})'%n,'\\1 ',string)
     return string.rstrip()
@@ -329,6 +347,7 @@ for line in fileinput.input(remainder):
     if(q.error):
         errors.append(q)
     elif type(q).__name__ == "IridiumMessagingAscii":
+        faketimestamp(q)
         messages.append(q)
     if output == "line":
         if(q.error):
@@ -353,8 +372,40 @@ if output == "errors":
             print "- "+m.pretty()
 
 if output == "msg":
+    buf={}
     for m in messages:
-        pass
+        str="%12.3f"%m.globaltime
+        str+=" %7d %2d"%(m.msg_ric,m.msg_seq)
+        str+=" %d/%d"%(m.msg_ctr,m.msg_ctr_max)
+        str+=" %s"%m.msg_ascii
+#        print str
+        id="%07d[%02d]"%(m.msg_ric,m.msg_seq)
+        ts=m.globaltime
+        if id in buf:
+            buf[id].msgs[m.msg_ctr]=m.msg_ascii
+        else:
+            m.msgs=['[NOTYET]']*3
+            m.msgs[m.msg_ctr]=m.msg_ascii
+            buf[id]=m
+        dellist=[]
+        for b in buf:
+            if buf[b].globaltime +2000 < ts:
+                msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
+                msg=re.sub("\[3\]","",msg)
+                csum=0
+                msglist=[ord(x) for x in re.findall(".",msg)]
+                for c in msglist:
+                    csum+=c
+                csum=~csum
+                csum%=128
+                str="Message %s (len:%d)"%(b,buf[b].msg_ctr_max)
+#                str+= " <%3d/%3d>"%(buf[b].msg_checksum,csum)
+                str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
+                str+= ": %s"%(msg)
+                print str
+                dellist.append(b)
+        for d in dellist:
+            del buf[d]
 
 def objprint(q):
     for i in dir(q):
