@@ -335,6 +335,12 @@ def faketimestamp(self):
         fdt+=float(self.timestamp)/1000
         self.globaltime=fdt
 
+def messagechecksum(msg):
+    csum=0
+    for x in re.findall(".",msg):
+        csum=(csum+ord(x))%128
+    return (~csum)%128
+
 def group(string,n): # similar to grouped, but keeps rest at the end
     string=re.sub('(.{%d})'%n,'\\1 ',string)
     return string.rstrip()
@@ -382,7 +388,7 @@ if output == "msg":
         id="%07d[%02d]"%(m.msg_ric,m.msg_seq)
         ts=m.globaltime
         if id in buf:
-            buf[id].msgs[m.msg_ctr]=m.msg_ascii
+            buf[id].msgs[m.msg_ctr]=m.msg_ascii # XXX: check if already something there
         else:
             m.msgs=['[NOTYET]']*3
             m.msgs[m.msg_ctr]=m.msg_ascii
@@ -391,15 +397,9 @@ if output == "msg":
         for b in buf:
             if buf[b].globaltime +2000 < ts:
                 msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
-                msg=re.sub("\[3\]","",msg)
-                csum=0
-                msglist=[ord(x) for x in re.findall(".",msg)]
-                for c in msglist:
-                    csum+=c
-                csum=~csum
-                csum%=128
+                msg=re.sub("\[3\]","",msg) # XXX: should be done differently
+                csum=messagechecksum(msg)
                 str="Message %s (len:%d)"%(b,buf[b].msg_ctr_max)
-#                str+= " <%3d/%3d>"%(buf[b].msg_checksum,csum)
                 str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
                 str+= ": %s"%(msg)
                 print str
