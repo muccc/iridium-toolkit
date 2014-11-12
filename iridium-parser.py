@@ -103,7 +103,7 @@ class IridiumMessage(Message):
         if self.error: return self
         try:
             if(self.header == header_messaging):
-                return IridiumMessagingMessage(self).upgrade()
+                return IridiumECCMessage(self).upgrade()
             else:
                 self._new_error("unknown Iridium message type")
         except ParserError,e:
@@ -125,7 +125,7 @@ class IridiumMessage(Message):
         str+= self._pretty_trailer()
         return str
 
-class IridiumMessagingMessage(IridiumMessage):
+class IridiumECCMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
         poly="{0:011b}".format(messaging_bch_poly)
@@ -148,7 +148,29 @@ class IridiumMessagingMessage(IridiumMessage):
                 raise ParserError("Parity error")
             self.bitstream_messaging+=msg
             self.oddbits+=odd
+    def upgrade(self):
+        if self.error: return self
+        try:
+            return IridiumMessagingMessage(self).upgrade()
+        except ParserError,e:
+            self._new_error(str(e))
+            return self
+        return self
+    def _pretty_header(self):
+        str= super(IridiumECCMessage,self)._pretty_header()
+        str+= " odd:%-26s" % (self.oddbits)
+        return str
+    def _pretty_trailer(self):
+        return super(IridiumECCMessage,self)._pretty_trailer()
+    def pretty(self):
+        str= "IME: "+self._pretty_header()
+        str+= " "+group(self.bitstream_messaging,20)
+        str+=self._pretty_trailer()
+        return str
 
+class IridiumMessagingMessage(IridiumECCMessage):
+    def __init__(self,imsg):
+        self.__dict__=copy.deepcopy(imsg.__dict__)
         rest=self.bitstream_messaging
 
         self.zero1 = rest[0:4]
@@ -205,7 +227,7 @@ class IridiumMessagingMessage(IridiumMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingMessage,self)._pretty_header()
-        str+= " odd:%-26s %1d:%02d %s sec:%d %-83s" % (self.oddbits, self.block, self.frame, self.unknown1, self.secondary, group(self.msg_pre,20))
+        str+= " %1d:%02d %s sec:%d %-83s" % (self.block, self.frame, self.unknown1, self.secondary, group(self.msg_pre,20))
         if("msg_format" in self.__dict__):
             str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
         return str
