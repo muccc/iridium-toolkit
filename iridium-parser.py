@@ -356,6 +356,13 @@ def faketimestamp(self):
         fdt*=2
         fdt+=float(self.timestamp)/1000
         self.globaltime=fdt
+        return
+    mm=re.match("i-(\d+)-s1",self.filename)
+    if mm:
+        fdt=float(mm.group(1))+float(self.timestamp)/1000
+        self.globaltime=fdt
+        return
+    self.globaltime=0
 
 def messagechecksum(msg):
     csum=0
@@ -417,7 +424,7 @@ if output == "msg":
             buf[id]=m
         dellist=[]
         for b in buf:
-            if buf[b].globaltime +2000 < ts:
+            if buf[b].globaltime +300 < ts:
                 msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
                 msg=re.sub("\[3\]","",msg) # XXX: should be done differently
                 csum=messagechecksum(msg)
