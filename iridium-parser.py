@@ -104,6 +104,8 @@ class IridiumMessage(Message):
         try:
             if(self.header == header_messaging):
                 return IridiumECCMessage(self).upgrade()
+            elif(self.frequency>1626229167 and self.frequency<1626312500):
+                return IridiumRAMessage(self).upgrade()
             else:
                 self._new_error("unknown Iridium message type")
         except ParserError,e:
@@ -123,6 +125,53 @@ class IridiumMessage(Message):
         str= "IRI: "+self._pretty_header()
         str+= " "+group(self.bitstream_descrambled,32)
         str+= self._pretty_trailer()
+        return str
+
+class IridiumRAMessage(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=copy.deepcopy(imsg.__dict__)
+        poly="{0:011b}".format(1207)
+        self.bitstream_messaging=""
+        self.oddbits=""
+        self.fixederrs=0
+        rest=self.bitstream_descrambled[64:]
+        self.ra_header=self.bitstream_descrambled[:64]
+        m=re.compile('(\d)(\d{20})(\d{10})(\d)').findall(rest)
+        # TODO: bch_ok and parity_ok arrays
+        for (odd,msg,bch,parity) in m:
+            (errs,bnew)=repair(poly, odd+msg+bch)
+            if(errs>0):
+                self.fixederrs+=1
+                odd=bnew[0]
+                msg=bnew[1:21]
+                bch=bnew[21:]
+            if(errs<0):
+                raise ParserError("RA BCH decode failed")
+            parity=len(re.sub("0","",odd+msg+bch+parity))%2
+            if parity==1:
+                raise ParserError("RA Parity error")
+            self.bitstream_messaging+=odd+msg
+#            self.oddbits+=odd
+    def upgrade(self):
+        if self.error: return self
+        try:
+            return self
+        except ParserError,e:
+            self._new_error(str(e))
+            return self
+        return self
+    def _pretty_header(self):
+        str= super(IridiumRAMessage,self)._pretty_header()
+        str+= " %s" % (group(self.ra_header,32))
+#        str+= " odd:%-26s" % (self.oddbits)
+        return str
+    def _pretty_trailer(self):
+        return super(IridiumRAMessage,self)._pretty_trailer()
+    def pretty(self):
+        str= "IRA: "+self._pretty_header()
+        str+= " fix:%d"%self.fixederrs
+        str+= " "+group(self.bitstream_messaging,21)
+        str+=self._pretty_trailer()
         return str
 
 class IridiumECCMessage(IridiumMessage):
