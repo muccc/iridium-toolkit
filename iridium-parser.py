@@ -424,6 +424,7 @@ def group(string,n): # similar to grouped, but keeps rest at the end
     return string.rstrip()
 
 messages=[]
+all=[]
 errors=[]
 for line in fileinput.input(remainder):
     line=line.strip()
@@ -433,11 +434,39 @@ for line in fileinput.input(remainder):
     elif type(q).__name__ == "IridiumMessagingAscii":
         faketimestamp(q)
         messages.append(q)
+    if(output == "sat" and not q.error):
+        faketimestamp(q)
+        all.append(q)
     if output == "line":
         if(q.error):
             print q.pretty()+" ERR:"+", ".join(q.error_msg)
         else:
             print q.pretty()
+
+if output == "sat":
+    print "SATs:"
+    sats=[]
+    for m in all:
+        f=m.frequency
+        t=m.globaltime
+        no=-1
+        for s in xrange(len(sats)):
+            fdiff=(sats[s][0]-f)/(t-sats[s][1])
+            if f<sats[s][0] and fdiff<250:
+                no=s
+        if no>-1:
+            m.fdiff=(sats[no][0]-f)/(t-sats[no][1])
+            sats[no][0]=f
+            sats[no][1]=t
+        else:
+            no=len(sats)
+            sats.append([f,t])
+            m.fdiff=0
+        m.satno=no
+    for s in xrange(len(sats)):
+        print "Sat: %02d"%s
+        for m in all:
+            if m.satno == s: print m.pretty()
 
 if output == "errors":
     print "### "
