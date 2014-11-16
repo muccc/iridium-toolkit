@@ -123,7 +123,7 @@ class IridiumMessage(Message):
         return str
     def pretty(self):
         str= "IRI: "+self._pretty_header()
-        str+= " "+group(self.bitstream_descrambled,32)
+        str+= " "+re.sub("(\d)(\d{20})(\d{10})(\d)","{\\1 \\2 \\3 \\4} ",self.bitstream_descrambled)
         str+= self._pretty_trailer()
         return str
 
