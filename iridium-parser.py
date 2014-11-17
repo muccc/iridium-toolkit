@@ -231,6 +231,15 @@ class IridiumMessagingMessage(IridiumECCMessage):
         self.bch_blocks = int(rest[14:18], 2)   # Number of BCH blocks in this message
         self.unknown1=rest[18]                  # ?
         self.secondary = int(rest[19])          # Something like secondary SV
+        self.ctr1=int(rest[20:32],2)
+
+        if(self.oddbits[0]=="1"):
+            self.group="A"
+            self.agroup=0
+        else:
+            self.group=int(rest[18:20],2)
+            self.agroup=1+self.group
+        self.tdiff=((self.block*5+self.agroup)*48+self.frame)*90
 
         if len(self.bitstream_messaging) != self.bch_blocks * 40:
             self._new_error("Incorrect amount of data received")
@@ -276,7 +285,13 @@ class IridiumMessagingMessage(IridiumECCMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingMessage,self)._pretty_header()
-        str+= " %1d:%02d %s sec:%d %-83s" % (self.block, self.frame, self.unknown1, self.secondary, group(self.msg_pre,20))
+        str+= " %1d:%s:%02d" % (self.block, self.group,self.frame)
+        if(self.oddbits == "1011"):
+            str+= " %s sec:%d %-83s" % (self.unknown1, self.secondary, group(self.msg_pre,20))
+        elif(self.group == "A"):
+            str+= " %s s:%d%s c=%04d       %s %-62s" % (self.unknown1, self.secondary, self.oddbits[1], self.ctr1, self.msg_pre[12:20],group(self.msg_pre[20:],20))
+        else:
+            str+= "         %-83s" % (group(self.msg_pre,20))
         if("msg_format" in self.__dict__):
             str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
         return str
