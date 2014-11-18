@@ -438,30 +438,45 @@ def group(string,n): # similar to grouped, but keeps rest at the end
     string=re.sub('(.{%d})'%n,'\\1 ',string)
     return string.rstrip()
 
-messages=[]
-all=[]
-errors=[]
-for line in fileinput.input(remainder):
-    line=line.strip()
-    q=Message(line.strip()).upgrade()
-    if(q.error):
-        errors.append(q)
-    elif type(q).__name__ == "IridiumMessagingAscii":
-        faketimestamp(q)
-        messages.append(q)
-    if(output == "sat" and not q.error):
-        faketimestamp(q)
-        all.append(q)
-    if output == "line":
+selected=[]
+
+def do_input(type):
+    if type=="raw":
+        for line in fileinput.input(remainder):
+            line=line.strip()
+            q=Message(line.strip()).upgrade()
+            perline(q)
+    else:
+        print "Unknown input mode."
+        exit(1)
+
+def perline(q):
+    if output == "err":
+        if(q.error):
+            selected.append(q)
+    elif output == "msg":
+        if type(q).__name__ == "IridiumMessagingAscii":
+            faketimestamp(q)
+            selected.append(q)
+    elif output == "sat":
+        if not q.error and not q.oddbits == "1011":
+            faketimestamp(q)
+            selected.append(q)
+    elif output == "line":
         if(q.error):
             print q.pretty()+" ERR:"+", ".join(q.error_msg)
         else:
             print q.pretty()
+    else:
+        print "Unknown output mode."
+        exit(1)
+
+do_input(input)
 
 if output == "sat":
     print "SATs:"
     sats=[]
-    for m in all:
+    for m in selected:
         f=m.frequency
         t=m.globaltime
         no=-1
@@ -480,15 +495,15 @@ if output == "sat":
         m.satno=no
     for s in xrange(len(sats)):
         print "Sat: %02d"%s
-        for m in all:
+        for m in selected:
             if m.satno == s: print m.pretty()
 
-if output == "errors":
+if output == "err":
     print "### "
     print "### Error listing:"
     print "### "
     sort={}
-    for m in errors:
+    for m in selected:
         msg=m.error_msg[0]
         if(msg in sort):
             sort[msg].append(m)
@@ -502,7 +517,7 @@ if output == "errors":
 if output == "msg":
     buf={}
     ricseq={}
-    for m in messages:
+    for m in selected:
         # msg_seq wraps around after 61, detect it, and fix it.
         if m.msg_ric in ricseq:
             if (m.msg_seq + 10) < ricseq[m.msg_ric][1]: # seq wrapped around
