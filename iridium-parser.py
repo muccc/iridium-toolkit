@@ -8,6 +8,7 @@ import getopt
 import types
 import copy
 from itertools import izip
+import cPickle as pickle
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:', [
                                                          'verbose',
@@ -23,6 +24,7 @@ messaging_bch_poly=1897
 verbose = False
 input= "raw"
 output= "line"
+dumpfile="pickle.dump"
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
@@ -438,6 +440,8 @@ def group(string,n): # similar to grouped, but keeps rest at the end
     string=re.sub('(.{%d})'%n,'\\1 ',string)
     return string.rstrip()
 
+if output == "dump":
+    file=open(dumpfile,"wb")
 selected=[]
 
 def do_input(type):
@@ -446,6 +450,14 @@ def do_input(type):
             line=line.strip()
             q=Message(line.strip()).upgrade()
             perline(q)
+    elif type=="dump":
+        file=open(dumpfile,"rb")
+        try:
+            while True:
+                q=pickle.load(file)
+                perline(q)
+        except EOFError:
+            pass
     else:
         print "Unknown input mode."
         exit(1)
@@ -462,6 +474,8 @@ def perline(q):
         if not q.error and not q.oddbits == "1011":
             faketimestamp(q)
             selected.append(q)
+    elif output == "dump":
+        pickle.dump(q,file,1)
     elif output == "line":
         if(q.error):
             print q.pretty()+" ERR:"+", ".join(q.error_msg)
