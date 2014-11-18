@@ -10,10 +10,12 @@ import copy
 from itertools import izip
 import cPickle as pickle
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:', [
+
+options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:p', [
                                                          'verbose',
                                                          'input',
                                                          'output',
+                                                         'perfect',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -22,6 +24,7 @@ header_messaging="00110011111100110011001111110011"
 messaging_bch_poly=1897
 
 verbose = False
+perfect = False
 input= "raw"
 output= "line"
 dumpfile="pickle.dump"
@@ -29,6 +32,8 @@ dumpfile="pickle.dump"
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
         verbose = True
+    if opt in ('-p', '--perfect'):
+        perfect = True
     elif opt in ('-i', '--input'):
         input=arg
     elif opt in ('-o', '--output'):
@@ -478,7 +483,8 @@ def perline(q):
         pickle.dump(q,file,1)
     elif output == "line":
         if(q.error):
-            print q.pretty()+" ERR:"+", ".join(q.error_msg)
+            if(not perfect):
+                print q.pretty()+" ERR:"+", ".join(q.error_msg)
         else:
             print q.pretty()
     else:
