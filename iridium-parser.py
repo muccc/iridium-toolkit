@@ -233,7 +233,7 @@ class IridiumMessagingMessage(IridiumECCMessage):
         self.bch_blocks = int(rest[14:18], 2)   # Number of BCH blocks in this message
         self.unknown1=rest[18]                  # ?
         self.secondary = int(rest[19])          # Something like secondary SV
-        self.ctr1=int(rest[20:32],2)
+        self.ctr1=int(rest[19]+self.oddbits[1]+rest[20:32],2)
 
         if(self.oddbits[0]=="1"):
             self.group="A"
@@ -291,7 +291,7 @@ class IridiumMessagingMessage(IridiumECCMessage):
         if(self.oddbits == "1011"):
             str+= " %s sec:%d %-83s" % (self.unknown1, self.secondary, group(self.msg_pre,20))
         elif(self.group == "A"):
-            str+= " %s s:%d%s c=%04d       %s %-62s" % (self.unknown1, self.secondary, self.oddbits[1], self.ctr1, self.msg_pre[12:20],group(self.msg_pre[20:],20))
+            str+= " %s c=%05d           %s %-62s" % (self.unknown1, self.ctr1, self.msg_pre[12:20],group(self.msg_pre[20:],20))
         else:
             str+= "         %-83s" % (group(self.msg_pre,20))
         if("msg_format" in self.__dict__):
@@ -310,7 +310,7 @@ class IridiumMessagingAscii(IridiumMessagingMessage):
     def __init__(self,immsg):
         self.__dict__=copy.deepcopy(immsg.__dict__)
         rest=self.msg_data
-        self.msg_seq=int(rest[0:6],2)
+        self.msg_seq=int(rest[0:6],2) # 0-61 (62/63 seem unused)
         self.msg_zero1=int(rest[6:10],2)
         if(self.msg_zero1 != 0):
             self._new_error("zero1 is not all-zero")
