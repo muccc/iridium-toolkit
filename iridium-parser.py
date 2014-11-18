@@ -501,33 +501,37 @@ if output == "errors":
 
 if output == "msg":
     buf={}
+    ricseq={}
     for m in messages:
-        str="%12.3f"%m.globaltime
-        str+=" %7d %2d"%(m.msg_ric,m.msg_seq)
-        str+=" %d/%d"%(m.msg_ctr,m.msg_ctr_max)
-        str+=" %s"%m.msg_ascii
-#        print str
-        id="%07d[%02d]"%(m.msg_ric,m.msg_seq)
+        # msg_seq wraps around after 61, detect it, and fix it.
+        if m.msg_ric in ricseq:
+            if (m.msg_seq + 10) < ricseq[m.msg_ric][1]: # seq wrapped around
+                ricseq[m.msg_ric][0]+=62
+        else:
+            ricseq[m.msg_ric]=[0,0]
+        ricseq[m.msg_ric][1]=m.msg_seq
+        id="%07d[%03d]"%(m.msg_ric,(m.msg_seq+ricseq[m.msg_ric][0]))
         ts=m.globaltime
         if id in buf:
-            buf[id].msgs[m.msg_ctr]=m.msg_ascii # XXX: check if already something there
+            if buf[id].msg_checksum != m.msg_checksum:
+                print "Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)",id,buf[id].globaltime,buf[id].msg_checksum,m.globaltime,m.msg_checksum
+                continue
+            buf[id].msgs[m.msg_ctr]=m.msg_ascii
         else:
             m.msgs=['[NOTYET]']*3
             m.msgs[m.msg_ctr]=m.msg_ascii
             buf[id]=m
-        dellist=[]
-        for b in buf:
-            if buf[b].globaltime +300 < ts:
-                msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
-                msg=re.sub("\[3\]","",msg) # XXX: should be done differently
-                csum=messagechecksum(msg)
-                str="Message %s (len:%d)"%(b,buf[b].msg_ctr_max)
-                str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
-                str+= ": %s"%(msg)
-                print str
-                dellist.append(b)
-        for d in dellist:
-            del buf[d]
+
+    for b in buf: # XXX: sort by time?
+        msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
+        msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
+        csum=messagechecksum(msg)
+        str="Message %s (len:%d)"%(b,buf[b].msg_ctr_max)
+#        str=" @%s"%(int(buf[b].globaltime/60))
+#        str+= " %3d"%buf[b].msg_checksum
+        str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
+        str+= ": %s"%(msg)
+        print str
 
 def objprint(q):
     for i in dir(q):
