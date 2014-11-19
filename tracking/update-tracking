@@ -1,0 +1,2 @@
+rm iridium.txt
+wget http://www.celestrak.com/NORAD/elements/iridium.txt
