@@ -433,6 +433,11 @@ def faketimestamp(self):
         fdt=float(mm.group(1))+float(self.timestamp)/1000
         self.globaltime=fdt
         return
+    mm=re.match("i-(\d+\.\d+)-s1",self.filename)
+    if mm:
+        fdt=float(mm.group(1))+float(self.timestamp)/1000
+        self.globaltime=fdt
+        return
     self.globaltime=0
 
 def messagechecksum(msg):
