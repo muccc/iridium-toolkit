@@ -42,6 +42,9 @@ for opt, arg in options:
 class ParserError(Exception):
     pass
         
+tswarning=False
+tsoffset=0
+maxts=0
 class Message(object):
     def __init__(self,line):
         p=re.compile('RAW: ([^ ]*) (\d+) (\d+) A:(\w+) L:(\w+) +(\d+)% ([\d.]+) +(\d+) ([\[\]<> 01]+)(.*)')
@@ -62,6 +65,31 @@ class Message(object):
         if m.group(10):
             self.extra_data=m.group(10)
             self._new_error("There is crap at the end in extra_data")
+        # Make a "global" timestamp
+        global tswarning,tsoffset,maxts
+        mm=re.match("(\d\d)-(\d\d)-(20\d\d)T(\d\d)-(\d\d)-(\d\d)-s1",self.filename)
+        if mm:
+            month, day, year, hour, minute, second = mm.groups()
+            ts=datetime.datetime(year,month,day,hour,minute,second)
+            ts=(ts- datetime.datetime(1970,1,1)).total_seconds
+            ts+=float(self.timestamp)/1000
+            self.globaltime=ts
+            return
+        mm=re.match("i-(\d+(?:\.\d+)?)-s1",self.filename)
+        if mm:
+            ts=float(mm.group(1))+float(self.timestamp)/1000
+            self.globaltime=ts
+            return
+        if not tswarning:
+            print "Warning: no timestamp found in filename"
+            tswarning=True
+        ts=tsoffset+float(self.timestamp)/1000
+        if ts<maxts:
+            tsoffset=maxts
+            ts=tsoffset+float(self.timestamp)/1000
+        maxts=ts
+        self.globaltime=ts
+
     def upgrade(self):
         if self.error: return self
         if(self.bitstream_raw.startswith(iridium_access)):
@@ -77,11 +105,11 @@ class Message(object):
         if not self.error_msg or self.error_msg[-1] != msg:
             self.error_msg.append(msg)
     def _pretty_header(self):
-       return "%s %07d %010d %3d%% %.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
+        return "%s %07d %010d %3d%% %.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
     def _pretty_trailer(self):
         return ""
     def pretty(self):
-        str= "MSG: "+self._pretty_header()
+        str= "RAW: "+self._pretty_header()
         str+= " "+self.bitstream_raw
         if("extra_data" in self.__dict__):
             str+=" "+self.extra_data
@@ -410,36 +438,6 @@ def de_interleave(group):
     field = odd + even
     return field
 
-def faketimestamp(self):
-    mm=re.match("(\d\d)-(\d\d)-(20\d\d)T(\d\d)-(\d\d)-(\d\d)-s1",self.filename)
-    if mm:
-        fdt=float(mm.group(3))-2014
-        fdt*=12
-        fdt+=int(mm.group(1))
-        fdt*=31
-        fdt+=int(mm.group(2))
-        fdt*=24
-        fdt+=int(mm.group(4))
-        fdt*=60
-        fdt+=int(mm.group(5))
-        fdt*=60
-        fdt+=int(mm.group(6))
-        fdt*=2
-        fdt+=float(self.timestamp)/1000
-        self.globaltime=fdt
-        return
-    mm=re.match("i-(\d+)-s1",self.filename)
-    if mm:
-        fdt=float(mm.group(1))+float(self.timestamp)/1000
-        self.globaltime=fdt
-        return
-    mm=re.match("i-(\d+\.\d+)-s1",self.filename)
-    if mm:
-        fdt=float(mm.group(1))+float(self.timestamp)/1000
-        self.globaltime=fdt
-        return
-    self.globaltime=0
-
 def messagechecksum(msg):
     csum=0
     for x in re.findall(".",msg):
@@ -478,11 +476,9 @@ def perline(q):
             selected.append(q)
     elif output == "msg":
         if type(q).__name__ == "IridiumMessagingAscii":
-            faketimestamp(q)
             selected.append(q)
     elif output == "sat":
         if not q.error and not q.oddbits == "1011":
-            faketimestamp(q)
             selected.append(q)
     elif output == "dump":
         pickle.dump(q,file,1)
