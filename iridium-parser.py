@@ -7,6 +7,7 @@ import fileinput
 import getopt
 import types
 import copy
+import datetime
 from itertools import izip
 import cPickle as pickle
 
@@ -69,9 +70,9 @@ class Message(object):
         global tswarning,tsoffset,maxts
         mm=re.match("(\d\d)-(\d\d)-(20\d\d)T(\d\d)-(\d\d)-(\d\d)-s1",self.filename)
         if mm:
-            month, day, year, hour, minute, second = mm.groups()
+            month, day, year, hour, minute, second = map(int, mm.groups())
             ts=datetime.datetime(year,month,day,hour,minute,second)
-            ts=(ts- datetime.datetime(1970,1,1)).total_seconds
+            ts=(ts- datetime.datetime(1970,1,1)).total_seconds()
             ts+=float(self.timestamp)/1000
             self.globaltime=ts
             return
@@ -544,7 +545,7 @@ if output == "msg":
         if m.msg_ric in ricseq:
             if (m.msg_seq + wrapmargin) < ricseq[m.msg_ric][1]: # seq wrapped around
                 ricseq[m.msg_ric][0]+=62
-            if m.msg_seq > (ricseq[m.msg_ric][1] + wrapmargin): # "wrapped back" (out-of-order old message)
+            if (m.msg_seq + wrapmargin - 62) > ricseq[m.msg_ric][1]: # "wrapped back" (out-of-order old message)
                 ricseq[m.msg_ric][0]-=62
         else:
             ricseq[m.msg_ric]=[0,0]
@@ -568,8 +569,7 @@ if output == "msg":
         msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
         msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
         csum=messagechecksum(msg)
-        str="Message %s (len:%d)"%(b,buf[b].msg_ctr_max)
-#        str=" @%s"%(int(buf[b].globaltime/60))
+        str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(buf[b].globaltime).strftime("%Y-%m-%dT%H:%M:%S"),buf[b].msg_ctr_max)
 #        str+= " %3d"%buf[b].msg_checksum
         str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
         str+= ": %s"%(msg)
