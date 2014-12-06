@@ -9,8 +9,6 @@ import types
 import copy
 import datetime
 from itertools import izip
-import cPickle as pickle
-
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:p', [
                                                          'verbose',
@@ -28,7 +26,6 @@ verbose = False
 perfect = False
 input= "raw"
 output= "line"
-dumpfile="pickle.dump"
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
@@ -39,6 +36,10 @@ for opt, arg in options:
         input=arg
     elif opt in ('-o', '--output'):
         output=arg
+
+if input == "dump" or output == "dump":
+    import cPickle as pickle
+    dumpfile="pickle.dump"
 
 class ParserError(Exception):
     pass
