@@ -570,7 +570,7 @@ if output == "msg":
         msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
         csum=messagechecksum(msg)
         str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(buf[b].globaltime).strftime("%Y-%m-%dT%H:%M:%S"),buf[b].msg_ctr_max)
-#        str+= " %3d"%buf[b].msg_checksum
+        str+= " %3d"%buf[b].msg_checksum
         str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
         str+= ": %s"%(msg)
         print str
