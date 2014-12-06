@@ -452,6 +452,14 @@ def group(string,n): # similar to grouped, but keeps rest at the end
 
 if output == "dump":
     file=open(dumpfile,"wb")
+
+if output == "plot":
+    import matplotlib.pyplot as plt
+    xl=[]
+    yl=[]
+    cl=[]
+    sl=[]
+
 selected=[]
 
 def do_input(type):
@@ -484,6 +492,9 @@ def perline(q):
             selected.append(q)
     elif output == "dump":
         pickle.dump(q,file,1)
+    elif output == "plot":
+        if True:
+            selected.append(q)
     elif output == "line":
         if(q.error):
             if(not perfect):
@@ -575,6 +586,17 @@ if output == "msg":
         str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
         str+= ": %s"%(msg)
         print str
+
+if output == "plot":
+    for m in selected:
+        xl.append(m.globaltime)
+        yl.append(m.frequency)
+#        cl.append(m.satno)
+    plt.scatter(x = xl, y= yl)
+    plt.ylabel('ctr')
+    plt.xlabel('ts')
+#    plt.colorbar().set_label("sat")
+    plt.show()
 
 def objprint(q):
     for i in dir(q):
