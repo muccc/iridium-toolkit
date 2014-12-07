@@ -1,0 +1,42 @@
+#!/bin/sh
+
+store=data
+shutdown=SHUTDOWN
+
+rate=250000
+rate=500000
+len=500
+
+samples=$(echo "$rate * $len"|bc)
+center=1626440000
+center=1626354000
+
+[ ! -d $store ] && mkdir $store
+
+processrecording(){
+        curname=$1
+        ../iridium/doit.pl $curname
+        cat ${curname%.*}.bits >> all.bits
+        rm $curname
+        mv ${curname%.*}* $store/
+        echo "Done with $curname"
+}
+
+while true ; do 
+    newname=i-$(date +%s)-b1.raw
+    newname=i-$(../iridium/epochseconds)-b1.raw
+    uhd_rx_cfile --freq=$center --samp-rate=$rate -A RX2 --gain=50 -N $samples $newname &
+    pid=$!
+    if [ -f "$oldname" ] ; then 
+        processrecording $oldname
+    fi
+    oldname=$newname
+    wait $!
+    if [ -f $shutdown ] ; then
+        rm $shutdown
+        echo "Shutting down..."
+        processrecording $oldname
+        echo "Shut down."
+        break
+    fi
+done
