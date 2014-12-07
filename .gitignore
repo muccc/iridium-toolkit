@@ -3,3 +3,6 @@
 *.pyc
 *.tar.gz
 *.swp
+*.swo
+.mailmap
+iridium.txt

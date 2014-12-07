@@ -1,9 +1,0 @@
-#!/bin/sh
-
-if [ -z "$1" ] ; then
-  dir='*'
-else
-  dir=$1
-fi
-
-cat $dir/*demod |grep ^RAW 
