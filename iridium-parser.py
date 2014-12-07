@@ -10,11 +10,12 @@ import copy
 import datetime
 from itertools import izip
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:p', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:ps', [
                                                          'verbose',
                                                          'input',
                                                          'output',
                                                          'perfect',
+                                                         'satclass',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -24,6 +25,7 @@ messaging_bch_poly=1897
 
 verbose = False
 perfect = False
+dosatclass = False
 input= "raw"
 output= "line"
 
@@ -32,6 +34,8 @@ for opt, arg in options:
         verbose = True
     if opt in ('-p', '--perfect'):
         perfect = True
+    if opt in ('-s', '--satclass'):
+        dosatclass = True
     elif opt in ('-i', '--input'):
         input=arg
     elif opt in ('-o', '--output'):
@@ -40,6 +44,10 @@ for opt, arg in options:
 if input == "dump" or output == "dump":
     import cPickle as pickle
     dumpfile="pickle.dump"
+
+if dosatclass == True:
+    import satclass
+    satclass.init()
 
 class ParserError(Exception):
     pass
@@ -69,7 +77,7 @@ class Message(object):
             self._new_error("There is crap at the end in extra_data")
         # Make a "global" timestamp
         global tswarning,tsoffset,maxts
-        mm=re.match("(\d\d)-(\d\d)-(20\d\d)T(\d\d)-(\d\d)-(\d\d)-s1",self.filename)
+        mm=re.match("(\d\d)-(\d\d)-(20\d\d)T(\d\d)-(\d\d)-(\d\d)-[sr]1",self.filename)
         if mm:
             month, day, year, hour, minute, second = map(int, mm.groups())
             ts=datetime.datetime(year,month,day,hour,minute,second)
@@ -77,7 +85,7 @@ class Message(object):
             ts+=float(self.timestamp)/1000
             self.globaltime=ts
             return
-        mm=re.match("i-(\d+(?:\.\d+)?)-s1",self.filename)
+        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsr]1",self.filename)
         if mm:
             ts=float(mm.group(1))+float(self.timestamp)/1000
             self.globaltime=ts
@@ -481,6 +489,9 @@ def do_input(type):
         exit(1)
 
 def perline(q):
+    if dosatclass == True:
+        sat=satclass.classify(q.frequency,q.globaltime)
+        q.satno=int(sat.name)
     if output == "err":
         if(q.error):
             selected.append(q)
