@@ -598,14 +598,21 @@ if output == "msg":
         str+= ": %s"%(msg)
         print str
 
+def plotsats(plt, _s, _e):
+    for ts in range(int(_s),int(_e),10):
+        for v in satclass.timelist(ts):
+            plt.scatter( x=v[0], y=v[1], c=int(v[2]), alpha=0.5, edgecolor="none", vmin=10, vmax=90)
+
 if output == "plot":
     for m in selected:
         xl.append(m.globaltime)
         yl.append(m.frequency)
 #        cl.append(m.satno)
+#    plotsats(plt,selected[0].globaltime,selected[-1].globaltime)
+#    plt.scatter(x = xl, y= yl, c= cl, vmin=10, vmax=90)
     plt.scatter(x = xl, y= yl)
-    plt.ylabel('ctr')
-    plt.xlabel('ts')
+    plt.ylabel('freq')
+    plt.xlabel('time')
 #    plt.colorbar().set_label("sat")
     plt.show()
 
