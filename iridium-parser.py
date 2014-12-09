@@ -130,6 +130,7 @@ class IridiumMessage(Message):
     def __init__(self,msg):
         self.__dict__=copy.deepcopy(msg.__dict__)
         data=self.bitstream_raw[len(iridium_access):]
+        self.bitstream_3scrambled=de_interleave3(data[:96])
         self.header=data[:32]
         data=data[32:]
         m=re.compile('(\d{64})').findall(data)
@@ -180,7 +181,7 @@ class IridiumRAMessage(IridiumMessage):
         self.oddbits=""
         self.fixederrs=0
         rest=self.bitstream_descrambled[64:]
-        self.ra_header=self.bitstream_descrambled[:64]
+        self.ra_header=self.bitstream_3scrambled
         m=re.compile('(\d)(\d{20})(\d{10})(\d)').findall(rest)
         # TODO: bch_ok and parity_ok arrays
         for (odd,msg,bch,parity) in m:
@@ -207,7 +208,9 @@ class IridiumRAMessage(IridiumMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumRAMessage,self)._pretty_header()
-        str+= " %s" % (group(self.ra_header,32))
+#        str+= " %s" % (group(self.ra_header,32))
+        str+= " sat:%s" % int(self.ra_header[0:7],2)
+        str+= " %s" % (self.ra_header[7:])
 #        str+= " odd:%-26s" % (self.oddbits)
         return str
     def _pretty_trailer(self):
@@ -446,6 +449,14 @@ def de_interleave(group):
     even = ''.join([symbols[x] for x in range(len(symbols)-2,-1, -2)])
     odd  = ''.join([symbols[x] for x in range(len(symbols)-1, 0, -2)])
     field = odd + even
+    return field
+
+def de_interleave3(group):
+    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
+    third  = ''.join([symbols[x] for x in range(len(symbols)-3, -1, -3)])
+    second = ''.join([symbols[x] for x in range(len(symbols)-2, -1, -3)])
+    first  = ''.join([symbols[x] for x in range(len(symbols)-1, -1, -3)])
+    field = first+","+second+","+third+"|"
     return field
 
 def messagechecksum(msg):
