@@ -22,6 +22,7 @@ iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
 iridium_lead_out="100101111010110110110011001111"
 header_messaging="00110011111100110011001111110011"
 messaging_bch_poly=1897
+ringalert_bch_poly=1207
 
 verbose = False
 perfect = False
@@ -130,15 +131,30 @@ class IridiumMessage(Message):
     def __init__(self,msg):
         self.__dict__=copy.deepcopy(msg.__dict__)
         data=self.bitstream_raw[len(iridium_access):]
-        self.bitstream_3scrambled=de_interleave3(data[:96])
-        self.header=data[:32]
-        data=data[32:]
+
+        if data[:32] == header_messaging:
+            self.msgtype="MSG"
+        elif  1626229167<self.frequency<1626312500:
+            self.msgtype="RA"
+        else:
+            raise ParserError("unknown Iridium message type")
+        if self.msgtype=="MSG":
+
+            self.header=data[:32]
+            self.bitstream_descrambled=""
+            data=data[32:]
+        elif self.msgtype=="RA":
+            if  len(data)<96:
+                raise ParserError("No data to descramble")
+            self.header=""
+            self.bitstream_descrambled=de_interleave3(data[:96])
+            data=data[96:]
+
         m=re.compile('(\d{64})').findall(data)
-        self.bitstream_descrambled=""
         for (group) in m:
             self.bitstream_descrambled+=de_interleave(group)
         if(not self.bitstream_descrambled):
-            self._new_error("No data to descramble")
+            raise ParserError("No data to descramble")
         data=data[len(self.bitstream_descrambled):]
         self.lead_out_ok= data.startswith(iridium_lead_out)
         if(data):
@@ -148,12 +164,7 @@ class IridiumMessage(Message):
     def upgrade(self):
         if self.error: return self
         try:
-            if(self.header == header_messaging):
-                return IridiumECCMessage(self).upgrade()
-            elif(self.frequency>1626229167 and self.frequency<1626312500):
-                return IridiumRAMessage(self).upgrade()
-            else:
-                self._new_error("unknown Iridium message type")
+            return IridiumECCMessage(self).upgrade()
         except ParserError,e:
             self._new_error(str(e))
             return self
@@ -161,7 +172,9 @@ class IridiumMessage(Message):
     def _pretty_header(self):
         str= super(IridiumMessage,self)._pretty_header()
         str+= " %03d"%(len(self.header+self.bitstream_descrambled+self.descramble_extra)/2)
-        str+=" L:"+("no","OK")[self.lead_out_ok]+" "+self.header
+        str+=" L:"+("no","OK")[self.lead_out_ok]
+        if self.header:
+            str+=" "+self.header
         return str
     def _pretty_trailer(self):
         str= super(IridiumMessage,self)._pretty_trailer()
@@ -169,64 +182,22 @@ class IridiumMessage(Message):
         return str
     def pretty(self):
         str= "IRI: "+self._pretty_header()
+        str+= " %3s"%self.msgtype
         str+= " "+re.sub("(\d)(\d{20})(\d{10})(\d)","{\\1 \\2 \\3 \\4} ",self.bitstream_descrambled)
         str+= self._pretty_trailer()
-        return str
-
-class IridiumRAMessage(IridiumMessage):
-    def __init__(self,imsg):
-        self.__dict__=copy.deepcopy(imsg.__dict__)
-        poly="{0:011b}".format(1207)
-        self.bitstream_messaging=""
-        self.oddbits=""
-        self.fixederrs=0
-        rest=self.bitstream_descrambled[64:]
-        self.ra_header=self.bitstream_3scrambled
-        m=re.compile('(\d)(\d{20})(\d{10})(\d)').findall(rest)
-        # TODO: bch_ok and parity_ok arrays
-        for (odd,msg,bch,parity) in m:
-            (errs,bnew)=repair(poly, odd+msg+bch)
-            if(errs>0):
-                self.fixederrs+=1
-                odd=bnew[0]
-                msg=bnew[1:21]
-                bch=bnew[21:]
-            if(errs<0):
-                raise ParserError("RA BCH decode failed")
-            parity=len(re.sub("0","",odd+msg+bch+parity))%2
-            if parity==1:
-                raise ParserError("RA Parity error")
-            self.bitstream_messaging+=odd+msg
-#            self.oddbits+=odd
-    def upgrade(self):
-        if self.error: return self
-        try:
-            return self
-        except ParserError,e:
-            self._new_error(str(e))
-            return self
-        return self
-    def _pretty_header(self):
-        str= super(IridiumRAMessage,self)._pretty_header()
-#        str+= " %s" % (group(self.ra_header,32))
-        str+= " sat:%s" % int(self.ra_header[0:7],2)
-        str+= " %s" % (self.ra_header[7:])
-#        str+= " odd:%-26s" % (self.oddbits)
-        return str
-    def _pretty_trailer(self):
-        return super(IridiumRAMessage,self)._pretty_trailer()
-    def pretty(self):
-        str= "IRA: "+self._pretty_header()
-        str+= " fix:%d"%self.fixederrs
-        str+= " "+group(self.bitstream_messaging,21)
-        str+=self._pretty_trailer()
         return str
 
 class IridiumECCMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
-        poly="{0:011b}".format(messaging_bch_poly)
+        if self.msgtype == "MSG":
+            poly="{0:011b}".format(messaging_bch_poly)
+        elif self.msgtype == "RA":
+            poly="{0:011b}".format(ringalert_bch_poly)
+        else:
+            raise ParserError("unknown Iridium message type")
         self.bitstream_messaging=""
+        self.bitstream_bch=""
         self.oddbits=""
         self.fixederrs=0
         m=re.compile('(\d)(\d{20})(\d{10})(\d)').findall(self.bitstream_descrambled)
@@ -244,24 +215,54 @@ class IridiumECCMessage(IridiumMessage):
             if parity==1:
                 raise ParserError("Parity error")
             self.bitstream_messaging+=msg
+            self.bitstream_bch+=odd+msg
             self.oddbits+=odd
     def upgrade(self):
         if self.error: return self
         try:
-            return IridiumMessagingMessage(self).upgrade()
+            if self.msgtype == "MSG":
+                return IridiumMessagingMessage(self).upgrade()
+            elif self.msgtype == "RA":
+                return IridiumRAMessage(self).upgrade()
+            else:
+                self._new_error("Unknown message type")
         except ParserError,e:
             self._new_error(str(e))
             return self
         return self
     def _pretty_header(self):
         str= super(IridiumECCMessage,self)._pretty_header()
-        str+= " odd:%-26s" % (self.oddbits)
         return str
     def _pretty_trailer(self):
         return super(IridiumECCMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IME: "+self._pretty_header()
-        str+= " "+group(self.bitstream_messaging,20)
+        str+= " fix:%d"%self.fixederrs
+        str+= " "+group(self.bitstream_bch,21)
+        str+=self._pretty_trailer()
+        return str
+
+class IridiumRAMessage(IridiumECCMessage):
+    def __init__(self,imsg):
+        self.__dict__=copy.deepcopy(imsg.__dict__)
+        # Decode stuff from self.bitstream_bch
+        self.ra_sat= int(self.bitstream_bch[0:7],2)
+    def upgrade(self):
+        if self.error: return self
+        try:
+            return self
+        except ParserError,e:
+            self._new_error(str(e))
+            return self
+        return self
+    def _pretty_header(self):
+        return super(IridiumRAMessage,self)._pretty_header()
+    def _pretty_trailer(self):
+        return super(IridiumRAMessage,self)._pretty_trailer()
+    def pretty(self):
+        str= "IRA: "+self._pretty_header()
+        str+= " s:%3d %s"%(self.ra_sat,self.bitstream_bch[7:21])
+        str+= " "+group(self.bitstream_bch[21:],21)
         str+=self._pretty_trailer()
         return str
 
@@ -333,6 +334,7 @@ class IridiumMessagingMessage(IridiumECCMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingMessage,self)._pretty_header()
+        str+= " odd:%-26s" % (self.oddbits)
         str+= " %1d:%s:%02d" % (self.block, self.group,self.frame)
         if(self.oddbits == "1011"):
             str+= " %s sec:%d %-83s" % (self.unknown1, self.secondary, group(self.msg_pre,20))
