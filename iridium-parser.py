@@ -153,9 +153,9 @@ class IridiumMessage(Message):
         m=re.compile('(\d{64})').findall(data)
         for (group) in m:
             self.bitstream_descrambled+=de_interleave(group)
+            data=data[64:]
         if(not self.bitstream_descrambled):
             raise ParserError("No data to descramble")
-        data=data[len(self.bitstream_descrambled):]
         self.lead_out_ok= data.startswith(iridium_lead_out)
         if(data):
             self.descramble_extra=data
@@ -247,6 +247,7 @@ class IridiumRAMessage(IridiumECCMessage):
         self.__dict__=copy.deepcopy(imsg.__dict__)
         # Decode stuff from self.bitstream_bch
         self.ra_sat= int(self.bitstream_bch[0:7],2)
+        self.ra_cell= int(self.bitstream_bch[7:13],2)
     def upgrade(self):
         if self.error: return self
         try:
@@ -261,8 +262,24 @@ class IridiumRAMessage(IridiumECCMessage):
         return super(IridiumRAMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IRA: "+self._pretty_header()
-        str+= " s:%3d %s"%(self.ra_sat,self.bitstream_bch[7:21])
-        str+= " "+group(self.bitstream_bch[21:],21)
+        str+= " sat:%2d"%self.ra_sat
+        str+= " cell:%2d"%self.ra_cell
+        str+= " %s"%self.bitstream_bch[13:22]
+
+        str+= ","
+        str+= " "+self.bitstream_bch[22:25]
+        str+= " "+self.bitstream_bch[25:27]
+        str+= " "+self.bitstream_bch[27:37]
+        str+= " "+self.bitstream_bch[37:39]
+        str+= " "+self.bitstream_bch[39:42]
+
+        str+= ", "+self.bitstream_bch[42:49]
+        str+= " "+self.bitstream_bch[49:56]
+        str+= " "+self.bitstream_bch[56:58]
+        str+= " "+self.bitstream_bch[58:63]
+        str+= "{%02d}"%int(self.bitstream_bch[58:63],2)
+
+        str+= " "+group(self.bitstream_bch[63:],21)
         str+=self._pretty_trailer()
         return str
 
@@ -458,8 +475,7 @@ def de_interleave3(group):
     third  = ''.join([symbols[x] for x in range(len(symbols)-3, -1, -3)])
     second = ''.join([symbols[x] for x in range(len(symbols)-2, -1, -3)])
     first  = ''.join([symbols[x] for x in range(len(symbols)-1, -1, -3)])
-    field = first+","+second+","+third+"|"
-    return field
+    return first+second+third
 
 def messagechecksum(msg):
     csum=0
