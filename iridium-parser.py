@@ -16,6 +16,8 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:ps', [
                                                          'output=',
                                                          'perfect',
                                                          'satclass',
+                                                         'plot=',
+                                                         'filter=',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -29,6 +31,8 @@ perfect = False
 dosatclass = False
 input= "raw"
 output= "line"
+plotfilter=[]
+plotargs=["time", "frequency"]
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
@@ -37,6 +41,10 @@ for opt, arg in options:
         perfect = True
     elif opt in ('-s', '--satclass'):
         dosatclass = True
+    elif opt in ('--plot'):
+        plotargs=arg.split(',')
+    elif opt in ('--filter'):
+        plotfilter=arg.split(',')
     elif opt in ('-i', '--input'):
         input=arg
     elif opt in ('-o', '--output'):
@@ -545,8 +553,13 @@ def perline(q):
     elif output == "dump":
         pickle.dump(q,file,1)
     elif output == "plot":
-        if True:
+        if len(plotfilter)==0:
             selected.append(q)
+        elif plotfilter[0]=="All" or type(q).__name__ == plotfilter[0]:
+            if len(plotfilter)==1:
+                selected.append(q)
+            elif eval(plotfilter[1]):
+                selected.append(q)
     elif output == "line":
         if(q.error):
             if(not perfect):
@@ -645,16 +658,42 @@ def plotsats(plt, _s, _e):
             plt.scatter( x=v[0], y=v[1], c=int(v[2]), alpha=0.5, edgecolor="none", vmin=10, vmax=90)
 
 if output == "plot":
+    name="%s over %s"%(plotargs[1],plotargs[0])
+    if len(plotargs)>2:
+        name+=" with %s"%plotargs[2]
+    filter=""
+    if len(plotfilter)>0 and plotfilter[0]!="All":
+        filter+="type==%s"%plotfilter[0]
+        name=("%s "%plotfilter[0])+name
+    if len(plotfilter)>1:
+        x=plotfilter[1]
+        if x.startswith("q."):
+            x=x[2:]
+        filter+=" and %s"%x
+        name+=" where %s"%x
+    plt.suptitle(filter)
+    plt.xlabel(plotargs[0])
+    plt.ylabel(plotargs[1])
+    if plotargs[0]=="time":
+        plotargs[0]="globaltime"
+
     for m in selected:
-        xl.append(m.globaltime)
-        yl.append(m.frequency)
-#        cl.append(m.satno)
-#    plotsats(plt,selected[0].globaltime,selected[-1].globaltime)
-#    plt.scatter(x = xl, y= yl, c= cl, vmin=10, vmax=90)
-    plt.scatter(x = xl, y= yl)
-    plt.ylabel('freq')
-    plt.xlabel('time')
-#    plt.colorbar().set_label("sat")
+        xl.append(m.__dict__[plotargs[0]])
+        yl.append(m.__dict__[plotargs[1]])
+        if len(plotargs)>2:
+            cl.append(m.__dict__[plotargs[2]])
+
+    if len(plotargs)>2:
+        plt.scatter(x = xl, y= yl, c= cl)
+        plt.colorbar().set_label(plotargs[2])
+    else:
+        plt.scatter(x = xl, y= yl)
+
+    if False:
+        plotsats(plt,selected[0].globaltime,selected[-1].globaltime)
+    mng = plt.get_current_fig_manager()
+    mng.resize(*mng.window.maxsize())
+    plt.savefig(re.sub(' ','_',name)+".png")
     plt.show()
 
 def objprint(q):
