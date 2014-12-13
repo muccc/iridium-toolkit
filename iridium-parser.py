@@ -248,6 +248,10 @@ class IridiumRAMessage(IridiumECCMessage):
         # Decode stuff from self.bitstream_bch
         self.ra_sat= int(self.bitstream_bch[0:7],2)
         self.ra_cell= int(self.bitstream_bch[7:13],2)
+        self.ra_ctr1= int(self.bitstream_bch[14:25],2)
+        self.ra_ctr2= int(self.bitstream_bch[27:37],2)
+        self.ra_ctr3= int(self.bitstream_bch[37:49],2)
+        self.ra_f4=   int(self.bitstream_bch[58:63],2)
     def upgrade(self):
         if self.error: return self
         try:
@@ -262,22 +266,28 @@ class IridiumRAMessage(IridiumECCMessage):
         return super(IridiumRAMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IRA: "+self._pretty_header()
-        str+= " sat:%2d"%self.ra_sat
-        str+= " cell:%2d"%self.ra_cell
-        str+= " %s"%self.bitstream_bch[13:22]
+        str+= " ts:%04d"%(self.globaltime/4.320)
+        str+= " sat:%02d"%self.ra_sat
+        str+= " cell:%02d"%self.ra_cell
+        str+= " %s"%self.bitstream_bch[13]
 
-        str+= ","
-        str+= " "+self.bitstream_bch[22:25]
+        str+= " %s"%self.bitstream_bch[14:22]
+        str+= ","+self.bitstream_bch[22:25]
+        str+= "[%04d]"%self.ra_ctr1
+
         str+= " "+self.bitstream_bch[25:27]
-        str+= " "+self.bitstream_bch[27:37]
-        str+= " "+self.bitstream_bch[37:39]
-        str+= " "+self.bitstream_bch[39:42]
 
-        str+= ", "+self.bitstream_bch[42:49]
+        str+= " "+self.bitstream_bch[27:37]
+        str+= "[%04d]"%self.ra_ctr2
+
+        str+= " "+self.bitstream_bch[37:42]
+        str+= ","+self.bitstream_bch[42:49]
+        str+= "[%04d]"%self.ra_ctr3
+
         str+= " "+self.bitstream_bch[49:56]
         str+= " "+self.bitstream_bch[56:58]
         str+= " "+self.bitstream_bch[58:63]
-        str+= "{%02d}"%int(self.bitstream_bch[58:63],2)
+        str+= "{%02d}"%self.ra_f4
 
         str+= " "+group(self.bitstream_bch[63:],21)
         str+=self._pretty_trailer()
