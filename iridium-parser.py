@@ -12,8 +12,8 @@ from itertools import izip
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:ps', [
                                                          'verbose',
-                                                         'input',
-                                                         'output',
+                                                         'input=',
+                                                         'output=',
                                                          'perfect',
                                                          'satclass',
                                                          ])
@@ -33,14 +33,16 @@ output= "line"
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
         verbose = True
-    if opt in ('-p', '--perfect'):
+    elif opt in ('-p', '--perfect'):
         perfect = True
-    if opt in ('-s', '--satclass'):
+    elif opt in ('-s', '--satclass'):
         dosatclass = True
     elif opt in ('-i', '--input'):
         input=arg
     elif opt in ('-o', '--output'):
         output=arg
+    else:
+        raise Exception("unknown argument?")
 
 if input == "dump" or output == "dump":
     import cPickle as pickle
