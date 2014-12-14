@@ -96,7 +96,14 @@ class Message(object):
             ts+=float(self.timestamp)/1000
             self.globaltime=ts
             return
-        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsr]1",self.filename)
+        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsr]1.([a-z])([a-z])",self.filename)
+        if mm:
+            b26=(ord(mm.group(2))-ord('a'))*26+ ord(mm.group(3))-ord('a')
+            self.b26=b26
+            ts=float(mm.group(1))+float(self.timestamp)/1000+b26*600
+            self.globaltime=ts
+            return
+        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsr]1$",self.filename)
         if mm:
             ts=float(mm.group(1))+float(self.timestamp)/1000
             self.globaltime=ts
@@ -693,7 +700,7 @@ if output == "plot":
         plotsats(plt,selected[0].globaltime,selected[-1].globaltime)
     mng = plt.get_current_fig_manager()
     mng.resize(*mng.window.maxsize())
-    plt.savefig(re.sub(' ','_',name)+".png")
+    plt.savefig(re.sub('[/ ]','_',name)+".png")
     plt.show()
 
 def objprint(q):
