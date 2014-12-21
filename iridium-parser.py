@@ -31,7 +31,7 @@ perfect = False
 dosatclass = False
 input= "raw"
 output= "line"
-plotfilter=[]
+linefilter=[]
 plotargs=["time", "frequency"]
 
 for opt, arg in options:
@@ -44,7 +44,7 @@ for opt, arg in options:
     elif opt in ('--plot'):
         plotargs=arg.split(',')
     elif opt in ('--filter'):
-        plotfilter=arg.split(',')
+        linefilter=arg.split(',')
     elif opt in ('-i', '--input'):
         input=arg
     elif opt in ('-o', '--output'):
@@ -549,6 +549,12 @@ def perline(q):
     if dosatclass == True:
         sat=satclass.classify(q.frequency,q.globaltime)
         q.satno=int(sat.name)
+    if len(linefilter)>0:
+        if linefilter[0]!="All" and type(q).__name__ != linefilter[0]:
+            return
+        if len(linefilter)>1:
+            if not eval(linefilter[1]):
+                return
     if output == "err":
         if(q.error):
             selected.append(q)
@@ -561,13 +567,7 @@ def perline(q):
     elif output == "dump":
         pickle.dump(q,file,1)
     elif output == "plot":
-        if len(plotfilter)==0:
-            selected.append(q)
-        elif plotfilter[0]=="All" or type(q).__name__ == plotfilter[0]:
-            if len(plotfilter)==1:
-                selected.append(q)
-            elif eval(plotfilter[1]):
-                selected.append(q)
+        selected.append(q)
     elif output == "line":
         if(q.error):
             if(not perfect):
@@ -670,11 +670,11 @@ if output == "plot":
     if len(plotargs)>2:
         name+=" with %s"%plotargs[2]
     filter=""
-    if len(plotfilter)>0 and plotfilter[0]!="All":
-        filter+="type==%s"%plotfilter[0]
-        name=("%s "%plotfilter[0])+name
-    if len(plotfilter)>1:
-        x=plotfilter[1]
+    if len(linefilter)>0 and linefilter[0]!="All":
+        filter+="type==%s"%linefilter[0]
+        name=("%s "%linefilter[0])+name
+    if len(linefilter)>1:
+        x=linefilter[1]
         if x.startswith("q."):
             x=x[2:]
         filter+=" and %s"%x
