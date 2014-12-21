@@ -22,7 +22,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:ps', [
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
 iridium_lead_out="100101111010110110110011001111"
-header_messaging="00110011111100110011001111110011"
+header_messaging="00110011111100110011001111110011" # 0x9669 in BPSK
 messaging_bch_poly=1897
 ringalert_bch_poly=1207
 
@@ -81,6 +81,7 @@ class Message(object):
         self.level=float(m.group(7))
 #        self.raw_length=m.group(8)
         self.bitstream_raw=re.sub("[\[\]<> ]","",m.group(9)) # raw bitstring
+        self.symbols=len(self.bitstream_raw)/2
         self.error=False
         self.error_msg=[]
         if m.group(10):
@@ -662,7 +663,7 @@ if output == "msg":
 def plotsats(plt, _s, _e):
     for ts in range(int(_s),int(_e),10):
         for v in satclass.timelist(ts):
-            plt.scatter( x=v[0], y=v[1], c=int(v[2]), alpha=0.5, edgecolor="none", vmin=10, vmax=90)
+            plt.scatter( x=v[0], y=v[1], c=int(v[2]), alpha=0.3, edgecolor="none", vmin=10, vmax=90)
 
 if output == "plot":
     name="%s over %s"%(plotargs[1],plotargs[0])
@@ -684,6 +685,9 @@ if output == "plot":
     if plotargs[0]=="time":
         plotargs[0]="globaltime"
 
+    if False:
+        plotsats(plt,selected[0].globaltime,selected[-1].globaltime)
+
     for m in selected:
         xl.append(m.__dict__[plotargs[0]])
         yl.append(m.__dict__[plotargs[1]])
@@ -696,8 +700,6 @@ if output == "plot":
     else:
         plt.scatter(x = xl, y= yl)
 
-    if False:
-        plotsats(plt,selected[0].globaltime,selected[-1].globaltime)
     mng = plt.get_current_fig_manager()
     mng.resize(*mng.window.maxsize())
     plt.savefig(re.sub('[/ ]','_',name)+".png")
