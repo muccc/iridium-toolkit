@@ -1,10 +1,18 @@
-Requisites:
+= Simple toolset to decode Iridium signals
+
+Requisites include:
 
 python (2.7)
-numpy
-scipy
-
+numpy (scipy)
 perl (5.x)
+
+=== Licence
+
+Unless otherwise noted in a file, everyting here is 
+(c) Sec & schneider 
+and licenced under the 2-Clause BSD Licence
+
+=== Example usage
 
 record with usrp. So far we've used two settings:
 
