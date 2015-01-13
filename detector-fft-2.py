@@ -14,16 +14,18 @@ def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
     return izip(*[iter(iterable)]*n)
 
-options, remainder = getopt.getopt(sys.argv[1:], 'r:s:d:v', [
+options, remainder = getopt.getopt(sys.argv[1:], 'r:s:d:v8', [
                                                         'rate=', 
                                                         'speed=', 
                                                         'db=', 
                                                         'verbose',
+                                                        'rtl',
                                                          ])
 sample_rate = 0
 verbose = False
 search_size=1 # Only calulate every (search_size)'th fft
 fft_peak = 7.0 # about 8.5 dB over noise
+rtl = False
 
 for opt, arg in options:
     if opt in ('-r', '--rate'):
@@ -34,6 +36,8 @@ for opt, arg in options:
         fft_peak = pow(10,float(arg)/10)
     elif opt in ('-v', '--verbose'):
         verbose = True
+    elif opt in ('-8', '--rtl'):
+        rtl = True
 
 if sample_rate == 0:
     print "Sample rate missing!"
@@ -45,9 +49,12 @@ basename= filename= re.sub('\.[^.]*$','',file_name)
 fft_size=int(math.pow(2, 1+int(math.log(sample_rate/1000,2)))) # fft is approx 1ms long
 bin_size = float(fft_size)/sample_rate * 1000 # How many ms is one fft now?
 
-struct_fmt = '<' + fft_size * '2f'
-struct_len = struct.calcsize(struct_fmt)
-struct_unpack = struct.Struct(struct_fmt).unpack_from
+if rtl:
+    struct_elem = numpy.uint8
+    struct_len = numpy.dtype(struct_elem).itemsize * fft_size *2
+else:
+    struct_elem = numpy.complex64
+    struct_len = numpy.dtype(struct_elem).itemsize * fft_size
 
 window = numpy.blackman(fft_size)
 
@@ -78,7 +85,12 @@ with open(file_name, "rb") as f:
 
         index+=1
         if index%search_size==0:
-            slice = numpy.frombuffer(data, dtype=numpy.complex64)
+            slice = numpy.frombuffer(data, dtype=struct_elem)
+            if rtl:
+                slice = slice.astype(numpy.float32)
+                slice = slice-127
+                slice = slice.view(numpy.complex64)
+                data = numpy.getbuffer(slice) # So all output formats are complex float again
             fft_result = numpy.absolute(numpy.fft.fft(slice * window))
 
             if len(fft_hist)>2: # grace period after start of file
