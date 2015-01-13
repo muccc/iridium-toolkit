@@ -78,8 +78,7 @@ with open(file_name, "rb") as f:
 
         index+=1
         if index%search_size==0:
-            s = struct_unpack(data)
-            slice = [ complex(i,q) for (i,q) in grouped(s[:fft_size*2], 2) ]
+            slice = numpy.frombuffer(data, dtype=numpy.complex64)
             fft_result = numpy.absolute(numpy.fft.fft(slice * window))
 
             if len(fft_hist)>2: # grace period after start of file
