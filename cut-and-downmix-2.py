@@ -138,17 +138,17 @@ print 'File:',basename,"f=%10.2f"%offset_freq
 offset_freq+=f_off
 single_turn = sample_rate / offset_freq
 
-shift_signal = [cmath.rect(1, -float(x)/(float(sample_rate)/offset_freq) * 2 * math.pi) for x in range(len(signal))]
+shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset_freq/float(sample_rate))
 
-signal = [x*y for x,y in zip(signal, shift_signal)]
+signal = signal*shift_signal
 
 #plt.plot([cmath.phase(x) for x in signal[:fft_length]])
-sin_avg = numpy.average([math.sin(cmath.phase(x)) for x in signal[:fft_length]])
-cos_avg = numpy.average([math.cos(cmath.phase(x)) for x in signal[:fft_length]])
+sin_avg = numpy.average(numpy.sin(numpy.angle(signal[:fft_length])))
+cos_avg = numpy.average(numpy.cos(numpy.angle(signal[:fft_length])))
 preamble_phase = math.atan2(sin_avg, cos_avg)
 print "Original preamble phase", math.degrees(preamble_phase)
 
-signal = [cmath.rect(abs(x), cmath.phase(x) - preamble_phase + math.pi/4) for x in signal]
+signal = signal * cmath.rect(1,math.pi/4 - preamble_phase)
 #plt.plot([cmath.phase(x) for x in signal[:fft_length]])
 #sin_avg = numpy.average([math.sin(cmath.phase(x)) for x in signal[:fft_length]])
 #cos_avg = numpy.average([math.cos(cmath.phase(x)) for x in signal[:fft_length]])
@@ -167,8 +167,8 @@ signal = scipy.signal.convolve(signal, rrc, 'same')
 
 #plt.plot([x.real for x in signal])
 #plt.plot([x.imag for x in signal])
-print "preamble I avg",numpy.average([x.real for x in signal[:fft_length]])
-print "preamble Q avg", numpy.average([x.imag for x in signal[:fft_length]])
+print "preamble I avg",numpy.average(signal[:fft_length].real)
+print "preamble Q avg",numpy.average(signal[:fft_length].imag)
 
 #print max(([abs(x.real) for x in signal]))
 #print max(([abs(x.imag) for x in signal]))
@@ -181,5 +181,3 @@ print "output=","%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq
 #plt.plot(mag)
 #plt.plot(preamble)
 #plt.show()
-
-
