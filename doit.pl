@@ -6,6 +6,7 @@ use strict;
 use warnings;
 use Cwd;
 use File::Basename;
+use FindBin;
 
 my $cpus=6;
 my $center;
@@ -14,7 +15,7 @@ my $rate;
 $|=1;
 
 my $pwd=cwd();
-my $pdir="../iridium";
+my $pdir=$FindBin::Bin;
 my $verbose;
 
 if ($pdir =~ m!^/!){
