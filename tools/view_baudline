@@ -77,8 +77,13 @@ if [ ! -f "$file" ] ; then
 	exit 1
 fi
 
+case $file in
+	*.rtl) fmt="-e unsigned-integer -b 8";;
+	*) fmt="-e floating-point -b 32";;
+esac
+
 tmp=/tmp/$(echo $(basename $file)|sed 's!/!_!g').wav
 
-sox -r $r -e floating-point -b 32 -c 2 -t raw $file $tmp
-baudline -format le32f -quadrature -samplerate $r $base -fftsize 1024 -channels 2 -flipcomplex $tmp
+sox -r $r $fmt -c 2 -t raw $file $tmp
+baudline -quadrature -samplerate $r $base -fftsize 1024 -channels 2 -flipcomplex $tmp
 rm $tmp
