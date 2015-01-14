@@ -193,7 +193,10 @@ while True:
     ang= cmath.phase(signal[i])/math.pi*180
     symbol,offset =qpsk(ang+phase)
     if(offset>alpha):
-        peaks[i+samples_per_symbol/10]=complex(-lmax*0.8,0);
+        try:
+            peaks[i+samples_per_symbol/10]=complex(-lmax*0.8,0);
+        except IndexError:
+            print "Last sample"
         print "offset forward"
         phase+=1
     if(offset<-alpha):
