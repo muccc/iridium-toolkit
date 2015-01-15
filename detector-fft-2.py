@@ -59,12 +59,13 @@ else:
 window = numpy.blackman(fft_size)
 
 data_hist = []
-data_histlen=4
-data_postlen=4
+data_histlen=1
+data_postlen=5
+signal_maxlen=30
 
 fft_avg = [0.0]*fft_size
 fft_hist = []
-fft_histlen=50 # How many items to keep for moving average
+fft_histlen=100 # How many items to keep for moving average. 5 times our signal length
 
 fft_freq = numpy.fft.fftfreq(fft_size)
 
@@ -76,6 +77,7 @@ index = -1
 wf=None
 writepost=0
 signals=0
+sig_len=0
 
 with open(file_name, "rb") as f:
     while True:
@@ -87,9 +89,9 @@ with open(file_name, "rb") as f:
         if index%search_size==0:
             slice = numpy.frombuffer(data, dtype=struct_elem)
             if rtl:
-                slice = slice.astype(numpy.float32)
-                slice = slice-127
-                slice = slice.view(numpy.complex64)
+                slice = slice.astype(numpy.float32) # convert to float
+                slice = slice-127                   # Normalize
+                slice = slice.view(numpy.complex64) # reinterpret as complex
                 data = numpy.getbuffer(slice) # So all output formats are complex float again
             fft_result = numpy.absolute(numpy.fft.fft(slice * window))
 
@@ -100,31 +102,38 @@ with open(file_name, "rb") as f:
                 if(peak>fft_peak):
                     if wf == None:
                         signals+=1
-                        print "Peak t=%5d (%4.1f dB) @ %.0f Hz"%(index*bin_size,10*math.log(peak,10),fft_freq[peakidx]*sample_rate)
-                        wf=open("%s-%07d.d2" % (os.path.basename(basename), int((index-len(data_hist))*bin_size)), "wb")
+                        print "Peak t=%5d (%4.1f dB) B:%3d @ %.0f Hz"%(index*bin_size,10*math.log(peak,10),peakidx,fft_freq[peakidx]*sample_rate)
+                        wf=open("%s-%07d.det" % (os.path.basename(basename), int(index*bin_size)), "wb")
+#                        wf=open("%s-%07d-P%06d.d2" % (os.path.basename(basename), int((index-len(data_hist))*bin_size), fft_freq[peakidx]*sample_rate), "wb")
                         for d in data_hist:
                             wf.write(d)
                         writepost=search_size+data_postlen
                     else:
                         if verbose:
-                            print "             (%4.1f dB) @ %.0f Hz"%(10*math.log(peak,10),fft_freq[peakidx]*sample_rate)
-                        writepost+=search_size
+                            print "     t=%5d (%4.1f dB) B:%3d @ %.0f Hz"%(index*bin_size,10*math.log(peak,10),peakidx,fft_freq[peakidx]*sample_rate)
+                        writepost=search_size+data_postlen
 
             # keep fft in history buffer and update average
-            fft_hist.append(fft_result)
-            fft_avg+=fft_result
-            if len(fft_hist)>fft_histlen:
-                fft_avg-=fft_hist[0]
-                fft_hist.pop(0)
+            if wf==None or sig_len>signal_maxlen:
+                if sig_len>signal_maxlen:
+                    print "Signal too long!"
+                fft_hist.append(fft_result)
+                fft_avg+=fft_result
+                if len(fft_hist)>fft_histlen:
+                    fft_avg-=fft_hist[0]
+                    fft_hist.pop(0)
 
         if writepost>0:
             wf.write(data)
+            sig_len+=1
             writepost-=1
             if writepost==0:
                 if verbose:
                     print
                 wf.close()
+                sys.stdout.flush()
                 wf=None
+                sig_len=0
         # keep data in history buffer
         data_hist.append(data)
         if len(data_hist)>data_histlen:
