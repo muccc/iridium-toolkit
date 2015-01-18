@@ -91,6 +91,7 @@ print 'lmax:', lmax
 
 if use_correlation:
     start=sync_search.estimate_sync_word_start(signal, sample_rate, symbols_per_second)
+    print "correlated start of sync word", start
 else:
     # Skip a few samples to have a clean signal
     print "skip:",skip
