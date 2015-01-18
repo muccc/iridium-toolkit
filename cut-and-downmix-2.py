@@ -22,22 +22,31 @@ options, remainder = getopt.getopt(sys.argv[1:], 'o:c:r:v', ['offset=',
 file_name = remainder[0]
 basename= filename= re.sub('\.[^.]*$','',file_name)
 
-f_off=0
-
 center= 1626270833
 sample_rate = 2000000
 symbols_per_second = 25000
 preamble_length = 64
+search_offset = None
+search_window = None
 
 for opt, arg in options:
-    if opt in ('-o', '--offset'):
-        f_off = int(arg)
+    if opt in ('-o', '--search-offset'):
+        search_offset = int(arg)
+    if opt in ('-w', '--search-window'):
+        search_window = int(arg)
     elif opt in ('-c', '--center'):
         center = int(arg)
     elif opt in ('-r', '--rate'):
         sample_rate = int(arg)
     elif opt == '-v':
         verbose = True
+
+if search_offset and search_window:
+    fft_lower_bound = (search_offset - search_window / 2.) / sample_rate
+    fft_upper_bound = (search_offset + search_window / 2.) / sample_rate
+else:
+    fft_lower_bound = None
+    fft_upper_bound = None
 
 fft_length = int(math.pow(2, int(math.log(sample_rate/symbols_per_second*preamble_length,2))))
 #fft_length = int(sample_rate/symbols_per_second*preamble_length*0.85)
@@ -63,6 +72,11 @@ def fft(slice, fft_len=None):
     fft_freq = numpy.fft.fftfreq(len(fft_result))
     fft_result = numpy.fft.fftshift(fft_result)
     fft_freq = numpy.fft.fftshift(fft_freq)
+
+    if fft_lower_bound or fft_upper_bound:
+        for i in range(len(fft_freq)):
+            if fft_freq[i] < fft_lower_bound or fft_freq[i] > fft_upper_bound:
+                fft_result[i] = complex(0,0)
 
     return (fft_result, fft_freq)
 
@@ -144,7 +158,6 @@ print 'corrected offset', offset_freq
 
 print 'File:',basename,"f=%10.2f"%offset_freq
 
-offset_freq+=f_off
 single_turn = sample_rate / offset_freq
 
 shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset_freq/float(sample_rate))
