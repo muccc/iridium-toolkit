@@ -34,13 +34,13 @@ def qpsk(phase):
 
     return sym,off
 
-options, remainder = getopt.getopt(sys.argv[1:], 'r:pv', [
+options, remainder = getopt.getopt(sys.argv[1:], 'r:cv', [
                                                          'rate=',
-                                                         'schneider',
+                                                         'use-correlation',
                                                          'verbose',
                                                          ])
 
-schneider=0
+use_correlation=False
 sample_rate = 2000000
 symbols_per_second = 25000
 
@@ -49,8 +49,8 @@ for opt, arg in options:
         sample_rate=int(arg)
     elif opt in ('-v', '--verbose'):
         verbose = True
-    elif opt in ('-p', '--schneider'):
-        schneider=1
+    elif opt in ('-c', '--use-correlation'):
+        use_correlation=True
 
 file_name = remainder[0]
 basename= filename= re.sub('\.[^.]*$','',file_name)
@@ -89,7 +89,9 @@ lmax=abs(numpy.max(signal[skip:skip+samples_per_symbol]))
 print "level:",level
 print 'lmax:', lmax
 
-if schneider==0:
+if use_correlation:
+    start=sync_search.estimate_sync_word_start(signal, sample_rate, symbols_per_second)
+else:
     # Skip a few samples to have a clean signal
     print "skip:",skip
 
@@ -111,8 +113,6 @@ if schneider==0:
         peakidx=transition-samples_per_symbol/2
 
     start=peakidx-samples_per_symbol
-else:
-    start=sync_search.estimate_sync_word_start(signal, sample_rate, symbols_per_second)
 
 i=start
 symbols=[]
