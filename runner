@@ -2,6 +2,16 @@
 
 store=data
 shutdown=SHUTDOWN
+pdir=$(cd $(dirname $0);pwd)
+
+# use epochseconds if possible
+scommand=$pdir/epochseconds
+if [ ! -x $pdir/epochseconds ] ; then
+	(cd $pdir;gcc -O -o epochseconds tools/epochseconds.c)
+fi
+if [ ! -x $pdir/epochseconds ] ; then
+	scommand="date +%s"
+fi
 
 # -b (Both)
 center=1626354000
@@ -33,7 +43,7 @@ processrecording(){
         curname=$1
         echo "Processing $curname"
         ts=`date +%s`
-        ../iridium/doit.pl $curname > ${curname%.*}.out
+        $pdir/doit.pl $curname > ${curname%.*}.out
         cat ${curname%.*}.bits >> all.bits
         if [ -s ${curname%.*}.bits ] ; then
             rm $curname
@@ -80,8 +90,7 @@ fi
 
 if [ "$1" = "record" ] ; then
     while [ ! -f $shutdown ] ; do 
-        newname=i-$(date +%s)-${char}1.
-        newname=i-$(../iridium/epochseconds)-${char}1.
+        newname=i-$($scommand)-${char}1.
         uhd_rx_cfile --freq=$center --samp-rate=$rate -A RX2 --gain=50 -N $samples /dev/fd/3 3>&1 1>&2 | split --verbose -b $splits - $newname
         echo "Ended one recording"
     done
