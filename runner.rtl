@@ -1,0 +1,125 @@
+#!/bin/sh
+
+ip=83.133.179.208
+
+store=data
+shutdown=SHUTDOWN
+pdir=$(cd $(dirname $0);pwd)
+
+# use epochseconds if possible
+scommand=$pdir/epochseconds
+if [ ! -x $pdir/epochseconds ] ; then
+	(cd $pdir;gcc -O -o epochseconds tools/epochseconds.c)
+fi
+if [ ! -x $pdir/epochseconds ] ; then
+	scommand="date +%s"
+fi
+
+# -b (Both)
+center=1626354000
+rate=500000
+char=b
+# -s (Pager)
+center=1626440000
+rate=250000
+char=s
+# -t (rtl big)
+center=1626000000
+rate=1000000
+char=t
+## -l (rtl small)
+#center=1626000000
+#rate=1000000
+#char=l
+
+[ ! -d $store ] && mkdir $store
+
+if [ -z "$1" ]  ; then
+    echo "Call me with \"server\", \"record\" or \"process\" as argument"
+    exit 1
+fi
+
+
+processrecording(){
+		ts=$(date +%s)
+        curname=$1
+#        echo "Processing $curname"
+		base=${curname%.det}
+		if [ -e "$base" ] ; then
+			echo "$base exists. Aborting..."
+			exit 1
+		fi
+
+		(
+		set -e
+		mkdir $base
+		cd $base
+
+		mv ../$curname .
+		off=${base#*-o}
+#		echo $off
+		# XXX: maybe derive rate/center from magic letter instead of config at top
+		file=`$pdir/cut-and-downmix-2.py -r $rate -c $center -o $off -w 60000 $file | tee ${base}.out |sed -n 's/^output= *//p'`;
+		if [ -z "$file" ] ; then
+			echo cut-and-downmix failed >&2
+			exit 1
+		fi
+		$pdir/demod.py -c -r $rate $file |tee ${file%.cut}.demod |grep ^RAW > ${base}.bits
+		)
+
+		bits=$base/${base}.bits
+#		echo Bits: $bits
+		cat $bits | tee -a ${curname%-*-o*.det}.bits |cut -c 1-79
+		grep A:OK < $bits >> all.bits 2>/dev/null
+
+        if [ -s $bits ] ; then
+			true
+            #rm -rf ${curname%.*}
+        else
+            echo "produced no bits. Keeping working directory"
+        fi
+
+#        echo "Done with $curname in $(echo "$(date +%s) - $ts"|bc) sec"
+}
+
+if [ "$1" = "process" ] ; then
+	wd=$(pwd)
+	while true ; do
+		for file in *det ; do
+            if [ -f $shutdown ] ; then
+                echo "Processor shut down"
+                exit 0
+            fi
+			if [ "$file" = "*det" ] ; then
+				sleep 10
+				continue
+			fi
+			processrecording $file
+			cd $wd
+		done
+	done
+	echo "Processor shut down"
+    exit 0
+fi
+
+if [ "$1" = "processrecording" ] ; then
+    file=$2
+    processrecording $file
+fi
+
+if [ "$1" = "record" ] ; then
+	first=1
+    while [ ! -f $shutdown ] ; do 
+		[ -z "$first" ] && sleep 10
+		first=
+		nc $ip 1234 | $pdir/detector-fft-2.py -8 -d 9 -r $rate -p $char
+	done
+    echo "Recorder shut down"
+    exit 0
+fi
+
+if [ "$1" = "server" ] ; then
+	rtl_tcp -a 0.0.0.0 -f $center -g 50 -s $rate
+    echo "Server shut down"
+    exit 0
+fi
