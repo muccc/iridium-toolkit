@@ -61,10 +61,7 @@ else:
     fft_upper_bound = None
 
 fft_length = int(math.pow(2, int(math.log(sample_rate/symbols_per_second*preamble_length,2))))
-#fft_length = int(sample_rate/symbols_per_second*preamble_length*0.85)
-#fft_length = int(sample_rate/symbols_per_second*preamble_length*1)
 fft_step = fft_length / 50
-skip = fft_length / 20
 skip = 0
 
 print 'sample_rate', sample_rate
@@ -140,7 +137,6 @@ print 'begin', begin
 
 # Skip a few samples to have a clean signal
 signal = signal[begin + skip:]
-#signal = signal[begin:]
 preamble = signal[:fft_length]
 
 #plt.plot([begin+skip, begin+skip], [0, 1], 'r')
@@ -158,13 +154,6 @@ max_index = numpy.argmax(mag)
 print 'max_index', max_index
 print 'max_value', fft_result[max_index]
 print 'offset', fft_freq[max_index] * sample_rate
-
-# see http://www.embedded.com/design/configurable-systems/4007643/DSP-Tricks-Spectral-peak-location-algorithm
-#Xmk = fft_result[max_index]
-#Xmkp1 = fft_result[max_index+1]
-#Xmkm1 = fft_result[max_index-1]
-#correction = ((Xmkp1 - Xmkm1) / (2*Xmk - Xmkm1 - Xmkp1)).real
-#real_index = max_index - correction
 
 #see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
 alpha = abs(fft_result[max_index-1])
