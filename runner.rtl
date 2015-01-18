@@ -6,15 +6,6 @@ store=data
 shutdown=SHUTDOWN
 pdir=$(cd $(dirname $0);pwd)
 
-# use epochseconds if possible
-scommand=$pdir/epochseconds
-if [ ! -x $pdir/epochseconds ] ; then
-	(cd $pdir;gcc -O -o epochseconds tools/epochseconds.c)
-fi
-if [ ! -x $pdir/epochseconds ] ; then
-	scommand="date +%s"
-fi
-
 # -b (Both)
 center=1626354000
 rate=500000
@@ -41,7 +32,6 @@ fi
 
 
 processrecording(){
-		ts=$(date +%s)
         curname=$1
 #        echo "Processing $curname"
 		base=${curname%.det}
@@ -78,8 +68,6 @@ processrecording(){
         else
             echo "produced no bits. Keeping working directory"
         fi
-
-#        echo "Done with $curname in $(echo "$(date +%s) - $ts"|bc) sec"
 }
 
 if [ "$1" = "process" ] ; then
