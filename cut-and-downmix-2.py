@@ -54,13 +54,27 @@ def normalize(v):
 
     return [x/m for x in v]
 
+def fft(slice, fft_len=None):
+    if fft_len:
+        fft_result = numpy.fft.fft(slice, fft_len)
+    else:
+        fft_result = numpy.fft.fft(slice)
+
+    fft_freq = numpy.fft.fftfreq(len(fft_result))
+    fft_result = numpy.fft.fftshift(fft_result)
+    fft_freq = numpy.fft.fftshift(fft_freq)
+
+    return (fft_result, fft_freq)
+
+
 def signal_start(signal):
     max_fft = []
     l = []
     for i in range(0, len(signal), fft_step):
         slice = signal[i:i+fft_length]
         #fft_result = numpy.fft.fft(slice * numpy.blackman(len(slice)))
-        fft_result = numpy.fft.fft(slice)
+        fft_result, fft_freq = fft(slice)
+
         max_mag = numpy.amax(numpy.absolute(fft_result))
         max_fft.append(max_mag)
         l.append(i)
@@ -96,17 +110,12 @@ preamble = signal[:fft_length]
 
 preamble = preamble * numpy.blackman(len(preamble))
 # Increase size of FFT to inrease resolution
-#fft_result = numpy.fft.fft(preamble * 16)
-fft_result = numpy.fft.fft(preamble, len(preamble) * 16)
-fft_freq = numpy.fft.fftfreq(len(fft_result))
-fft_result = numpy.fft.fftshift(fft_result)
-fft_freq = numpy.fft.fftshift(fft_freq)
+fft_result, fft_freq = fft(preamble, len(preamble) * 16)
 print 'binsize', (fft_freq[100] - fft_freq[101]) * sample_rate
 
 # Use magnitude of FFT to detect maximum and correct the used bin
 mag = numpy.absolute(fft_result)
-#max_index = list(fft_result.flat).index(numpy.amax(fft_result))
-max_index = list(mag).index(numpy.amax(mag))
+max_index = numpy.argmax(mag)
 
 print 'max_index', max_index
 print 'max_value', fft_result[max_index]
