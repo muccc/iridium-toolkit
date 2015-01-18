@@ -48,9 +48,13 @@ if search_offset and search_window:
     # varry between 0 and 1
     fft_lower_bound = (search_offset - search_window / 2.) / sample_rate + 0.5
     fft_upper_bound = (search_offset + search_window / 2.) / sample_rate + 0.5
-    if fft_lower_bound < 0 or fft_lower_bound > 1 or \
-            fft_upper_bound < 0 or fft_upper_bound > 1:
-        print "Inconsistent window selected."
+    if fft_lower_bound < 0:
+        fft_lower_bound = 0.
+    if fft_upper_bound > 1:
+        fft_upper_bound = 1.
+
+    if fft_lower_bound > 1 or fft_upper_bound < 0:
+        sys.stderr.write("Inconsistent window selected.\n")
         sys.exit(1)
 else:
     fft_lower_bound = None
@@ -189,7 +193,11 @@ cos_avg = numpy.average(numpy.cos(numpy.angle(signal[:fft_length])))
 preamble_phase = math.atan2(sin_avg, cos_avg)
 print "Original preamble phase", math.degrees(preamble_phase)
 
+# Multiplying with a complex number on the unit circle
+# just changes the angle.
+# See http://www.mash.dept.shef.ac.uk/Resources/7_6multiplicationanddivisionpolarform.pdf
 signal = signal * cmath.rect(1,math.pi/4 - preamble_phase)
+
 #plt.plot([cmath.phase(x) for x in signal[:fft_length]])
 #sin_avg = numpy.average([math.sin(cmath.phase(x)) for x in signal[:fft_length]])
 #cos_avg = numpy.average([math.cos(cmath.phase(x)) for x in signal[:fft_length]])
