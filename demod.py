@@ -257,7 +257,7 @@ print "final delay",delay
 print "final phase",phase
 
 # Nice output format
-p=re.compile('(.*)-(\d+)-f(\d+)')
+p=re.compile('(.*?)-(\d+)(?:-o[-+]\d+)?-f(\d+)')
 m=p.match(basename)
 if(m):
     rawfile=m.group(1)
