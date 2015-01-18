@@ -14,7 +14,8 @@ import getopt
 
 #import matplotlib.pyplot as plt
 
-options, remainder = getopt.getopt(sys.argv[1:], 'o:c:r:v', ['offset=', 
+options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:v', ['offset=',
+                                                         'window=',
                                                          'center=',
                                                          'rate=',
                                                          'verbose',
@@ -42,8 +43,15 @@ for opt, arg in options:
         verbose = True
 
 if search_offset and search_window:
-    fft_lower_bound = (search_offset - search_window / 2.) / sample_rate
-    fft_upper_bound = (search_offset + search_window / 2.) / sample_rate
+    # Compute the percentage of the signal in which we are
+    # interested in. fft_lower_bound and fft_upper_bound will
+    # varry between 0 and 1
+    fft_lower_bound = (search_offset - search_window / 2.) / sample_rate + 0.5
+    fft_upper_bound = (search_offset + search_window / 2.) / sample_rate + 0.5
+    if fft_lower_bound < 0 or fft_lower_bound > 1 or \
+            fft_upper_bound < 0 or fft_upper_bound > 1:
+        print "Inconsistent window selected."
+        sys.exit(1)
 else:
     fft_lower_bound = None
     fft_upper_bound = None
@@ -55,6 +63,7 @@ fft_step = fft_length / 50
 skip = fft_length / 20
 skip = 0
 
+print 'sample_rate', sample_rate
 print 'fft_length', fft_length
 struct_len = 8
 
@@ -62,6 +71,8 @@ def normalize(v):
     m = max(v)
 
     return [x/m for x in v]
+
+fft_windows = {}
 
 def fft(slice, fft_len=None):
     if fft_len:
@@ -73,11 +84,20 @@ def fft(slice, fft_len=None):
     fft_result = numpy.fft.fftshift(fft_result)
     fft_freq = numpy.fft.fftshift(fft_freq)
 
-    if fft_lower_bound or fft_upper_bound:
-        for i in range(len(fft_freq)):
-            if fft_freq[i] < fft_lower_bound or fft_freq[i] > fft_upper_bound:
-                fft_result[i] = complex(0,0)
+    if fft_lower_bound and fft_upper_bound:
+        # Build a window so we can mask out parts of the fft in which
+        # we are not interested
+        if len(fft_result) not in fft_windows:
+            lower_stop_count = int(len(fft_result) * fft_lower_bound)
+            upper_stop_count = int(len(fft_result) * (1 - fft_upper_bound))
+            pass_count = len(fft_result) - lower_stop_count - upper_stop_count
+            fft_window = [0] * lower_stop_count
+            fft_window += [1] * pass_count
+            fft_window += [0] * upper_stop_count
+            fft_windows[len(fft_result)] = numpy.array(fft_window)
 
+        # Mask parts of the signal which are not relevant
+        fft_result *= fft_windows[len(fft_result)]
     return (fft_result, fft_freq)
 
 
@@ -133,7 +153,6 @@ max_index = numpy.argmax(mag)
 
 print 'max_index', max_index
 print 'max_value', fft_result[max_index]
-
 print 'offset', fft_freq[max_index] * sample_rate
 
 # see http://www.embedded.com/design/configurable-systems/4007643/DSP-Tricks-Spectral-peak-location-algorithm
