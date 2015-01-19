@@ -129,93 +129,97 @@ def signal_start(signal):
 
     return t
 
-signal = iq.read(file_name)
-#signal_mag = [abs(x) for x in signal]
-#plt.plot(normalize(signal_mag))
-begin = signal_start(signal)
-print 'begin', begin
+def cut_and_downmix():
+    signal = iq.read(file_name)
+    #signal_mag = [abs(x) for x in signal]
+    #plt.plot(normalize(signal_mag))
+    begin = signal_start(signal)
+    print 'begin', begin
 
-# Skip a few samples to have a clean signal
-signal = signal[begin + skip:]
-preamble = signal[:fft_length]
+    # Skip a few samples to have a clean signal
+    signal = signal[begin + skip:]
+    preamble = signal[:fft_length]
 
-#plt.plot([begin+skip, begin+skip], [0, 1], 'r')
-#plt.plot([begin+skip+fft_length, begin+skip+fft_length], [0, 1], 'r')
+    #plt.plot([begin+skip, begin+skip], [0, 1], 'r')
+    #plt.plot([begin+skip+fft_length, begin+skip+fft_length], [0, 1], 'r')
 
-preamble = preamble * numpy.blackman(len(preamble))
-# Increase size of FFT to inrease resolution
-fft_result, fft_freq = fft(preamble, len(preamble) * 16)
-print 'binsize', (fft_freq[100] - fft_freq[101]) * sample_rate
+    preamble = preamble * numpy.blackman(len(preamble))
+    # Increase size of FFT to inrease resolution
+    fft_result, fft_freq = fft(preamble, len(preamble) * 16)
+    print 'binsize', (fft_freq[100] - fft_freq[101]) * sample_rate
 
-# Use magnitude of FFT to detect maximum and correct the used bin
-mag = numpy.absolute(fft_result)
-max_index = numpy.argmax(mag)
+    # Use magnitude of FFT to detect maximum and correct the used bin
+    mag = numpy.absolute(fft_result)
+    max_index = numpy.argmax(mag)
 
-print 'max_index', max_index
-print 'max_value', fft_result[max_index]
-print 'offset', fft_freq[max_index] * sample_rate
+    print 'max_index', max_index
+    print 'max_value', fft_result[max_index]
+    print 'offset', fft_freq[max_index] * sample_rate
 
-#see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
-alpha = abs(fft_result[max_index-1])
-beta = abs(fft_result[max_index])
-gamma = abs(fft_result[max_index+1])
-correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma)
-real_index = max_index + correction
+    #see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
+    alpha = abs(fft_result[max_index-1])
+    beta = abs(fft_result[max_index])
+    gamma = abs(fft_result[max_index+1])
+    correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma)
+    real_index = max_index + correction
 
-offset_freq = (fft_freq[math.floor(real_index)] + (real_index - math.floor(real_index)) * (fft_freq[math.floor(real_index) + 1] - fft_freq[math.floor(real_index)])) * sample_rate
+    offset_freq = (fft_freq[math.floor(real_index)] + (real_index - math.floor(real_index)) * (fft_freq[math.floor(real_index) + 1] - fft_freq[math.floor(real_index)])) * sample_rate
 
-print 'correction', correction
-print 'corrected max', max_index - correction
-print 'corrected offset', offset_freq
+    print 'correction', correction
+    print 'corrected max', max_index - correction
+    print 'corrected offset', offset_freq
 
-print 'File:',basename,"f=%10.2f"%offset_freq
+    print 'File:',basename,"f=%10.2f"%offset_freq
 
-single_turn = sample_rate / offset_freq
+    single_turn = sample_rate / offset_freq
 
-shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset_freq/float(sample_rate))
+    shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset_freq/float(sample_rate))
 
-signal = signal*shift_signal
+    signal = signal*shift_signal
 
-#plt.plot([cmath.phase(x) for x in signal[:fft_length]])
-sin_avg = numpy.average(numpy.sin(numpy.angle(signal[:fft_length])))
-cos_avg = numpy.average(numpy.cos(numpy.angle(signal[:fft_length])))
-preamble_phase = math.atan2(sin_avg, cos_avg)
-print "Original preamble phase", math.degrees(preamble_phase)
+    #plt.plot([cmath.phase(x) for x in signal[:fft_length]])
+    sin_avg = numpy.average(numpy.sin(numpy.angle(signal[:fft_length])))
+    cos_avg = numpy.average(numpy.cos(numpy.angle(signal[:fft_length])))
+    preamble_phase = math.atan2(sin_avg, cos_avg)
+    print "Original preamble phase", math.degrees(preamble_phase)
 
-# Multiplying with a complex number on the unit circle
-# just changes the angle.
-# See http://www.mash.dept.shef.ac.uk/Resources/7_6multiplicationanddivisionpolarform.pdf
-signal = signal * cmath.rect(1,math.pi/4 - preamble_phase)
+    # Multiplying with a complex number on the unit circle
+    # just changes the angle.
+    # See http://www.mash.dept.shef.ac.uk/Resources/7_6multiplicationanddivisionpolarform.pdf
+    signal = signal * cmath.rect(1,math.pi/4 - preamble_phase)
 
-#plt.plot([cmath.phase(x) for x in signal[:fft_length]])
-#sin_avg = numpy.average([math.sin(cmath.phase(x)) for x in signal[:fft_length]])
-#cos_avg = numpy.average([math.cos(cmath.phase(x)) for x in signal[:fft_length]])
-#preamble_phase = math.atan2(sin_avg, cos_avg)
-#print "Corrected preamble phase", math.degrees(preamble_phase)
+    #plt.plot([cmath.phase(x) for x in signal[:fft_length]])
+    #sin_avg = numpy.average([math.sin(cmath.phase(x)) for x in signal[:fft_length]])
+    #cos_avg = numpy.average([math.cos(cmath.phase(x)) for x in signal[:fft_length]])
+    #preamble_phase = math.atan2(sin_avg, cos_avg)
+    #print "Corrected preamble phase", math.degrees(preamble_phase)
 
-#print numpy.average([x.real for x in signal[:fft_length]])
-#print numpy.average([x.imag for x in signal[:fft_length]])
+    #print numpy.average([x.real for x in signal[:fft_length]])
+    #print numpy.average([x.imag for x in signal[:fft_length]])
 
-#print max(([abs(x.real) for x in signal]))
-#print max(([abs(x.imag) for x in signal]))
+    #print max(([abs(x.real) for x in signal]))
+    #print max(([abs(x.imag) for x in signal]))
 
-ntaps= 161 # 10001, 1001, 161, 41
-rrc = filters.rrcosfilter(ntaps, 0.4, 1./symbols_per_second, sample_rate)[1]
-signal = scipy.signal.convolve(signal, rrc, 'same')
+    ntaps= 161 # 10001, 1001, 161, 41
+    rrc = filters.rrcosfilter(ntaps, 0.4, 1./symbols_per_second, sample_rate)[1]
+    signal = scipy.signal.convolve(signal, rrc, 'same')
 
-#plt.plot([x.real for x in signal])
-#plt.plot([x.imag for x in signal])
-print "preamble I avg",numpy.average(signal[:fft_length].real)
-print "preamble Q avg",numpy.average(signal[:fft_length].imag)
+    #plt.plot([x.real for x in signal])
+    #plt.plot([x.imag for x in signal])
+    print "preamble I avg",numpy.average(signal[:fft_length].real)
+    print "preamble Q avg",numpy.average(signal[:fft_length].imag)
 
-#print max(([abs(x.real) for x in signal]))
-#print max(([abs(x.imag) for x in signal]))
+    #print max(([abs(x.real) for x in signal]))
+    #print max(([abs(x.imag) for x in signal]))
 
-iq.write("%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq), signal)
-print "output=","%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq)
-#plt.plot(numpy.absolute(fft_result))
-#plt.plot(fft_freq, numpy.absolute(fft_result))
-#plt.plot([], [bins[bin]], 'rs')
-#plt.plot(mag)
-#plt.plot(preamble)
-#plt.show()
+    iq.write("%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq), signal)
+    print "output=","%s-f%10d.cut" % (os.path.basename(basename), center+offset_freq)
+    #plt.plot(numpy.absolute(fft_result))
+    #plt.plot(fft_freq, numpy.absolute(fft_result))
+    #plt.plot([], [bins[bin]], 'rs')
+    #plt.plot(mag)
+    #plt.plot(preamble)
+    #plt.show()
+
+if __name__ == "__main__":
+    cut_and_downmix()
