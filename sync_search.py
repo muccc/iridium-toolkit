@@ -4,7 +4,6 @@ import math
 import numpy
 import os.path
 import cmath
-import scipy.signal
 import filters
 
 def estimate_sync_word_start(signal, sample_rate, symbols_per_second):
@@ -16,9 +15,8 @@ def estimate_sync_word_start(signal, sample_rate, symbols_per_second):
         sync_word_padded += [0] * (samples_per_symbol - 1)
     # TODO: Convolve the sync word with a sinusoidal base function
     
-    #TODO: Do the L1 norm in pure numpy
-    bpsk_signal = [c.real + c.imag for c in signal]
-    sync_correlation = scipy.signal.correlate(bpsk_signal, sync_word_padded, 'same')
+    bpsk_signal = signal.real + signal.imag
+    sync_correlation = numpy.correlate(bpsk_signal, sync_word_padded, 'same')
     sync_correlation = numpy.abs(sync_correlation)
     sync_middle = numpy.argmax(sync_correlation)
     sync_start = sync_middle - samples_per_symbol * (len(sync_word) - 1) / 2

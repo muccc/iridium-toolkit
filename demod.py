@@ -81,7 +81,7 @@ def mynormalize(v):
     return zip
 
 signal = iq.read(file_name)
-signal_mag = [abs(x) for x in signal]
+signal_mag = numpy.absolute(signal)
 
 level=abs(numpy.mean(signal[skip:skip+samples_per_symbol]))
 lmax=abs(numpy.max(signal[skip:skip+samples_per_symbol]))
