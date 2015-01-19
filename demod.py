@@ -8,7 +8,6 @@ import numpy
 import os.path
 import cmath
 import filters
-import scipy.signal
 import re
 import sync_search
 import iq
