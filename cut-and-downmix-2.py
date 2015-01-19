@@ -14,10 +14,11 @@ import getopt
 
 #import matplotlib.pyplot as plt
 
-options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:v', ['offset=',
+options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:v', ['offset=',
                                                          'window=',
                                                          'center=',
                                                          'rate=',
+                                                         'search-depth=',
                                                          'verbose',
                                                          ])
 file_name = remainder[0]
@@ -29,6 +30,7 @@ symbols_per_second = 25000
 preamble_length = 64
 search_offset = None
 search_window = None
+search_depth = 0.007
 
 for opt, arg in options:
     if opt in ('-o', '--search-offset'):
@@ -39,6 +41,8 @@ for opt, arg in options:
         center = int(arg)
     elif opt in ('-r', '--rate'):
         sample_rate = int(arg)
+    elif opt in ('-s', '--search'):
+        search_depth = float(arg)
     elif opt == '-v':
         verbose = True
 
@@ -101,11 +105,13 @@ def fft(slice, fft_len=None):
         fft_result *= fft_windows[len(fft_result)]
     return (fft_result, fft_freq)
 
-
 def signal_start(signal):
     max_fft = []
     l = []
-    for i in range(0, len(signal), fft_step):
+    stop = int(search_depth * sample_rate)
+    if stop > len(signal):
+        stop = len(signal)
+    for i in range(0, stop, fft_step):
         slice = signal[i:i+fft_length]
         #fft_result = numpy.fft.fft(slice * numpy.blackman(len(slice)))
         fft_result, fft_freq = fft(slice)
