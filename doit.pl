@@ -55,7 +55,7 @@ if ($#ARGV >=0){
 
 sub checkrate {
 	my $file=shift;
-	if($file=~/-([bvsr])\d+(?:\.|\/|-|$)/){
+	if($file=~/-([bvsrt])\d+(?:\.|\/|-|$)/){
 		if($1 eq "v"){
 			$center=1626270833;
 			$rate=2000000;
@@ -68,6 +68,9 @@ sub checkrate {
 		}elsif($1 eq "b"){
 			$center=1626354000;
 			$rate=500000;
+		}elsif($1 eq "t"){
+			$center=1626000000;
+			$rate=1000000;
 		}else{
 			warn "No idea what center/rate type $1 unknown\n";
 		};
