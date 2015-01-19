@@ -7,11 +7,9 @@ import numpy
 import os.path
 import cmath
 import filters
-import scipy.signal
 import re
 import iq
 import getopt
-
 #import matplotlib.pyplot as plt
 
 options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:v', ['offset=',
@@ -208,7 +206,7 @@ def cut_and_downmix():
 
     ntaps= 161 # 10001, 1001, 161, 41
     rrc = filters.rrcosfilter(ntaps, 0.4, 1./symbols_per_second, sample_rate)[1]
-    signal = scipy.signal.convolve(signal, rrc, 'same')
+    signal = numpy.convolve(signal, rrc, 'same')
 
     #plt.plot([x.real for x in signal])
     #plt.plot([x.imag for x in signal])
