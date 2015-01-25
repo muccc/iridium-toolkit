@@ -29,9 +29,8 @@ for opt, arg in options:
     else:
         print opt
         raise Exception("unknown argument?")
-filename= remainder[0]
 
-messages = bitutils.read_file(filename)
+messages = bitutils.read_file(remainder)
 
 timestamps = [s['timestamp'] for s in messages if s['length'] > minimum_length and (not lead_out_required or s['lead_out'])]
 
@@ -40,6 +39,7 @@ t = max(timestamps)
 
 bins = (t - t0)/span
 
+filename=["<stdin>",",".join(remainder)][remainder is None]
 title = "File: %s : Messages per %d seconds, longer than %d symbols" % (filename, span, minimum_length)
 if lead_out_required:
     title += ', lead out needs to be present'

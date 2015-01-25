@@ -3,6 +3,7 @@
 
 import re
 import datetime
+import fileinput
 
 def extract_timestamp(filename, dt):
     mm=re.match("i-(\d+(?:\.\d+)?)-[vbsrtl]1.([a-z])([a-z])",filename)
@@ -44,10 +45,9 @@ def parse_line_to_message(line):
 def print_message(m):
     print "RAW:", m['name'], m['freq'], "%06d"%m['timestamp'], 'A:%s'%m[access], 'L:%s'%m[lead_out], '%03d%%'%m['confidence'], "%03d"%m['length']
 
-def read_file(filename):
-    f = open(filename)
+def read_file(filenames):
     messages = []
-    for line in f:
+    for line in fileinput.input(filenames):
         message = parse_line_to_message(line)
         if message:
             messages.append(message)
