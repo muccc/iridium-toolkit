@@ -29,18 +29,27 @@ def extract_timestamp(filename, dt):
   
 def parse_line_to_message(line):
     line = line.split()
-    if 'A:OK' not in line or len(line) < 10:
+    if not line[0] == 'RX' and ('A:OK' not in line or len(line) < 10):
         return None
     access = True
     lead_out = 'L:OK' in line
     name = line[1]
-    timestamp = extract_timestamp(name, line[2])
+    if name == "X":
+        timestamp = float(line[2])
+    else:
+        timestamp = extract_timestamp(name, line[2])
     freq = int(line[3])
     confidence = int(line[6][:-1])
     strength = float(line[7])
     length = int(line[8])
+    if name == "X":
+        error = line[9]=="True"
+        msgtype = line[10]
+    else:
+        error == False
+        msgtype = None
 
-    return {'name': name, 'timestamp':timestamp, 'freq':freq, 'access':access, 'lead_out':lead_out, 'confidence':confidence, 'strength': strength, 'length': length}
+    return {'name': name, 'timestamp':timestamp, 'freq':freq, 'access':access, 'lead_out':lead_out, 'confidence':confidence, 'strength': strength, 'length': length, 'error': error, 'msgtype': msgtype}
 
 def print_message(m):
     print "RAW:", m['name'], m['freq'], "%06d"%m['timestamp'], 'A:%s'%m[access], 'L:%s'%m[lead_out], '%03d%%'%m['confidence'], "%03d"%m['length']

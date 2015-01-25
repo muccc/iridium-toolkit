@@ -574,6 +574,8 @@ def perline(q):
                 print q.pretty()+" ERR:"+", ".join(q.error_msg)
         else:
             print q.pretty()
+    elif output == "rxstats":
+        print "RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__
     else:
         print "Unknown output mode."
         exit(1)
