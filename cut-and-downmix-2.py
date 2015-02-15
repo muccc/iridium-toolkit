@@ -68,7 +68,6 @@ skip = 0
 
 print 'sample_rate', sample_rate
 print 'fft_length', fft_length
-struct_len = 8
 
 def normalize(v):
     m = max(v)
