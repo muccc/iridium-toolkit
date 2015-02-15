@@ -84,7 +84,7 @@ sub do_stage1{
 	checkrate($file);
 	my $dir;
 	($dir=$file)=~s/\.raw$//;
-	system(qq(cd "$dir";$pdir/detector-fft.py -r $rate ../$file));
+	system(qq(cd "$dir";$pdir/detector-fft-2.py -r $rate ../$file));
 	if($? != 0){
 		warn "system exit: $?: $!";
 	};
@@ -97,7 +97,7 @@ sub do_stage2{
 	my $file=basename($arg);
 	my $base=$file;
 	$base=~s!\..*?$!!;
-	exec(qq(cd "$dir";$pdir/cut-and-downmix-2.py -r $rate -c $center $file $foff| tee ${base}.out |grep ^File));
+	exec(qq(cd "$dir";$pdir/cut_and_downmix.py -r $rate -c $center $file $foff| tee ${base}.out |grep ^File));
 	die "system exit: $?: $!";
 }
 
@@ -108,7 +108,7 @@ sub do_stage3{
 	my $file=basename($arg);
 	my $base=$file;
 	$base=~s!\..*?$!!;
-	exec(qq(cd $dir;$pdir/demod.py -r $rate $file | tee ${base}.demod |grep ^RAW|cut -c 1-77));
+	exec(qq(cd $dir;$pdir/demod.py -c -r $rate $file | tee ${base}.demod |grep ^RAW|cut -c 1-77));
 	die "system exit: $?: $!";
 }
 
@@ -121,8 +121,8 @@ sub do_stage23{
 	$base=~s!\..*?$!!;
 	exec(qq(
 		cd $dir;
-		file=`$pdir/cut-and-downmix-2.py -r $rate -c $center $file $foff| tee ${base}.out |sed -n 's/^output= *//p'`;
-		$pdir/demod.py -r $rate \$file |tee \${file%.cut}.demod |grep ^RAW|cut -c 1-77;true
+		file=`$pdir/cut_and_downmix.py -r $rate -c $center $file $foff| tee ${base}.out |sed -n 's/^output= *//p'`;
+		$pdir/demod.py -c -r $rate \$file |tee \${file%.cut}.demod |grep ^RAW|cut -c 1-77;true
 	));
 	die "system exit: $?: $!";
 };
