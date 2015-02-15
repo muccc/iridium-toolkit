@@ -62,7 +62,6 @@ class Detector(object):
                         slice = slice.astype(numpy.float32) # convert to float
                         slice = (slice-127)/128             # Normalize
                         slice = slice.view(numpy.complex64) # reinterpret as complex
-                        data = numpy.getbuffer(slice) # So all output formats are complex float again
                     fft_result = numpy.absolute(numpy.fft.fft(slice * self._window))
 
                     if len(fft_hist)>25: # grace period after start of file
@@ -82,7 +81,7 @@ class Detector(object):
                                     print "still peak",
                                 p[1]=search_size+self._data_postlen
                             p[1]-=1
-                            p[4]+=data
+                            p[4] = numpy.append(p[4], slice)
                             if self._verbose:
                                 print
                                 if (index-p[2])==self._signal_maxlen:
@@ -107,13 +106,13 @@ class Detector(object):
                             bin_index = peakidx
                             freq = self._fft_freq[peakidx]*self._sample_rate
                             info = (time_stamp, signal_strength, bin_index, freq)
-                            peak_data = ''.join(data_hist) + data
+                            signal = numpy.append(numpy.concatenate(data_hist), slice)
                             if self._verbose:
                                 print "New peak:",
                                 print "Peak t=%5d (%4.1f dB) B:%3d @ %.0f Hz"%info
 
                             writepost=search_size+self._data_postlen
-                            peaks.append([peakidx,writepost,index,info, peak_data])
+                            peaks.append([peakidx,writepost,index,info, signal])
 
                     peaks_to_collect = filter(lambda e: e[1]<=0, peaks)
                     for peak in peaks_to_collect:
@@ -128,17 +127,17 @@ class Detector(object):
                             fft_avg-=fft_hist[0]
                             fft_hist.pop(0)
 
-                # keep data in history buffer
-                data_hist.append(data)
+                # keep slice in history buffer
+                data_hist.append(slice)
                 if len(data_hist)>self._data_histlen:
                     data_hist.pop(0)
 
         if self._verbose:
             print "%d signals found"%(signals)
 
-def file_collector(basename, time_stamp, signal_strength, bin_index, freq, data):
-    wf=open("%s-%07d-o%+07d.det" % (os.path.basename(basename), time_stamp, freq), "wb")
-    wf.write(data)
+def file_collector(basename, time_stamp, signal_strength, bin_index, freq, signal):
+    file_name = "%s-%07d-o%+07d.det" % (os.path.basename(basename), time_stamp, freq)
+    signal.tofile(file_name)
 
 if __name__ == "__main__":
     options, remainder = getopt.getopt(sys.argv[1:], 'r:s:d:v8p:', [
