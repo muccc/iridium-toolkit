@@ -100,7 +100,7 @@ if [ "$1" = "record" ] ; then
     while [ ! -f $shutdown ] ; do 
 		[ -z "$first" ] && sleep 10
 		first=
-		nc $ip 1234 | $pdir/detector-fft-2.py -8 -d 9 -r $rate -p $char
+		nc $ip 1234 | $pdir/detector.py -8 -d 9 -r $rate -p $char
 	done
     echo "Recorder shut down"
     exit 0
