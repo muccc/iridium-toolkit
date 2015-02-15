@@ -1,172 +1,192 @@
 #!/usr/bin/env python
 # vim: set ts=4 sw=4 tw=0 et pm=:
-import struct
 import sys
 import math
 import numpy
 import os.path
-from itertools import izip
 import re
-#import matplotlib.pyplot as plt
 import getopt
 import time
+from functools import partial
 
-def grouped(iterable, n):
-    "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
-    return izip(*[iter(iterable)]*n)
+class Detector(object):
+    def __init__(self, sample_rate, fft_peak=7.0, use_8bit=False, search_size=1, verbose=False):
+        self._sample_rate = sample_rate
+        self._fft_size=int(math.pow(2, 1+int(math.log(self._sample_rate/1000,2)))) # fft is approx 1ms long
+        self._bin_size = float(self._fft_size)/self._sample_rate * 1000 # How many ms is one fft now?
+        self._verbose = verbose
+        self._search_size = search_size
+        self._fft_peak = fft_peak
 
-options, remainder = getopt.getopt(sys.argv[1:], 'r:s:d:v8p:', [
-                                                        'rate=', 
-                                                        'speed=', 
-                                                        'db=', 
-                                                        'verbose',
-                                                        'rtl',
-                                                        'pipe',
-                                                         ])
-sample_rate = 0
-verbose = False
-search_size=1 # Only calulate every (search_size)'th fft
-fft_peak = 7.0 # about 8.5 dB over noise
-rtl = False
-pipe = None
+        if use_8bit:
+            self._struct_elem = numpy.uint8
+            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
+        else:
+            self._struct_elem = numpy.complex64
+            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size
 
-for opt, arg in options:
-    if opt in ('-r', '--rate'):
-        sample_rate = int(arg)
-    elif opt in ('-s', '--speed'):
-        search_size = int(arg)
-    elif opt in ('-d', '--db'):
-        fft_peak = pow(10,float(arg)/10)
-    elif opt in ('-v', '--verbose'):
-        verbose = True
-    elif opt in ('-8', '--rtl'):
-        rtl = True
-    elif opt in ('-p', '--pipe'):
-        pipe = arg
+        self._window = numpy.blackman(self._fft_size)
+        self._fft_histlen=500 # How many items to keep for moving average. 5 times our signal length
+        self._data_histlen=self._search_size
+        self._data_postlen=5
+        self._signal_maxlen=1+int(30/self._bin_size) # ~ 30 ms
+        self._fft_freq = numpy.fft.fftfreq(self._fft_size)
+        
+        if self._verbose:
+            print "fft_size=%d (=> %f ms)"%(self._fft_size,self._bin_size)
+            print "calculate fft once every %d block(s)"%(self._search_size)
+            print "require %.1f dB"%(10*math.log(self._fft_peak,10))
 
-if sample_rate == 0:
-    print "Sample rate missing!"
-    exit(1)
+    def process_file(self, file_name, data_collector):
+        data_hist = []
+        fft_avg = [0.0]*self._fft_size
+        fft_hist = []
 
-basename=None
+        index = -1
+        wf=None
+        writepost=0
+        signals=0
 
-if len(remainder)==0 or pipe !=None:
-    if pipe==None:
-        print "WARN: pipe mode not set"
-        pipe="t"
-    basename="i-%.4f-%s1"%(time.time(),pipe)
-    print basename
-    file_name = "/dev/stdin"
-else:
-    file_name = remainder[0]
-    basename= filename= re.sub('\.[^.]*$','',file_name)
+        peaks=[] # idx, postlen, file
 
-fft_size=int(math.pow(2, 1+int(math.log(sample_rate/1000,2)))) # fft is approx 1ms long
-bin_size = float(fft_size)/sample_rate * 1000 # How many ms is one fft now?
+        with open(file_name, "rb") as f:
+            while True:
+                data = f.read(self._struct_len)
+                if not data: break
+                if len(data) != self._struct_len: break
 
-if rtl:
-    struct_elem = numpy.uint8
-    struct_len = numpy.dtype(struct_elem).itemsize * fft_size *2
-else:
-    struct_elem = numpy.complex64
-    struct_len = numpy.dtype(struct_elem).itemsize * fft_size
+                index+=1
+                if index%search_size==0:
+                    slice = numpy.frombuffer(data, dtype=self._struct_elem)
+                    if rtl:
+                        slice = slice.astype(numpy.float32) # convert to float
+                        slice = (slice-127)/128             # Normalize
+                        slice = slice.view(numpy.complex64) # reinterpret as complex
+                        data = numpy.getbuffer(slice) # So all output formats are complex float again
+                    fft_result = numpy.absolute(numpy.fft.fft(slice * self._window))
 
-window = numpy.blackman(fft_size)
+                    if len(fft_hist)>25: # grace period after start of file
+                        peakl= (fft_result / fft_avg)*len(fft_hist)
 
-data_hist = []
-data_histlen=search_size
-data_postlen=5
-signal_maxlen=1+int(30/bin_size) # ~ 30 ms
+                        if self._verbose:
+                            for p in peaks:
+                                print "[%4d,%2d,%2d]"%(p[0],p[1],index-p[2]),
+                        for p in peaks:
+                            pi=p[0]
+                            if self._verbose:
+                                print "Peak B%4d: %4.1f dB"%(pi,10*math.log(peakl[pi],10)),
+                                pa=numpy.average(peakl[pi-10:pi+10])
+                                print "(avg: %4.1f dB)"%(10*math.log(pa,10)),
+                            if peakl[p[0]]>self._fft_peak:
+                                if self._verbose:
+                                    print "still peak",
+                                p[1]=search_size+self._data_postlen
+                            p[1]-=1
+                            p[4]+=data
+                            if self._verbose:
+                                print
+                                if (index-p[2])==self._signal_maxlen:
+                                    print "Peak B%d @ %d too long"%(p[0],p[2])
+                            if (index-p[2])<self._signal_maxlen:
+                                # XXX: clear "area" around peak
+                                w=25
+                                p0=pi-w
+                                if p0<0:
+                                    p0=0
+                                p1=pi+w
+                                if p1>=self._fft_size:
+                                    p1=self._fft_size-1
+                                peakl[p0:p1]=[0]*(p1-p0)
+                        peakidx=numpy.argmax(peakl)
+                        peak=peakl[peakidx]
+                        if(peak>self._fft_peak):
+                            signals+=1
 
-fft_avg = [0.0]*fft_size
-fft_hist = []
-fft_histlen=500 # How many items to keep for moving average. 5 times our signal length
+                            time_stamp = index*self._bin_size
+                            signal_strength = 10*math.log(peak,10)
+                            bin_index = peakidx
+                            freq = self._fft_freq[peakidx]*self._sample_rate
+                            info = (time_stamp, signal_strength, bin_index, freq)
+                            peak_data = ''.join(data_hist) + data
+                            if self._verbose:
+                                print "New peak:",
+                                print "Peak t=%5d (%4.1f dB) B:%3d @ %.0f Hz"%info
 
-fft_freq = numpy.fft.fftfreq(fft_size)
+                            writepost=search_size+self._data_postlen
+                            peaks.append([peakidx,writepost,index,info, peak_data])
 
-print "fft_size=%d (=> %f ms)"%(fft_size,bin_size)
-print "calculate fft once every %d block(s)"%(search_size)
-print "require %.1f dB"%(10*math.log(fft_peak,10))
+                    peaks_to_collect = filter(lambda e: e[1]<=0, peaks)
+                    for peak in peaks_to_collect:
+                        data_collector(peak[3][0], peak[3][1], peak[3][2], peak[3][3], peak[4])
+                    peaks = filter(lambda e: e[1]>0, peaks)
 
-index = -1
-wf=None
-writepost=0
-signals=0
+                    # keep fft in history buffer and update average
+                    if len(peaks)==0: # No output in progress
+                        fft_hist.append(fft_result)
+                        fft_avg+=fft_result
+                        if len(fft_hist)>self._fft_histlen:
+                            fft_avg-=fft_hist[0]
+                            fft_hist.pop(0)
 
-peaks=[] # idx, postlen, file
+                # keep data in history buffer
+                data_hist.append(data)
+                if len(data_hist)>self._data_histlen:
+                    data_hist.pop(0)
 
-with open(file_name, "rb") as f:
-    while True:
-        data = f.read(struct_len)
-        if not data: break
-        if len(data) != struct_len: break
+        if self._verbose:
+            print "%d signals found"%(signals)
 
-        index+=1
-        if index%search_size==0:
-            slice = numpy.frombuffer(data, dtype=struct_elem)
-            if rtl:
-                slice = slice.astype(numpy.float32) # convert to float
-                slice = (slice-127)/128             # Normalize
-                slice = slice.view(numpy.complex64) # reinterpret as complex
-                data = numpy.getbuffer(slice) # So all output formats are complex float again
-            fft_result = numpy.absolute(numpy.fft.fft(slice * window))
+def file_collector(basename, time_stamp, signal_strength, bin_index, freq, data):
+    wf=open("%s-%07d-o%+07d.det" % (os.path.basename(basename), time_stamp, freq), "wb")
+    wf.write(data)
 
-            if len(fft_hist)>25: # grace period after start of file
-                peakl= (fft_result / fft_avg)*len(fft_hist)
+if __name__ == "__main__":
+    options, remainder = getopt.getopt(sys.argv[1:], 'r:s:d:v8p:', [
+                                                            'rate=', 
+                                                            'speed=', 
+                                                            'db=', 
+                                                            'verbose',
+                                                            'rtl',
+                                                            'pipe',
+                                                            ])
+    sample_rate = 0
+    verbose = False
+    search_size=1 # Only calulate every (search_size)'th fft
+    fft_peak = 7.0 # about 8.5 dB over noise
+    rtl = False
+    pipe = None
 
-                for p in peaks:
-                    print "[%4d,%2d,%2d]"%(p[0],p[1],index-p[2]),
-                for p in peaks:
-                    pi=p[0]
-                    print "Peak B%4d: %4.1f dB"%(pi,10*math.log(peakl[pi],10)),
-                    pa=numpy.average(peakl[pi-10:pi+10])
-                    print "(avg: %4.1f dB)"%(10*math.log(pa,10)),
-                    if peakl[p[0]]>fft_peak:
-                        print "still peak",
-                        p[1]=search_size+data_postlen
-                    print
-                    p[1]-=1
-                    p[3].write(data)
-                    if (index-p[2])==signal_maxlen:
-                        print "Peak B%d @ %d too long"%(p[0],p[2])
-                    if (index-p[2])<signal_maxlen:
-                        # XXX: clear "area" around peak
-                        w=25
-                        p0=pi-w
-                        if p0<0:
-                            p0=0
-                        p1=pi+w
-                        if p1>=fft_size:
-                            p1=fft_size-1
-                        peakl[p0:p1]=[0]*(p1-p0)
-                peakidx=numpy.argmax(peakl)
-                peak=peakl[peakidx]
-                if(peak>fft_peak):
-                    print "New peak:",
-                    signals+=1
-                    print "Peak t=%5d (%4.1f dB) B:%3d @ %.0f Hz"%(index*bin_size,10*math.log(peak,10),peakidx,fft_freq[peakidx]*sample_rate)
-                    wf=open("%s-%07d-o%+07d.det" % (os.path.basename(basename), int(index*bin_size), fft_freq[peakidx]*sample_rate), "wb")
-                    for d in data_hist:
-                        wf.write(d)
-                    wf.write(data)
-                    writepost=search_size+data_postlen
-                    peaks.append([peakidx,writepost,index,wf])
+    for opt, arg in options:
+        if opt in ('-r', '--rate'):
+            sample_rate = int(arg)
+        elif opt in ('-s', '--speed'):
+            search_size = int(arg)
+        elif opt in ('-d', '--db'):
+            fft_peak = pow(10,float(arg)/10)
+        elif opt in ('-v', '--verbose'):
+            verbose = True
+        elif opt in ('-8', '--rtl'):
+            rtl = True
+        elif opt in ('-p', '--pipe'):
+            pipe = arg
 
-            peaks = filter(lambda e: e[1]>0, peaks)
+    if sample_rate == 0:
+        print "Sample rate missing!"
+        exit(1)
 
-            # keep fft in history buffer and update average
-            if len(peaks)==0: # No output in progress
-                fft_hist.append(fft_result)
-                fft_avg+=fft_result
-                if len(fft_hist)>fft_histlen:
-                    fft_avg-=fft_hist[0]
-                    fft_hist.pop(0)
+    basename=None
 
-        # keep data in history buffer
-        data_hist.append(data)
-        if len(data_hist)>data_histlen:
-            data_hist.pop(0)
+    if len(remainder)==0 or pipe !=None:
+        if pipe==None:
+            print "WARN: pipe mode not set"
+            pipe="t"
+        basename="i-%.4f-%s1"%(time.time(),pipe)
+        print basename
+        file_name = "/dev/stdin"
+    else:
+        file_name = remainder[0]
+        basename= filename= re.sub('\.[^.]*$','',file_name)
 
-if verbose:
-    print "%d signals found"%(signals)
+    d = Detector(sample_rate, fft_peak=fft_peak, use_8bit = rtl, search_size=search_size, verbose=verbose)
+    d.process_file(file_name, partial(file_collector, basename))
 
