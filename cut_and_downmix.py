@@ -208,7 +208,7 @@ class CutAndDownmix(object):
         #plt.plot(preamble)
         #plt.show()
 
-        return (signal, center+offset_freq)
+        return (signal, self._center+offset_freq)
 
 if __name__ == "__main__":
 
