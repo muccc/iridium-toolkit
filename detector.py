@@ -56,9 +56,9 @@ class Detector(object):
                 if len(data) != self._struct_len: break
 
                 index+=1
-                if index%search_size==0:
+                if index%self._search_size==0:
                     slice = numpy.frombuffer(data, dtype=self._struct_elem)
-                    if rtl:
+                    if self._struct_elem == numpy.uint8:
                         slice = slice.astype(numpy.float32) # convert to float
                         slice = (slice-127)/128             # Normalize
                         slice = slice.view(numpy.complex64) # reinterpret as complex
@@ -79,7 +79,7 @@ class Detector(object):
                             if peakl[p[0]]>self._fft_peak:
                                 if self._verbose:
                                     print "still peak",
-                                p[1]=search_size+self._data_postlen
+                                p[1]=self._search_size+self._data_postlen
                             p[1]-=1
                             p[4] = numpy.append(p[4], slice)
                             if self._verbose:
@@ -111,7 +111,7 @@ class Detector(object):
                                 print "New peak:",
                                 print "Peak t=%5d (%4.1f dB) B:%3d @ %.0f Hz"%info
 
-                            writepost=search_size+self._data_postlen
+                            writepost=self._search_size+self._data_postlen
                             peaks.append([peakidx,writepost,index,info, signal])
 
                     peaks_to_collect = filter(lambda e: e[1]<=0, peaks)

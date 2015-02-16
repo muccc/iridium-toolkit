@@ -69,8 +69,8 @@ class CutAndDownmix(object):
             # Build a window so we can mask out parts of the fft in which
             # we are not interested
             if len(fft_result) not in self._fft_windows:
-                lower_stop_count = int(len(fft_result) * fft_lower_bound)
-                upper_stop_count = int(len(fft_result) * (1 - fft_upper_bound))
+                lower_stop_count = int(len(fft_result) * self._fft_lower_bound)
+                upper_stop_count = int(len(fft_result) * (1 - self._fft_upper_bound))
                 pass_count = len(fft_result) - lower_stop_count - upper_stop_count
                 fft_window = [0] * lower_stop_count
                 fft_window += [1] * pass_count
