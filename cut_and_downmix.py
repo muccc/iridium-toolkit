@@ -160,8 +160,10 @@ class CutAndDownmix(object):
 
         single_turn = self._sample_rate / offset_freq
 
+        # Generate a complex signal at offset_freq Hz.
         shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset_freq/float(self._sample_rate))
 
+        # Multiply the two signals, effectively shifting signal by offset_freq
         signal = signal*shift_signal
 
         #plt.plot([cmath.phase(x) for x in signal[:self._fft_length]])
