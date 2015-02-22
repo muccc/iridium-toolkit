@@ -60,7 +60,7 @@ class Detector(object):
                     slice = numpy.frombuffer(data, dtype=self._struct_elem)
                     if self._struct_elem == numpy.uint8:
                         slice = slice.astype(numpy.float32) # convert to float
-                        slice = (slice-127)/128             # Normalize
+                        slice = (slice-127.4)/128.             # Normalize
                         slice = slice.view(numpy.complex64) # reinterpret as complex
                     fft_result = numpy.absolute(numpy.fft.fft(slice * self._window))
 
