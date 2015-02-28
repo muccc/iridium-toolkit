@@ -46,17 +46,18 @@ def printer(out_queue):
         print msg
 
 def main():
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:S:vd:8p:', ['offset=',
-                                                            'window=',
-                                                            'center=',
-                                                            'rate=',
-                                                            'search-depth=',
-                                                            'verbose',
-                                                            'speed=',
-                                                            'db=',
-                                                            'rtl',
-                                                            'pipe',
-                                                            ])
+    options, remainder = getopt.getopt(sys.argv[1:],
+        'o:w:c:r:S:vd:8p:', ['offset=',
+                             'window=',
+                             'center=',
+                             'rate=',
+                             'search-depth=',
+                             'verbose',
+                             'speed=',
+                             'db=',
+                             'rtl',
+                             'pipe',
+                             ])
 
     center= 1626270833
     search_window = 60000
@@ -102,7 +103,8 @@ def main():
     else:
         file_name = remainder[0]
 
-    det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, use_8bit = rtl, search_size=search_size, verbose=verbose)
+    det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak,
+            use_8bit = rtl, search_size=search_size, verbose=verbose)
 
     workers = []
     for i in range(4):
