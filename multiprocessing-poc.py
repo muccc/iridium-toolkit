@@ -16,23 +16,25 @@ work_queue = multiprocessing.JoinableQueue()
 out_queue = multiprocessing.JoinableQueue()
 
 class Worker(object):
-    def __init__(self, work_queue, out_queue):
+    def __init__(self, work_queue, out_queue, center, sample_rate, search_depth, search_window, verbose):
         self._work_queue = work_queue
         self._cad = cut_and_downmix.CutAndDownmix(center=center, sample_rate=sample_rate,
                                             search_depth=search_depth, verbose=verbose)
         self._dem = demod.Demod(sample_rate=sample_rate, use_correlation=True, verbose=verbose)
         self._out_queue = out_queue
+        self._search_window=search_window
+        self._verbose = verbose
 
     def run(self):
         while True:
             basename, time_stamp, signal_strength, bin_index, freq, signal = self._work_queue.get()
             try:
-                signal, freq = self._cad.cut_and_downmix(signal=signal, search_offset=freq, search_window=search_window)
+                signal, freq = self._cad.cut_and_downmix(signal=signal, search_offset=freq, search_window=self._search_window)
                 dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = self._dem.demod(signal)
                 msg = "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
                 self._out_queue.put(msg)
             except:
-                print "something went wrong :/"
+                sys.stderr.write("something went wrong :/\n")
             self._work_queue.task_done()
 
 def collector(basename, time_stamp, signal_strength, bin_index, freq, signal):
@@ -43,7 +45,7 @@ def printer(out_queue):
         msg = out_queue.get()
         print msg
 
-if __name__ == "__main__":
+def main():
     options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:S:vd:8p:', ['offset=',
                                                             'window=',
                                                             'center=',
@@ -99,13 +101,14 @@ if __name__ == "__main__":
         file_name = "/dev/stdin"
     else:
         file_name = remainder[0]
-        basename= filename= re.sub('\.[^.]*$','',file_name)
 
     det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, use_8bit = rtl, search_size=search_size, verbose=verbose)
 
     workers = []
     for i in range(4):
-        w = Worker(work_queue, out_queue)
+        w = Worker(work_queue, out_queue, center=center,
+                sample_rate=sample_rate, search_depth=search_depth,
+                search_window=search_window, verbose=verbose)
         p = multiprocessing.Process(target=w.run)
         p.daemon = True
         p.start()
@@ -117,3 +120,7 @@ if __name__ == "__main__":
 
     det.process_file(file_name, partial(collector, basename))
     work_queue.join()
+
+if __name__ == "__main__":
+    main()
+
