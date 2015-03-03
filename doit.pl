@@ -6,6 +6,7 @@ use strict;
 use warnings;
 use Cwd;
 use File::Basename;
+use FindBin;
 
 my $cpus=6;
 my $center;
@@ -14,7 +15,7 @@ my $rate;
 $|=1;
 
 my $pwd=cwd();
-my $pdir="../iridium";
+my $pdir=$FindBin::Bin;
 my $verbose;
 
 if ($pdir =~ m!^/!){
@@ -54,7 +55,7 @@ if ($#ARGV >=0){
 
 sub checkrate {
 	my $file=shift;
-	if($file=~/-([bvsr])\d+(?:\.|\/|-|$)/){
+	if($file=~/-([bvsrt])\d+(?:\.|\/|-|$)/){
 		if($1 eq "v"){
 			$center=1626270833;
 			$rate=2000000;
@@ -67,6 +68,9 @@ sub checkrate {
 		}elsif($1 eq "b"){
 			$center=1626354000;
 			$rate=500000;
+		}elsif($1 eq "t"){
+			$center=1626000000;
+			$rate=1000000;
 		}else{
 			warn "No idea what center/rate type $1 unknown\n";
 		};
@@ -80,7 +84,7 @@ sub do_stage1{
 	checkrate($file);
 	my $dir;
 	($dir=$file)=~s/\.raw$//;
-	system(qq(cd "$dir";$pdir/detector-fft.py -r $rate ../$file));
+	system(qq(cd "$dir";$pdir/detector.py -r $rate ../$file));
 	if($? != 0){
 		warn "system exit: $?: $!";
 	};
@@ -93,7 +97,7 @@ sub do_stage2{
 	my $file=basename($arg);
 	my $base=$file;
 	$base=~s!\..*?$!!;
-	exec(qq(cd "$dir";$pdir/cut-and-downmix-2.py -r $rate -c $center $file $foff| tee ${base}.out |grep ^File));
+	exec(qq(cd "$dir";$pdir/cut_and_downmix.py -r $rate -c $center $file $foff| tee ${base}.out |grep ^File));
 	die "system exit: $?: $!";
 }
 
@@ -104,7 +108,7 @@ sub do_stage3{
 	my $file=basename($arg);
 	my $base=$file;
 	$base=~s!\..*?$!!;
-	exec(qq(cd $dir;$pdir/demod.py -r $rate $file | tee ${base}.demod |grep ^RAW|cut -c 1-77));
+	exec(qq(cd $dir;$pdir/demod.py -c -r $rate $file | tee ${base}.demod |grep ^RAW|cut -c 1-77));
 	die "system exit: $?: $!";
 }
 
@@ -117,8 +121,8 @@ sub do_stage23{
 	$base=~s!\..*?$!!;
 	exec(qq(
 		cd $dir;
-		file=`$pdir/cut-and-downmix-2.py -r $rate -c $center $file $foff| tee ${base}.out |sed -n 's/^output= *//p'`;
-		$pdir/demod.py -r $rate \$file |tee \${file%.cut}.demod |grep ^RAW|cut -c 1-77;true
+		file=`$pdir/cut_and_downmix.py -r $rate -c $center $file $foff| tee ${base}.out |sed -n 's/^output= *//p'`;
+		$pdir/demod.py -c -r $rate \$file |tee \${file%.cut}.demod |grep ^RAW|cut -c 1-77;true
 	));
 	die "system exit: $?: $!";
 };

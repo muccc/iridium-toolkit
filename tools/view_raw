@@ -1,25 +1,77 @@
 #!/bin/sh
 
-file=$(echo */*-$1-*.cut)
+n=1000 
+
+while true
+do
+  case $1 in
+    -r)  # set sample rate
+        r=$2
+        shift; shift
+        ;;
+    -b) # set base freq
+        f=$2
+		base=yes
+        shift; shift
+        ;;
+    -1) # Stage 1 file (detector output)
+		file="*/*-$2.det"
+		base=yes
+        shift; shift
+        ;;
+    -2) # Stage 2 file (downmix output)
+		file="*/*-$2-*.cut"
+        shift; shift
+        ;;
+    *)
+        break
+        ;;
+  esac
+done
+
+if [ ! -f "$1" ] ; then
+	file=$(echo */*-$1-*.cut)
+	peaks=$(echo */*-$1-*.peaks)
+else
+	file=$1
+	peaks=${file%.cut}.peaks
+	if [ ! -f $peaks ] ; then
+		peaks=""
+	fi
+fi
+	
 
 echo $file
 
-case $file in 
-*-v*)
-	f=1626270833
-	r=2000000
-	n=1000
-	;;
-*-s*)
-    f=1626440000
-    r=250000
-	n=100
-	;;
-*)
-	echo "No idea... " >&2
-	exit 1
-	;;
-esac
+if [ -z "$r" ] ; then
+	case $file in 
+	*-v*)
+		f=1626270833
+		r=2000000
+		n=1000
+		;;
+	*-s*)
+		f=1626440000
+		r=250000
+		n=100
+		;;
+	*-r*)
+		f=1626270000
+		r=250000
+		n=100
+		;;
+	*-b*)
+		f=1626354000
+		r=500000
+		n=200
+		;;
+	*)
+		echo "No idea... " >&2
+		exit 1
+		;;
+	esac
+fi
 
 
-gr_time_plot_c --no-auto-scale -N $n -r $r  */*-$1-*.cut */*-$1-*.peaks
+gr_time_plot_c --no-auto-scale -N $n -r $r $file $peaks
+

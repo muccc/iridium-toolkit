@@ -97,14 +97,14 @@ class Message(object):
             ts+=float(self.timestamp)/1000
             self.globaltime=ts
             return
-        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsr]1.([a-z])([a-z])",self.filename)
+        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsrtl]1.([a-z])([a-z])",self.filename)
         if mm:
             b26=(ord(mm.group(2))-ord('a'))*26+ ord(mm.group(3))-ord('a')
             self.b26=b26
             ts=float(mm.group(1))+float(self.timestamp)/1000+b26*600
             self.globaltime=ts
             return
-        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsr]1$",self.filename)
+        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsrtl]1(?:-o[+-]\d+)?$",self.filename)
         if mm:
             ts=float(mm.group(1))+float(self.timestamp)/1000
             self.globaltime=ts
@@ -574,6 +574,8 @@ def perline(q):
                 print q.pretty()+" ERR:"+", ".join(q.error_msg)
         else:
             print q.pretty()
+    elif output == "rxstats":
+        print "RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__
     else:
         print "Unknown output mode."
         exit(1)

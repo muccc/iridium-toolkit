@@ -1,39 +1,76 @@
 #!/bin/sh
 
-file=$1
 base=""
 
-if [ "$1" = "-1" ] ; then
-	shift
-	file="*/*-$1.det"
-	base=yes
-else
-	if [ "$1" = "-2" ] ; then
-		shift
-		file="*/*-$1-*.cut"
-	else 
-		if [ ! -f "$file" ] ; then 
-			file="*/*-$1.det"
-			base=yes
-		fi
+while true
+do
+  case $1 in
+    -r)  # set sample rate
+        r=$2
+        shift; shift
+        ;;
+    -b) # set base freq
+        f=$2
+		base=yes
+        shift; shift
+        ;;
+    -1) # Stage 1 file (detector output)
+		file="*/*-$2.det"
+		base=yes
+        shift; shift
+        ;;
+    -2) # Stage 2 file (downmix output)
+		file="*/*-$2-*.cut"
+        shift; shift
+        ;;
+    *)
+        break
+        ;;
+  esac
+done
+
+if [ -z "$file" ] ; then
+	# Heuristic
+	if [ ! -f "$1" ] ; then 
+		file="*/*-$1.det"
+		base=yes
+	else
+		file="$1"
 	fi
 fi
 
 file=$(echo $file)
 
-case $file in 
-*-v*)
-	f=1626270833
-	r=2000000
-	;;
-*-s*)
-    f=1626440000
-    r=250000
-	;;
-*)
-	echo "No idea... " >&2
-	;;
-esac
+# Try to guess rate/freq
+if [ -z "$r" ] ; then
+	case $file in 
+	*-v*)
+		f=1626270833
+		r=2000000
+		;;
+	*-s*)
+		f=1626440000
+		r=250000
+		;;
+	*-r*)
+		f=1626270000
+		r=250000
+		;;
+	*-b*)
+		f=1626354000
+		r=500000
+		;;
+	*-t*)
+		f=1626000000
+		r=1000000
+		;;
+	*)
+		echo "No idea... " >&2
+		f=0
+		r=1000000
+		;;
+	esac
+fi
 
 if [ "$base" = "yes" ] ; then
 	base="-basefrequency $f"
@@ -44,8 +81,13 @@ if [ ! -f "$file" ] ; then
 	exit 1
 fi
 
+case $file in
+	*.rtl) fmt="-e unsigned-integer -b 8";;
+	*) fmt="-e floating-point -b 32";;
+esac
+
 tmp=/tmp/$(echo $(basename $file)|sed 's!/!_!g').wav
 
-sox -r $r -e floating-point -b 32 -c 2 -t raw $file $tmp
-baudline -format le32f -quadrature -samplerate $r $base -fftsize 1024 -channels 2 -flipcomplex $tmp
+sox -r $r $fmt -c 2 -t raw $file $tmp
+baudline -quadrature -samplerate $r $base -fftsize 1024 -channels 2 -flipcomplex $tmp
 rm $tmp
