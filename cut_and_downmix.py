@@ -111,7 +111,7 @@ class CutAndDownmix(object):
 
         return t
 
-    def cut_and_downmix(self, signal, search_offset=None, search_window=None):
+    def cut_and_downmix(self, signal, search_offset=None, search_window=None, frequency_offset=0):
         self._update_search_window(search_offset, search_window)
 
         #signal_mag = [abs(x) for x in signal]
@@ -150,6 +150,7 @@ class CutAndDownmix(object):
         real_index = max_index + correction
 
         offset_freq = (fft_freq[math.floor(real_index)] + (real_index - math.floor(real_index)) * (fft_freq[math.floor(real_index) + 1] - fft_freq[math.floor(real_index)])) * self._sample_rate
+        offset_freq+=frequency_offset
 
         if self._verbose:
             print 'correction', correction
@@ -244,7 +245,7 @@ if __name__ == "__main__":
             sample_rate = int(arg)
         elif opt in ('-s', '--search'):
             search_depth = float(arg)
-        elif opt == '-v':
+        elif opt in ('-v', '--verbose'):
             verbose = True
 
     signal = iq.read(file_name)

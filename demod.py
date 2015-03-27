@@ -98,7 +98,7 @@ class Demod(object):
             start=peakidx-self._samples_per_symbol
         return start
 
-    def demod(self, signal):
+    def demod(self, signal, return_final_offset=False):
         self._errors=0
         self._nsymbols=0
 
@@ -267,6 +267,8 @@ class Demod(object):
 
         confidence = (1-float(self._errors)/self._nsymbols)*100
 
+        self._real_freq_offset=phase/360.*self._symbols_per_second/self._nsymbols
+
         if self._verbose:
             print "access:",access_ok,"(%s)"%access
             print "leadout:",lead_out_ok
@@ -275,6 +277,7 @@ class Demod(object):
             print "data:",data
             print "final delay",delay
             print "final phase",phase
+            print "frequency offset:", self._real_freq_offset
 
         if access_ok:
             data="<"+data[:24]+"> "+data[24:]
@@ -285,7 +288,10 @@ class Demod(object):
 
         data=re.sub(r'([01]{32})',r'\1 ',data)
 
-        return (dataarray, data, access_ok, lead_out_ok, confidence, level, self._nsymbols)
+        if return_final_offset:
+            return (dataarray, data, access_ok, lead_out_ok, confidence, level, self._nsymbols,self._real_freq_offset)
+        else:
+            return (dataarray, data, access_ok, lead_out_ok, confidence, level, self._nsymbols)
         
 if __name__ == "__main__":
     options, remainder = getopt.getopt(sys.argv[1:], 'r:cv', [
