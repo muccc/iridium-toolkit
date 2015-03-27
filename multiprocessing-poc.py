@@ -44,7 +44,7 @@ def printer(out_queue):
         print msg
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:S:vd:8p:', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:S:vd:f:p:', ['offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
@@ -52,7 +52,7 @@ if __name__ == "__main__":
                                                             'verbose',
                                                             'speed=',
                                                             'db=',
-                                                            'rtl',
+                                                            'format=',
                                                             'pipe',
                                                             ])
 
@@ -63,7 +63,7 @@ if __name__ == "__main__":
     search_size=1 # Only calulate every (search_size)'th fft
     sample_rate = 0
     fft_peak = 7.0 # about 8.5 dB over noise
-    rtl = False
+    fmt = None
     pipe = None
 
     for opt, arg in options:
@@ -81,8 +81,8 @@ if __name__ == "__main__":
             fft_peak = pow(10,float(arg)/10)
         elif opt in ('-v', '--verbose'):
             verbose = True
-        elif opt in ('-8', '--rtl'):
-            rtl = True
+        elif opt in ('-f', '--format'):
+            fmt = arg
         elif opt in ('-p', '--pipe'):
             pipe = arg
 
@@ -101,7 +101,7 @@ if __name__ == "__main__":
         file_name = remainder[0]
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
-    det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, use_8bit = rtl, search_size=search_size, verbose=verbose)
+    det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose)
 
     workers = []
     for i in range(4):

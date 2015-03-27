@@ -10,7 +10,7 @@ import time
 from functools import partial
 
 class Detector(object):
-    def __init__(self, sample_rate, fft_peak=7.0, use_8bit=False, search_size=1, verbose=False):
+    def __init__(self, sample_rate, fft_peak=7.0, sample_format=None, search_size=1, verbose=False):
         self._sample_rate = sample_rate
         self._fft_size=int(math.pow(2, 1+int(math.log(self._sample_rate/1000,2)))) # fft is approx 1ms long
         self._bin_size = float(self._fft_size)/self._sample_rate * 1000 # How many ms is one fft now?
@@ -18,12 +18,17 @@ class Detector(object):
         self._search_size = search_size
         self._fft_peak = fft_peak
 
-        if use_8bit:
+        if sample_format == "rtl":
             self._struct_elem = numpy.uint8
             self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
-        else:
+        elif sample_format == "hackrf":
+            self._struct_elem = numpy.int8
+            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
+        elif sample_format == "float":
             self._struct_elem = numpy.complex64
             self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size
+        else:
+            raise Exception("No sample format given")
 
         self._window = numpy.blackman(self._fft_size)
         self._fft_histlen=500 # How many items to keep for moving average. 5 times our signal length
@@ -60,7 +65,11 @@ class Detector(object):
                     slice = numpy.frombuffer(data, dtype=self._struct_elem)
                     if self._struct_elem == numpy.uint8:
                         slice = slice.astype(numpy.float32) # convert to float
-                        slice = (slice-127.4)/128.             # Normalize
+                        slice = (slice-127.4)/128.          # Normalize
+                        slice = slice.view(numpy.complex64) # reinterpret as complex
+                    if self._struct_elem == numpy.int8:
+                        slice = slice.astype(numpy.float32) # convert to float
+                        slice = slice/128.                  # Normalize
                         slice = slice.view(numpy.complex64) # reinterpret as complex
                     fft_result = numpy.absolute(numpy.fft.fft(slice * self._window))
 
