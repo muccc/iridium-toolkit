@@ -107,7 +107,7 @@ class Detector(object):
                                 peakl[p0:p1]=[0]*(p1-p0)
                         peakidx=numpy.argmax(peakl)
                         peak=peakl[peakidx]
-                        if(peak>self._fft_peak):
+                        while(peak>self._fft_peak):
                             signals+=1
 
                             time_stamp = index*self._bin_size
@@ -122,6 +122,19 @@ class Detector(object):
 
                             writepost=self._search_size+self._data_postlen
                             peaks.append([peakidx,writepost,index,info, signal])
+
+                            # XXX: clear "area" around peak
+                            w=25
+                            p0=peakidx-w
+                            if p0<0:
+                                p0=0
+                            p1=peakidx+w
+                            if p1>=self._fft_size:
+                                p1=self._fft_size-1
+                            peakl[p0:p1]=[0]*(p1-p0)
+
+                            peakidx=numpy.argmax(peakl)
+                            peak=peakl[peakidx]
 
                     peaks_to_collect = filter(lambda e: e[1]<=0, peaks)
                     for peak in peaks_to_collect:
