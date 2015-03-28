@@ -35,7 +35,7 @@ if __name__ == "__main__":
                                                             ])
 
     center = None # 1626270833
-    search_window = 60000
+    search_window = 40000
     search_depth = 0.007
     verbose = False
     search_size=1 # Only calulate every (search_size)'th fft

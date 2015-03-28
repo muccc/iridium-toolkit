@@ -10,7 +10,7 @@ import time
 from functools import partial
 
 class Detector(object):
-    def __init__(self, sample_rate, fft_peak=7.0, sample_format=None, search_size=1, verbose=False, signal_width=60e3):
+    def __init__(self, sample_rate, fft_peak=7.0, sample_format=None, search_size=1, verbose=False, signal_width=40e3):
         self._sample_rate = sample_rate
         self._fft_size=int(math.pow(2, 1+int(math.log(self._sample_rate/1000,2)))) # fft is approx 1ms long
         self._bin_size = float(self._fft_size)/self._sample_rate * 1000 # How many ms is one fft now?
