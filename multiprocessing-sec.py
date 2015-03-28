@@ -86,14 +86,14 @@ if __name__ == "__main__":
         file_name = remainder[0]
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
-    det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose)
+    det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose, signal_width=search_window)
     cad = cut_and_downmix.CutAndDownmix(center=center, sample_rate=sample_rate, search_depth=search_depth, verbose=verbose)
     dem = demod.Demod(sample_rate=sample_rate, use_correlation=True, verbose=verbose)
 
     def process_one(basename, time_stamp, signal_strength, bin_index, freq, signal):
         mix_signal, mix_freq = cad.cut_and_downmix(signal=signal, search_offset=freq, search_window=search_window)
         dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(mix_signal)
-        msg = "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
+        msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
         out_queue.put(msg)
         if mix_freq < 1626e6 and confidence>95 and nsymbols>40 and access_ok==1:
             iq.write("keep.%010d-f%010d.raw"%(time_stamp,freq),signal)

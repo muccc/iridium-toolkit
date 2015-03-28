@@ -10,7 +10,7 @@ import time
 from functools import partial
 
 class Detector(object):
-    def __init__(self, sample_rate, fft_peak=7.0, sample_format=None, search_size=1, verbose=False):
+    def __init__(self, sample_rate, fft_peak=7.0, sample_format=None, search_size=1, verbose=False, signal_width=60e3):
         self._sample_rate = sample_rate
         self._fft_size=int(math.pow(2, 1+int(math.log(self._sample_rate/1000,2)))) # fft is approx 1ms long
         self._bin_size = float(self._fft_size)/self._sample_rate * 1000 # How many ms is one fft now?
@@ -36,11 +36,13 @@ class Detector(object):
         self._data_postlen=5
         self._signal_maxlen=1+int(30/self._bin_size) # ~ 30 ms
         self._fft_freq = numpy.fft.fftfreq(self._fft_size)
+        self._signal_width=signal_width/(self._sample_rate/self._fft_size) # Area to ignore around an already found signal in Hz
         
         if self._verbose:
             print "fft_size=%d (=> %f ms)"%(self._fft_size,self._bin_size)
             print "calculate fft once every %d block(s)"%(self._search_size)
             print "require %.1f dB"%(10*math.log(self._fft_peak,10))
+            print "signal_width: %d (= %.1f Hz)"%(self._signal_width,self._signal_width*self._sample_rate/self._fft_size)
 
     def process_file(self, file_name, data_collector):
         data_hist = []
@@ -53,6 +55,16 @@ class Detector(object):
         signals=0
 
         peaks=[] # idx, postlen, file
+
+        def remove_signal(peaks,idx): # clear "area" around a peak
+            w=int(self._signal_width-1)/2
+            p0=idx-w
+            if p0<0:
+                p0=0
+            p1=idx+w
+            if p1>=self._fft_size:
+                p1=self._fft_size-1
+            peaks[p0:p1]=[0]*(p1-p0)
 
         with open(file_name, "rb") as f:
             while True:
@@ -96,15 +108,7 @@ class Detector(object):
                                 if (index-p[2])==self._signal_maxlen:
                                     print "Peak B%d @ %d too long"%(p[0],p[2])
                             if (index-p[2])<self._signal_maxlen:
-                                # XXX: clear "area" around peak
-                                w=25
-                                p0=pi-w
-                                if p0<0:
-                                    p0=0
-                                p1=pi+w
-                                if p1>=self._fft_size:
-                                    p1=self._fft_size-1
-                                peakl[p0:p1]=[0]*(p1-p0)
+                                remove_signal(peakl,pi)
                         peakidx=numpy.argmax(peakl)
                         peak=peakl[peakidx]
                         while(peak>self._fft_peak):
@@ -123,16 +127,7 @@ class Detector(object):
                             writepost=self._search_size+self._data_postlen
                             peaks.append([peakidx,writepost,index,info, signal])
 
-                            # XXX: clear "area" around peak
-                            w=25
-                            p0=peakidx-w
-                            if p0<0:
-                                p0=0
-                            p1=peakidx+w
-                            if p1>=self._fft_size:
-                                p1=self._fft_size-1
-                            peakl[p0:p1]=[0]*(p1-p0)
-
+                            remove_signal(peakl,peakidx)
                             peakidx=numpy.argmax(peakl)
                             peak=peakl[peakidx]
 
