@@ -170,7 +170,7 @@ if __name__ == "__main__":
                                                             'format=',
                                                             'pipe',
                                                             ])
-    sample_rate = 0
+    sample_rate = None
     verbose = False
     search_size=1 # Only calulate every (search_size)'th fft
     fft_peak = 7.0 # about 8.5 dB over noise
@@ -191,8 +191,11 @@ if __name__ == "__main__":
         elif opt in ('-p', '--pipe'):
             pipe = arg
 
-    if sample_rate == 0:
-        print "Sample rate missing!"
+    if sample_rate == None:
+        print >> sys.stderr, "Sample rate missing!"
+        exit(1)
+    if fmt == None:
+        print >> sys.stderr, "Need to specify sample format (one of rtl, hackrf, float)!"
         exit(1)
 
     basename=None

@@ -24,11 +24,8 @@ if __name__ == "__main__":
                                                             'verbose',
                                                             ])
 
-    file_name = remainder[0]
-    basename= filename= re.sub('\.[^.]*$','',file_name)
-
-    center= 1626270833
-    sample_rate = 2000000
+    center = None
+    sample_rate = None
     symbols_per_second = 25000
     preamble_length = 16
     search_offset = None
@@ -53,19 +50,33 @@ if __name__ == "__main__":
         elif opt in ('-v', '--verbose'):
             verbose = True
 
+    if sample_rate == None:
+        print >> sys.stderr, "Sample rate missing!"
+        exit(1)
+    if center == None:
+        print >> sys.stderr, "Need to specify center frequency!"
+        exit(1)
+
+    if len(remainder)==0:
+        file_name = "/dev/stdin"
+        basename="stdin"
+    else:
+        file_name = remainder[0]
+        basename= filename= re.sub('\.[^.]*$','',file_name)
+
     signal = iq.read(file_name)
 
     cad = cut_and_downmix.CutAndDownmix(center=center, sample_rate=sample_rate, symbols_per_second=symbols_per_second, preamble_length=preamble_length,
                             search_depth=search_depth, verbose=verbose)
+    d = demod.Demod(sample_rate=sample_rate, use_correlation=True, verbose=verbose)
 
     temp_signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, search_window=search_window)
 
-    d = demod.Demod(sample_rate=sample_rate, use_correlation=True, verbose=verbose)
     dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols, final_offset = d.demod(temp_signal,return_final_offset=True)
 
-    print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%("foo",0,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data) 
+    print "RAW: %s %d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,0,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
     signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, search_window=search_window, frequency_offset=-final_offset)
     print "F_off:",-final_offset
     dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols, final_offset = d.demod(signal,return_final_offset=True)
-    print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%("foo",0,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data) 
+    print "RAW: %s %d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,0,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
 

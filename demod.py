@@ -301,7 +301,7 @@ if __name__ == "__main__":
                                                             ])
 
     use_correlation=False
-    sample_rate = 2000000
+    sample_rate = None
     debug = False
     verbose = False
 
@@ -312,6 +312,10 @@ if __name__ == "__main__":
             verbose = True
         elif opt in ('-c', '--use-correlation'):
             use_correlation=True
+
+    if sample_rate == None:
+        print >> sys.stderr, "Sample rate missing!"
+        exit(1)
 
     file_name = remainder[0]
     basename= filename= re.sub('\.[^.]*$','',file_name)

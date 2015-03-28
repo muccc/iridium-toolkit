@@ -9,11 +9,9 @@ import getopt
 import sys
 import re
 import threading
-from functools import partial
 import multiprocessing
 import signal
 import os
-import time
 
 out_queue = multiprocessing.JoinableQueue()
 
@@ -36,12 +34,12 @@ if __name__ == "__main__":
                                                             'pipe',
                                                             ])
 
-    center= 1626270833
+    center = None # 1626270833
     search_window = 60000
     search_depth = 0.007
     verbose = False
     search_size=1 # Only calulate every (search_size)'th fft
-    sample_rate = 0
+    sample_rate = None
     fft_peak = 7.0 # about 8.5 dB over noise
     fmt = None
     pipe = None
@@ -66,9 +64,16 @@ if __name__ == "__main__":
         elif opt in ('-p', '--pipe'):
             pipe = arg
 
-    if sample_rate == 0:
-        print "Sample rate missing!"
+    if sample_rate == None:
+        print >> sys.stderr, "Sample rate missing!"
         exit(1)
+    if center == None:
+        print >> sys.stderr, "Need to specify center frequency!"
+        exit(1)
+    if fmt == None:
+        print >> sys.stderr, "Need to specify sample format (one of rtl, hackrf, float)!"
+        exit(1)
+
 
     basename=None
 
