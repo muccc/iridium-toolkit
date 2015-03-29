@@ -67,8 +67,11 @@ class Detector(object):
             peaks[p0:p1]=[0]*(p1-p0)
 
         with open(file_name, "rb") as f:
+            burst_signals=0
             while True:
                 data = f.read(self._struct_len)
+                if burst_signals>0:
+                    burst_signals-=1
                 if not data: break
                 if len(data) != self._struct_len: break
 
@@ -111,8 +114,9 @@ class Detector(object):
                                 remove_signal(peakl,pi)
                         peakidx=numpy.argmax(peakl)
                         peak=peakl[peakidx]
-                        while(peak>self._fft_peak):
+                        while(peak>self._fft_peak and burst_signals<6):
                             signals+=1
+                            burst_signals+=1
 
                             time_stamp = index*self._bin_size
                             signal_strength = 10*math.log(peak,10)
@@ -130,6 +134,8 @@ class Detector(object):
                             remove_signal(peakl,peakidx)
                             peakidx=numpy.argmax(peakl)
                             peak=peakl[peakidx]
+                    if burst_signals==6:
+                        print >> sys.stderr, "Ran into burst squelch"
 
                     peaks_to_collect = filter(lambda e: e[1]<=0, peaks)
                     for peak in peaks_to_collect:
