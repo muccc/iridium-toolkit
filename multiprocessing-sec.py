@@ -22,7 +22,7 @@ def printer(out_queue):
         out_queue.task_done()
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:S:vd:f:p:', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:S:vd:f:p:j:', ['offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
@@ -31,7 +31,8 @@ if __name__ == "__main__":
                                                             'speed=',
                                                             'db=',
                                                             'format=',
-                                                            'pipe',
+                                                            'pipe=',
+                                                            'jobs=',
                                                             ])
 
     center = None # 1626270833
@@ -43,6 +44,7 @@ if __name__ == "__main__":
     fft_peak = 7.0 # about 8.5 dB over noise
     fmt = None
     pipe = None
+    jobs = 4
 
     for opt, arg in options:
         if opt in ('-w', '--search-window'):
@@ -61,6 +63,8 @@ if __name__ == "__main__":
             verbose = True
         elif opt in ('-f', '--format'):
             fmt = arg
+        elif opt in ('-j', '--jobs'):
+            jobs = int(arg)
         elif opt in ('-p', '--pipe'):
             pipe = arg
 
@@ -108,7 +112,7 @@ if __name__ == "__main__":
     out_thread.daemon = True
     out_thread.start()
 
-    workers = multiprocessing.Pool(processes=4, initializer=init_worker)
+    workers = multiprocessing.Pool(processes=jobs, initializer=init_worker)
     try:
         det.process_file(file_name, wrap_process)
     except KeyboardInterrupt:
