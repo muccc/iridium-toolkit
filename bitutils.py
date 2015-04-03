@@ -46,7 +46,7 @@ def parse_line_to_message(line):
         error = line[9]=="True"
         msgtype = line[10]
     else:
-        error == False
+        error = False
         msgtype = None
 
     return {'name': name, 'timestamp':timestamp, 'freq':freq, 'access':access, 'lead_out':lead_out, 'confidence':confidence, 'strength': strength, 'length': length, 'error': error, 'msgtype': msgtype}
@@ -57,7 +57,10 @@ def print_message(m):
 def read_file(filenames):
     messages = []
     for line in fileinput.input(filenames):
-        message = parse_line_to_message(line)
-        if message:
-            messages.append(message)
+        try:
+            message = parse_line_to_message(line)
+            if message:
+                messages.append(message)
+        except:
+            pass
     return messages
