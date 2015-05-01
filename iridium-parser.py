@@ -155,7 +155,8 @@ class IridiumMessage(Message):
         elif  1626229167<self.frequency<1626312500:
             self.msgtype="RA"
         else:
-            raise ParserError("unknown Iridium message type")
+#            raise ParserError("unknown Iridium message type")
+            self.msgtype="BC" # XXX: need to do better
         if self.msgtype=="MSG":
 
             self.header=data[:32]
@@ -167,6 +168,10 @@ class IridiumMessage(Message):
             self.header=""
             self.bitstream_descrambled=de_interleave3(data[:96])
             data=data[96:]
+        elif self.msgtype=="BC":
+            self.header=data[:6]
+            data=data[6:]
+            self.bitstream_descrambled=""
 
         m=re.compile('(\d{64})').findall(data)
         for (group) in m:
@@ -212,6 +217,8 @@ class IridiumECCMessage(IridiumMessage):
             poly="{0:011b}".format(messaging_bch_poly)
         elif self.msgtype == "RA":
             poly="{0:011b}".format(ringalert_bch_poly)
+        elif self.msgtype == "BC":
+            poly="{0:011b}".format(ringalert_bch_poly)
         else:
             raise ParserError("unknown Iridium message type")
         self.bitstream_messaging=""
@@ -242,6 +249,8 @@ class IridiumECCMessage(IridiumMessage):
                 return IridiumMessagingMessage(self).upgrade()
             elif self.msgtype == "RA":
                 return IridiumRAMessage(self).upgrade()
+            elif self.msgtype == "BC":
+                return IridiumBCMessage(self).upgrade()
             else:
                 self._new_error("Unknown message type")
         except ParserError,e:
@@ -257,6 +266,41 @@ class IridiumECCMessage(IridiumMessage):
         str= "IME: "+self._pretty_header()
         str+= " fix:%d"%self.fixederrs
         str+= " "+group(self.bitstream_bch,21)
+        str+=self._pretty_trailer()
+        return str
+
+class IridiumBCMessage(IridiumECCMessage):
+    def __init__(self,imsg):
+        self.__dict__=copy.deepcopy(imsg.__dict__)
+        # Decode stuff from self.bitstream_bch
+        self.bc_type= int(self.bitstream_bch[46:48],2)
+    def upgrade(self):
+        if self.error: return self
+        try:
+            return self
+        except ParserError,e:
+            self._new_error(str(e))
+            return self
+        return self
+    def _pretty_header(self):
+        return super(IridiumBCMessage,self)._pretty_header()
+    def _pretty_trailer(self):
+        return super(IridiumBCMessage,self)._pretty_trailer()
+    def pretty(self):
+        str= "IBC: "+self._pretty_header()
+        str+= " %s"%self.bitstream_bch[:16]
+        str+= " %s"%self.bitstream_bch[16:32]
+        str+= " %s"%self.bitstream_bch[32:46]
+        str+= " %s"%self.bitstream_bch[46:48]
+        str+= "[%d]"%self.bc_type
+        if self.bc_type==1:
+            str+= " %s"%self.bitstream_bch[48:64]
+            str+= " "+self.bitstream_bch[64:74]
+            str+= " ctr=[%04d]"%int(self.bitstream_bch[74:83],2)
+            str+= " "+group(self.bitstream_bch[83:],16)
+        else:
+            str+= " %s"%self.bitstream_bch[48:64]
+            str+= " "+group(self.bitstream_bch[64:],16)
         str+=self._pretty_trailer()
         return str
 
