@@ -281,6 +281,8 @@ class IridiumBCMessage(IridiumECCMessage):
         self.__dict__=copy.deepcopy(imsg.__dict__)
         # Decode stuff from self.bitstream_bch
         self.bc_type= int(self.bitstream_bch[46:48],2)
+        self.bc_uplink_ch= int(self.bitstream_bch[32:37],2)
+        self.bc_aqch_av= int(self.bitstream_bch[37:40],2)
     def upgrade(self):
         if self.error: return self
         try:
@@ -299,7 +301,11 @@ class IridiumBCMessage(IridiumECCMessage):
         str+= " cell:%02d"%int(self.bitstream_bch[7:13], 2)
         str+= " %s"%self.bitstream_bch[13:16]
         str+= " %s"%self.bitstream_bch[16:32]
-        str+= " %s"%self.bitstream_bch[32:46]
+        str+= " %s"%self.bitstream_bch[32:37]
+        str+= "[%d]"%self.bc_uplink_ch
+        str+= " %s"%self.bitstream_bch[37:40]
+        str+= "[%d]"%self.bc_aqch_av
+        str+= " %s"%self.bitstream_bch[40:46]
         str+= " %s"%self.bitstream_bch[46:48]
         str+= "[%d]"%self.bc_type
         if self.bc_type==1:
