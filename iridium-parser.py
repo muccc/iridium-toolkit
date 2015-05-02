@@ -288,7 +288,9 @@ class IridiumBCMessage(IridiumECCMessage):
         return super(IridiumBCMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IBC: "+self._pretty_header()
-        str+= " %s"%self.bitstream_bch[:16]
+        str+= " sat:%02d"%int(self.bitstream_bch[:7], 2)
+        str+= " cell:%02d"%int(self.bitstream_bch[7:13], 2)
+        str+= " %s"%self.bitstream_bch[13:16]
         str+= " %s"%self.bitstream_bch[16:32]
         str+= " %s"%self.bitstream_bch[32:46]
         str+= " %s"%self.bitstream_bch[46:48]
