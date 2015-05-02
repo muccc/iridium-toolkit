@@ -73,6 +73,8 @@ class Message(object):
         if(not m):
             raise Exception("did not match")
         self.filename=m.group(1)
+        if self.filename=="/dev/stdin":
+            self.filename="-";
         self.timestamp=int(m.group(2))
         self.frequency=int(m.group(3))
 #        self.access_ok=(m.group(4)=="OK")
@@ -134,7 +136,7 @@ class Message(object):
         if not self.error_msg or self.error_msg[-1] != msg:
             self.error_msg.append(msg)
     def _pretty_header(self):
-        return "%s %07d %010d %3d%% %.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
+        return "%s %09d %010d %3d%% %.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
     def _pretty_trailer(self):
         return ""
     def pretty(self):
