@@ -68,10 +68,15 @@ tsoffset=0
 maxts=0
 class Message(object):
     def __init__(self,line):
+        self.parse_error=False
+        self.error=False
+        self.error_msg=[]
         p=re.compile('RAW: ([^ ]*) (\d+) (\d+) A:(\w+) L:(\w+) +(\d+)% ([\d.]+) +(\d+) ([\[\]<> 01]+)(.*)')
         m=p.match(line)
         if(not m):
-            raise Exception("did not match")
+            self._new_error("Couldn't parse: "+line)
+            self.parse_error=True
+            return
         self.filename=m.group(1)
         if self.filename=="/dev/stdin":
             self.filename="-";
@@ -84,8 +89,6 @@ class Message(object):
 #        self.raw_length=m.group(8)
         self.bitstream_raw=re.sub("[\[\]<> ]","",m.group(9)) # raw bitstring
         self.symbols=len(self.bitstream_raw)/2
-        self.error=False
-        self.error_msg=[]
         if m.group(10):
             self.extra_data=m.group(10)
             self._new_error("There is crap at the end in extra_data")
@@ -140,6 +143,8 @@ class Message(object):
     def _pretty_trailer(self):
         return ""
     def pretty(self):
+        if self.parse_error:
+            return "ERR: "
         str= "RAW: "+self._pretty_header()
         str+= " "+self.bitstream_raw
         if("extra_data" in self.__dict__):
