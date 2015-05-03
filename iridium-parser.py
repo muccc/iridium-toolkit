@@ -165,6 +165,7 @@ class IridiumMessage(Message):
         else:
             raise ParserError("unknown Iridium message type")
             self.msgtype="BC" # XXX: need to do better
+            self.msgtype="DA" # XXX: need to do better
 
         if self.msgtype=="MS":
             hdrlen=32
@@ -193,6 +194,20 @@ class IridiumMessage(Message):
             self.descramble_extra=blocks.pop()
             for x in blocks:
                 self.descrambled+=de_interleave(x)
+        elif self.msgtype=="DA":
+            hdrlen=46
+            self.header=data[:hdrlen]
+            self.descrambled=[]
+
+            blocks=slice(data[hdrlen:],124)
+            self.descramble_extra=blocks.pop()
+            for x in blocks:
+                for i in de_interleave(x): # Not clear what block order is correct
+                    self.descrambled+=[i[:31],i[31:62]]
+            if len(self.descramble_extra)<64:
+                self._new_error("Unexpected DA length")
+            self.descrambled+=de_interleave(self.descramble_extra[:64])
+            self.descramble_extra=self.descramble_extra[64:]
 
         self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
         if len(self.descrambled)==0:
@@ -233,6 +248,8 @@ class IridiumECCMessage(IridiumMessage):
             poly=ringalert_bch_poly
         elif self.msgtype == "BC":
             poly=ringalert_bch_poly
+        elif self.msgtype == "DA":
+            poly=ringalert_bch_poly
         else:
             raise ParserError("unknown Iridium message type")
         self.bitstream_messaging=""
@@ -242,7 +259,10 @@ class IridiumECCMessage(IridiumMessage):
         self.fixederrs=0
         self.bch=[]
         for block in self.descrambled:
-            parity=block[31]
+            if len(block)!=32 and len(block)!=31:
+                raise ParserError("unknown BCH block len:%d"%len(block))
+            if len(block)==32:
+                parity=block[31]
             bits=block[:31]
             result=ndivide(poly,bits)
             errs=0
@@ -252,7 +272,10 @@ class IridiumECCMessage(IridiumMessage):
                     self.fixederrs+=1
                 if(errs<0):
                     self._new_error("BCH decode failed")
-            parity=(bits+parity).count('1') % 2
+            if len(block)==32:
+                parity=(bits+parity).count('1') % 2
+            elif len(block)==31:
+                parity=(bits).count('1') % 2
 #            if parity==1: raise ParserError("Parity error")
             self.bch.append((result,errs,parity))
             self.bitstream_bch+=block[:21]
@@ -269,6 +292,8 @@ class IridiumECCMessage(IridiumMessage):
                 return IridiumRAMessage(self).upgrade()
             elif self.msgtype == "BC":
                 return IridiumBCMessage(self).upgrade()
+            elif self.msgtype == "DA":
+                return self
             else:
                 self._new_error("Unknown message type")
         except ParserError,e:
@@ -285,7 +310,12 @@ class IridiumECCMessage(IridiumMessage):
         for block in xrange(len(self.descrambled)):
             b=self.descrambled[block]
             (res,errs,parity)=self.bch[block]
-            str+="{%s %s %s/%04d E%s P%d}"%(b[:21],b[21:31],b[31],res,("0","1","2","-")[errs],parity)
+            if len(b)==31:
+                str+="{%s %s/%04d E%s P%d}"%(b[:21],b[21:31],res,("0","1","2","-")[errs],parity)
+            elif len(b)==32:
+                str+="{%s %s %s/%04d E%s P%d}"%(b[:21],b[21:31],b[31],res,("0","1","2","-")[errs],parity)
+            else:
+                str+="length=%d?"%len(b)
         str+=self._pretty_trailer()
         return str
 
