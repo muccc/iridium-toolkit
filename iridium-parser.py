@@ -159,14 +159,14 @@ class IridiumMessage(Message):
 
         # Try to detect packet type
         if data[:32] == header_messaging:
-            self.msgtype="MSG"
+            self.msgtype="MS"
         elif  1626229167<self.frequency<1626312500:
             self.msgtype="RA"
         else:
             raise ParserError("unknown Iridium message type")
             self.msgtype="BC" # XXX: need to do better
 
-        if self.msgtype=="MSG":
+        if self.msgtype=="MS":
             hdrlen=32
             self.header=data[:hdrlen]
             self.descrambled=[]
@@ -219,7 +219,7 @@ class IridiumMessage(Message):
         return str
     def pretty(self):
         str= "IRI: "+self._pretty_header()
-        str+= " %3s"%self.msgtype
+        str+= " %2s"%self.msgtype
         str+= " "+" ".join(self.descrambled)
         str+= self._pretty_trailer()
         return str
@@ -227,7 +227,7 @@ class IridiumMessage(Message):
 class IridiumECCMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
-        if self.msgtype == "MSG":
+        if self.msgtype == "MS":
             poly="{0:011b}".format(messaging_bch_poly)
         elif self.msgtype == "RA":
             poly="{0:011b}".format(ringalert_bch_poly)
@@ -263,8 +263,8 @@ class IridiumECCMessage(IridiumMessage):
     def upgrade(self):
         if self.error: return self
         try:
-            if self.msgtype == "MSG":
-                return IridiumMessagingMessage(self).upgrade()
+            if self.msgtype == "MS":
+                return IridiumMSMessage(self).upgrade()
             elif self.msgtype == "RA":
                 return IridiumRAMessage(self).upgrade()
             elif self.msgtype == "BC":
@@ -315,9 +315,9 @@ class IridiumBCMessage(IridiumECCMessage):
         str+= " %s"%self.bitstream_bch[13:16]
         str+= " %s"%self.bitstream_bch[16:32]
         str+= " %s"%self.bitstream_bch[32:37]
-        str+= "[%d]"%self.bc_uplink_ch
+        str+= "[%02d]"%self.bc_uplink_ch
         str+= " %s"%self.bitstream_bch[37:40]
-        str+= "[%d]"%self.bc_aqch_av
+        str+= "[%02d]"%self.bc_aqch_av
         str+= " %s"%self.bitstream_bch[40:46]
         str+= " %s"%self.bitstream_bch[46:48]
         str+= "[%d]"%self.bc_type
@@ -356,7 +356,6 @@ class IridiumRAMessage(IridiumECCMessage):
         return super(IridiumRAMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IRA: "+self._pretty_header()
-        str+= " ts:%04d"%(self.globaltime/4.320)
         str+= " sat:%02d"%self.ra_sat
         str+= " cell:%02d"%self.ra_cell
         str+= " %s"%self.bitstream_bch[13]
@@ -383,7 +382,7 @@ class IridiumRAMessage(IridiumECCMessage):
         str+=self._pretty_trailer()
         return str
 
-class IridiumMessagingMessage(IridiumECCMessage):
+class IridiumMSMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
         rest=self.bitstream_messaging
@@ -450,7 +449,7 @@ class IridiumMessagingMessage(IridiumECCMessage):
             return self
         return self
     def _pretty_header(self):
-        str= super(IridiumMessagingMessage,self)._pretty_header()
+        str= super(IridiumMSMessage,self)._pretty_header()
         str+= " odd:%-26s" % (self.oddbits)
         str+= " %1d:%s:%02d" % (self.block, self.group,self.frame)
         if(self.oddbits == "1011"):
@@ -463,7 +462,7 @@ class IridiumMessagingMessage(IridiumECCMessage):
             str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
         return str
     def _pretty_trailer(self):
-        return super(IridiumMessagingMessage,self)._pretty_trailer()
+        return super(IridiumMSMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IMS: "+self._pretty_header()
         if("msg_format" in self.__dict__):
@@ -471,7 +470,7 @@ class IridiumMessagingMessage(IridiumECCMessage):
         str+=self._pretty_trailer()
         return str
         
-class IridiumMessagingAscii(IridiumMessagingMessage):
+class IridiumMessagingAscii(IridiumMSMessage):
     def __init__(self,immsg):
         self.__dict__=copy.deepcopy(immsg.__dict__)
         rest=self.msg_data
@@ -533,7 +532,7 @@ class IridiumMessagingAscii(IridiumMessagingMessage):
        str+= self._pretty_trailer()
        return str
         
-class IridiumMessagingUnknown(IridiumMessagingMessage):
+class IridiumMessagingUnknown(IridiumMSMessage):
     def __init__(self,immsg):
         self.__dict__=copy.deepcopy(immsg.__dict__)
         rest=self.msg_data
