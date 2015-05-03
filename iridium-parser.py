@@ -2,7 +2,7 @@
 # vim: set ts=4 sw=4 tw=0 et pm=:
 import sys
 import re
-from bch import repair
+from bch import divide,repair
 import fileinput
 import getopt
 import types
@@ -157,40 +157,47 @@ class IridiumMessage(Message):
         self.__dict__=copy.deepcopy(msg.__dict__)
         data=self.bitstream_raw[len(iridium_access):]
 
+        # Try to detect packet type
         if data[:32] == header_messaging:
             self.msgtype="MSG"
         elif  1626229167<self.frequency<1626312500:
             self.msgtype="RA"
         else:
-#            raise ParserError("unknown Iridium message type")
+            raise ParserError("unknown Iridium message type")
             self.msgtype="BC" # XXX: need to do better
+
         if self.msgtype=="MSG":
-
-            self.header=data[:32]
-            self.bitstream_descrambled=""
-            data=data[32:]
+            hdrlen=32
+            self.header=data[:hdrlen]
+            self.descrambled=[]
+            blocks=slice(data[hdrlen:],64)
+            self.descramble_extra=blocks.pop()
+            for x in blocks:
+                self.descrambled+=de_interleave(x)
         elif self.msgtype=="RA":
-            if  len(data)<96:
-                raise ParserError("No data to descramble")
+            firstlen=3*32
+            if len(data)<firstlen:
+                self._new_error("No data to descramble")
             self.header=""
-            self.bitstream_descrambled=de_interleave3(data[:96])
-            data=data[96:]
+            self.descrambled=de_interleave3(data[:firstlen])
+            blocks=slice(data[firstlen:],64)
+            self.descramble_extra=blocks.pop()
+            for x in blocks:
+                self.descrambled+=de_interleave(x)
         elif self.msgtype=="BC":
-            self.header=data[:6]
-            data=data[6:]
-            self.bitstream_descrambled=""
+            hdrlen=6
+            self.header=data[:hdrlen]
+            self.descrambled=[]
 
-        m=re.compile('(\d{64})').findall(data)
-        for (group) in m:
-            self.bitstream_descrambled+=de_interleave(group)
-            data=data[64:]
-        if(not self.bitstream_descrambled):
-            raise ParserError("No data to descramble")
-        self.lead_out_ok= data.startswith(iridium_lead_out)
-        if(data):
-            self.descramble_extra=data
-        else:
-            self.descramble_extra=""
+            blocks=slice(data[hdrlen:],64)
+            self.descramble_extra=blocks.pop()
+            for x in blocks:
+                self.descrambled+=de_interleave(x)
+
+        self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
+        if len(self.descrambled)==0:
+            self._new_error("No data to descramble")
+
     def upgrade(self):
         if self.error: return self
         try:
@@ -201,7 +208,7 @@ class IridiumMessage(Message):
         return self
     def _pretty_header(self):
         str= super(IridiumMessage,self)._pretty_header()
-        str+= " %03d"%(len(self.header+self.bitstream_descrambled+self.descramble_extra)/2)
+        str+= " %03d"%(self.symbols-len(iridium_access)/2)
         str+=" L:"+("no","OK")[self.lead_out_ok]
         if self.header:
             str+=" "+self.header
@@ -213,7 +220,7 @@ class IridiumMessage(Message):
     def pretty(self):
         str= "IRI: "+self._pretty_header()
         str+= " %3s"%self.msgtype
-        str+= " "+re.sub("(\d)(\d{20})(\d{10})(\d)","{\\1 \\2 \\3 \\4} ",self.bitstream_descrambled)
+        str+= " "+" ".join(self.descrambled)
         str+= self._pretty_trailer()
         return str
 
@@ -229,26 +236,30 @@ class IridiumECCMessage(IridiumMessage):
         else:
             raise ParserError("unknown Iridium message type")
         self.bitstream_messaging=""
+
         self.bitstream_bch=""
         self.oddbits=""
         self.fixederrs=0
-        m=re.compile('(\d)(\d{20})(\d{10})(\d)').findall(self.bitstream_descrambled)
-        # TODO: bch_ok and parity_ok arrays
-        for (odd,msg,bch,parity) in m:
-            (errs,bnew)=repair(poly, odd+msg+bch)
-            if(errs>0):
-                self.fixederrs+=1
-                odd=bnew[0]
-                msg=bnew[1:21]
-                bch=bnew[21:]
-            if(errs<0):
-                raise ParserError("BCH decode failed")
-            parity=len(re.sub("0","",odd+msg+bch+parity))%2
-            if parity==1:
-                raise ParserError("Parity error")
-            self.bitstream_messaging+=msg
-            self.bitstream_bch+=odd+msg
-            self.oddbits+=odd
+        self.bch=[]
+        for block in self.descrambled:
+            parity=block[31]
+            bits=block[:31]
+            result=divide(poly,bits)
+            errs=0
+            if result!=0:
+                (errs,block)=repair(poly, bits)
+                if errs>0:
+                    self.fixederrs+=1
+                if(errs<0):
+                    self._new_error("BCH decode failed")
+            parity=(bits+parity).count('1') % 2
+#            if parity==1: raise ParserError("Parity error")
+            self.bch.append((result,errs,parity))
+            self.bitstream_bch+=block[:21]
+            self.bitstream_messaging+=block[1:21]
+            self.oddbits+=block[0]
+        if len(self.bitstream_bch)==0:
+            self._new_error("No data to descramble")
     def upgrade(self):
         if self.error: return self
         try:
@@ -270,9 +281,11 @@ class IridiumECCMessage(IridiumMessage):
     def _pretty_trailer(self):
         return super(IridiumECCMessage,self)._pretty_trailer()
     def pretty(self):
-        str= "IME: "+self._pretty_header()
-        str+= " fix:%d"%self.fixederrs
-        str+= " "+group(self.bitstream_bch,21)
+        str= "IME: "+self._pretty_header()+" "
+        for block in xrange(len(self.descrambled)):
+            b=self.descrambled[block]
+            (res,errs,parity)=self.bch[block]
+            str+="{%s %s %s/%04d E%s P%d}"%(b[:21],b[21:31],b[31],res,("0","1","2","-")[errs],parity)
         str+=self._pretty_trailer()
         return str
 
@@ -553,16 +566,15 @@ def grouped(iterable, n):
 def de_interleave(group):
     symbols = [''.join(symbol) for symbol in grouped(group, 2)]
     even = ''.join([symbols[x] for x in range(len(symbols)-2,-1, -2)])
-    odd  = ''.join([symbols[x] for x in range(len(symbols)-1, 0, -2)])
-    field = odd + even
-    return field
+    odd  = ''.join([symbols[x] for x in range(len(symbols)-1,-1, -2)])
+    return (odd,even)
 
 def de_interleave3(group):
     symbols = [''.join(symbol) for symbol in grouped(group, 2)]
     third  = ''.join([symbols[x] for x in range(len(symbols)-3, -1, -3)])
     second = ''.join([symbols[x] for x in range(len(symbols)-2, -1, -3)])
     first  = ''.join([symbols[x] for x in range(len(symbols)-1, -1, -3)])
-    return first+second+third
+    return (first,second,third)
 
 def messagechecksum(msg):
     csum=0
@@ -573,6 +585,9 @@ def messagechecksum(msg):
 def group(string,n): # similar to grouped, but keeps rest at the end
     string=re.sub('(.{%d})'%n,'\\1 ',string)
     return string.rstrip()
+
+def slice(string,n):
+    return [string[x:x+n] for x in xrange(0,len(string)+1,n)]
 
 if output == "dump":
     file=open(dumpfile,"wb")
