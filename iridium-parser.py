@@ -2,7 +2,7 @@
 # vim: set ts=4 sw=4 tw=0 et pm=:
 import sys
 import re
-from bch import divide,repair
+from bch import ndivide, nrepair
 import fileinput
 import getopt
 import types
@@ -228,11 +228,11 @@ class IridiumECCMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
         if self.msgtype == "MS":
-            poly="{0:011b}".format(messaging_bch_poly)
+            poly=messaging_bch_poly
         elif self.msgtype == "RA":
-            poly="{0:011b}".format(ringalert_bch_poly)
+            poly=ringalert_bch_poly
         elif self.msgtype == "BC":
-            poly="{0:011b}".format(ringalert_bch_poly)
+            poly=ringalert_bch_poly
         else:
             raise ParserError("unknown Iridium message type")
         self.bitstream_messaging=""
@@ -244,10 +244,10 @@ class IridiumECCMessage(IridiumMessage):
         for block in self.descrambled:
             parity=block[31]
             bits=block[:31]
-            result=divide(poly,bits)
+            result=ndivide(poly,bits)
             errs=0
             if result!=0:
-                (errs,block)=repair(poly, bits)
+                (errs,block)=nrepair(poly, bits)
                 if errs>0:
                     self.fixederrs+=1
                 if(errs<0):

@@ -2,29 +2,25 @@
 # vim: set ts=4 sw=4 tw=0 et pm=:
 from fec import stringify, listify
 
-def divide(a,b): # returns b%a in GF(2) fast/binary version
-    aa=int(a,2)
-    bb=int(b,2)
-    if(bb==0):
+def nndivide(poly,num): # both args as int
+    if(num==0):
         return 0
-    alen=len(a)-a.index("1")
-    blen=len(b)-b.index("1")
-
-    bits=blen-alen
-    pow=1<<(blen-1)
-    
-#    print "a:",a,"=",aa,"len=",alen
-#    print "b:",b,"=",bb,"len=",blen
+    bits=num.bit_length()-poly.bit_length()
+    pow=1<<(num.bit_length()-1)
 
     while bits>=0:
-#        print "bits:",bits,"pow:",pow,"bb:",bb
-        if (bb>=pow):
-            bb^=(aa<<bits)
+        if (num>=pow):
+            num^=(poly<<bits)
         pow>>=1
         bits-=1
+    return num
 
-#    print "res=",bb
-    return bb
+def ndivide(poly,bits):
+    num=int(bits,2)
+    return nndivide(poly,num)
+
+def divide(a,b): # returns b%a in GF(2) fast/binary version
+    return nndivide(int(a,2),int(b,2))
 
 def sdivide(a,b): # returns b%a in GF(2) slow/ascii version
     aa=listify (a);
@@ -103,5 +99,27 @@ def repair(a,b): # "repair" two bit errors by brute force.
             bnum2str=("{0:0%db}"%blen).format(bnum2)
             r=divide(a,bnum2str)
             if(r==0):
+                return (2,bnum2str)
+    return(-1,b)
+
+def nrepair(a,b): # "repair" two bit errors by brute force.
+    r=ndivide(a,b)
+    if(r==0):
+        return (0,b)
+    blen=len(b)
+    bnum=int(b,2)
+    for b1 in xrange(len(b)):
+        bnum1=bnum^(1<<b1)
+        r=nndivide(a,bnum1)
+        if(r==0):
+            bnum1str=("{0:0%db}"%blen).format(bnum1)
+            return (1,bnum1str)
+    for b1 in xrange(len(b)):
+        bnum1=bnum^(1<<b1)
+        for b2 in xrange(b1+1,len(b)):
+            bnum2=bnum1^(1<<b2)
+            r=nndivide(a,bnum2)
+            if(r==0):
+                bnum2str=("{0:0%db}"%blen).format(bnum2)
                 return (2,bnum2str)
     return(-1,b)
