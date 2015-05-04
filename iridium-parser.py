@@ -163,9 +163,9 @@ class IridiumMessage(Message):
         elif  1626229167<self.frequency<1626312500:
             self.msgtype="RA"
         else: # XXX: heuristic based on first BCH block, need to do better
-            if ndivide(ringalert_bch_poly,de_interleave(data[6:6+64])[0][:31])==0:
+            if len(data)>6+64 and ndivide(ringalert_bch_poly,de_interleave(data[6:6+64])[0][:31])==0:
                 self.msgtype="BC"
-            elif ndivide(ringalert_bch_poly,de_interleave(data[46:46+124])[0][:31])==0:
+            elif len(data)>64+124 and ndivide(ringalert_bch_poly,de_interleave(data[46:46+124])[0][:31])==0:
                 self.msgtype="DA"
             else:
                 raise ParserError("unknown Iridium message type")
@@ -348,6 +348,8 @@ class IridiumBCMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
         # Decode stuff from self.bitstream_bch
+        if len(self.bitstream_bch)<48:
+            raise ParserError("No data to descramble")
         self.bc_type= int(self.bitstream_bch[46:48],2)
         self.bc_uplink_ch= int(self.bitstream_bch[32:37],2)
         self.bc_aqch_av= int(self.bitstream_bch[37:40],2)
