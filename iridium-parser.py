@@ -162,10 +162,13 @@ class IridiumMessage(Message):
             self.msgtype="MS"
         elif  1626229167<self.frequency<1626312500:
             self.msgtype="RA"
-        else:
-            raise ParserError("unknown Iridium message type")
-            self.msgtype="BC" # XXX: need to do better
-            self.msgtype="DA" # XXX: need to do better
+        else: # XXX: heuristic based on first BCH block, need to do better
+            if ndivide(ringalert_bch_poly,de_interleave(data[6:6+64])[0][:31])==0:
+                self.msgtype="BC"
+            elif ndivide(ringalert_bch_poly,de_interleave(data[46:46+124])[0][:31])==0:
+                self.msgtype="DA"
+            else:
+                raise ParserError("unknown Iridium message type")
 
         if self.msgtype=="MS":
             hdrlen=32
