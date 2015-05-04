@@ -340,7 +340,7 @@ class IridiumDAMessage(IridiumECCMessage):
         return super(IridiumDAMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IDA: "+self._pretty_header()
-        str+= " ".join(slice(self.bitstream_bch,16))
+        str+= " "+" ".join(slice(self.bitstream_bch,16))
         str+=self._pretty_trailer()
         return str
 
