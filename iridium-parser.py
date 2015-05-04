@@ -293,7 +293,7 @@ class IridiumECCMessage(IridiumMessage):
             elif self.msgtype == "BC":
                 return IridiumBCMessage(self).upgrade()
             elif self.msgtype == "DA":
-                return self
+                return IridiumDAMessage(self).upgrade()
             else:
                 self._new_error("Unknown message type")
         except ParserError,e:
@@ -316,6 +316,28 @@ class IridiumECCMessage(IridiumMessage):
                 str+="{%s %s %s/%04d E%s P%d}"%(b[:21],b[21:31],b[31],res,("0","1","2","-")[errs],parity)
             else:
                 str+="length=%d?"%len(b)
+        str+=self._pretty_trailer()
+        return str
+
+class IridiumDAMessage(IridiumECCMessage):
+    def __init__(self,imsg):
+        self.__dict__=copy.deepcopy(imsg.__dict__)
+        # Decode stuff from self.bitstream_bch
+    def upgrade(self):
+        if self.error: return self
+        try:
+            return self
+        except ParserError,e:
+            self._new_error(str(e))
+            return self
+        return self
+    def _pretty_header(self):
+        return super(IridiumDAMessage,self)._pretty_header()
+    def _pretty_trailer(self):
+        return super(IridiumDAMessage,self)._pretty_trailer()
+    def pretty(self):
+        str= "IDA: "+self._pretty_header()
+        str+= " ".join(slice(self.bitstream_bch,16))
         str+=self._pretty_trailer()
         return str
 
