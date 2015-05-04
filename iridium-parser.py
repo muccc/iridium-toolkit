@@ -146,7 +146,12 @@ class Message(object):
         if self.parse_error:
             return "ERR: "
         str= "RAW: "+self._pretty_header()
-        str+= " "+self.bitstream_raw
+#        str+= " "+self.bitstream_raw
+        bs=self.bitstream_raw
+        if (bs.startswith(iridium_access)):
+            str+=" <%s>"%iridium_access
+            bs=bs[len(iridium_access):]
+        str+=" "+" ".join(slice(bs,16))
         if("extra_data" in self.__dict__):
             str+=" "+self.extra_data
         str+=self._pretty_trailer()
