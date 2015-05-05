@@ -25,6 +25,7 @@ iridium_lead_out="100101111010110110110011001111"
 header_messaging="00110011111100110011001111110011" # 0x9669 in BPSK
 messaging_bch_poly=1897
 ringalert_bch_poly=1207
+acch_bch_poly=3545 # 1207 also works?
 
 verbose = False
 perfect = False
@@ -167,13 +168,20 @@ class IridiumMessage(Message):
             self.msgtype="MS"
         elif  1626229167<self.frequency<1626312500:
             self.msgtype="RA"
-        else: # XXX: heuristic based on first BCH block, need to do better
-            if len(data)>6+64 and ndivide(ringalert_bch_poly,de_interleave(data[6:6+64])[0][:31])==0:
-                self.msgtype="BC"
-            elif len(data)>64+124 and ndivide(ringalert_bch_poly,de_interleave(data[46:46+124])[0][:31])==0:
+        elif len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
+            (ft,lcw2,lcw3)=de_interleave_lcw(data[:46])
+            (e1,ft)=  nrepair( 29,ft)
+            (e2,lcw2)=nrepair(465,lcw2+'0')  # One bit error expected
+            (e3,lcw3)=nrepair( 41,lcw3)
+#            if e1>=0 and e2>=0 and e3>=0: # Valid LCW
+            if e1==0 and 0<=e2<=1 and e3==0: # GOOD LCW
                 self.msgtype="DA"
+            elif len(data)>6+64 and ndivide(ringalert_bch_poly,de_interleave(data[6:6+64])[0][:31])==0:
+                self.msgtype="BC"
             else:
                 raise ParserError("unknown Iridium message type")
+        else:
+            raise ParserError("Iridium message too short")
 
         if self.msgtype=="MS":
             hdrlen=32
@@ -203,27 +211,51 @@ class IridiumMessage(Message):
             for x in blocks:
                 self.descrambled+=de_interleave(x)
         elif self.msgtype=="DA":
-            hdrlen=46
-            self.header=data[:hdrlen]
+            lcwlen=46
+            (o_ft,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
+            (e1,ft)=  nrepair( 29,o_ft)
+            (e2,lcw2)=nrepair(465,o_lcw2+'0')  # One bit error expected
+            (e3,lcw3)=nrepair( 41,o_lcw3)
+            ft=int(ft[:3],2)                   # Frame type
+            lcw2=lcw2[:6]
+            lcw3=lcw3[:21]
+            if e1<0 or e2<0 or e3<0:
+                self._new_error("LCW decode failed")
+                self.header="LCW(%s %s/%02d E%d,%s %sx/%03d E%d,%s %s/%02d E%d)"%(o_ft[:3],o_ft[3:],ndivide(29,o_ft),e1,o_lcw2[:6],o_lcw2[6:],ndivide(465,o_lcw2+'0'),e2,o_lcw3[:21],o_lcw3[21:],ndivide(41,o_lcw3),e3)
+            else:
+                self.header="LCW(%d,%s,%s E%d)"%(ft,lcw2,lcw3,e1+e2+e3)
             self.descrambled=[]
+            data=data[lcwlen:]
 
-            blocks=slice(data[hdrlen:],124)
-            self.descramble_extra=blocks.pop()
-            for x in blocks:
-                for i in de_interleave(x): # Not clear what block order is correct
-                    self.descrambled+=[i[:31],i[31:62]]
-            if len(self.descramble_extra)<64:
-                self._new_error("Unexpected DA length")
-            self.descrambled+=de_interleave(self.descramble_extra[:64])
-            self.descramble_extra=self.descramble_extra[64:]
+            if ft==0: # Voice
+                self.msgtype="VO"
+                self.voice=data[:312]
+                self.descramble_extra=data[312:]
+            elif ft==2:
+                if len(data)<124*2+64:
+                    self._new_error("Not enough data in DA packet")
+                self.descramble_extra=data[124*2+64:]
+                data=data[:124*2+64]
+                blocks=slice(data,124)
+                end=blocks.pop()
+                for x in blocks:
+                    for i in de_interleave(x): # Not clear what block order is correct
+                        self.descrambled+=[i[:31],i[31:62]]
+                self.descrambled+=de_interleave(end)
+            else: # Need to check what ft=1 is
+                self.descrambled=blocks=slice(data,64)
+                self.descramble_extra=""
+                self._new_error("Unknown frame_type")
 
         self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
-        if len(self.descrambled)==0:
+        if self.msgtype!="VO" and len(self.descrambled)==0:
             self._new_error("No data to descramble")
 
     def upgrade(self):
         if self.error: return self
         try:
+            if self.msgtype=="VO":
+                return IridiumVOMessage(self).upgrade()
             return IridiumECCMessage(self).upgrade()
         except ParserError,e:
             self._new_error(str(e))
@@ -247,6 +279,22 @@ class IridiumMessage(Message):
         str+= self._pretty_trailer()
         return str
 
+class IridiumVOMessage(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=copy.deepcopy(imsg.__dict__)
+        # Decode stuff from self.bitstream_bch
+    def upgrade(self):
+        return self
+    def _pretty_header(self):
+        return super(IridiumVOMessage,self)._pretty_header()
+    def _pretty_trailer(self):
+        return super(IridiumVOMessage,self)._pretty_trailer()
+    def pretty(self):
+        str= "VOC: "+self._pretty_header()
+        str+= " "+self.voice
+        str+=self._pretty_trailer()
+        return str
+
 class IridiumECCMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
@@ -257,7 +305,7 @@ class IridiumECCMessage(IridiumMessage):
         elif self.msgtype == "BC":
             poly=ringalert_bch_poly
         elif self.msgtype == "DA":
-            poly=ringalert_bch_poly
+            poly=acch_bch_poly
         else:
             raise ParserError("unknown Iridium message type")
         self.bitstream_messaging=""
@@ -658,6 +706,14 @@ def de_interleave3(group):
     second = ''.join([symbols[x] for x in range(len(symbols)-2, -1, -3)])
     first  = ''.join([symbols[x] for x in range(len(symbols)-1, -1, -3)])
     return (first,second,third)
+
+def de_interleave_lcw(bits):
+    tbl= [ 39, 40, 35, 36, 31, 32, 27, 28, 23, 24, 19, 20, 15, 16, 11, 12,  7,  8,  3,  4,
+           42,
+           37, 38, 33, 34, 29, 30, 25, 26, 21, 22, 17, 18, 13, 14,  9, 10,  5,  6,  1,  2,
+           45, 46, 43, 44, 41]
+    lcw=[bits[x-1:x] for x in tbl]
+    return (''.join(lcw[:7]),''.join(lcw[7:20]),''.join(lcw[20:]))
 
 def messagechecksum(msg):
     csum=0
