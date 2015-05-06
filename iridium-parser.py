@@ -9,6 +9,7 @@ import types
 import copy
 import datetime
 from itertools import izip
+from math import sqrt,atan2,pi
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:ps', [
                                                          'verbose',
@@ -450,9 +451,9 @@ class IridiumRAMessage(IridiumECCMessage):
             raise ParserError("RA content too short")
         self.ra_sat=   int(self.bitstream_bch[0:7],2)   # sv_id
         self.ra_cell=  int(self.bitstream_bch[7:13],2)  # beam_id
-        self.ra_pos_z= int(self.bitstream_bch[13:25],2)
-        self.ra_pos_y= int(self.bitstream_bch[25:37],2)
-        self.ra_pos_x= int(self.bitstream_bch[37:49],2)
+        self.ra_pos_x= int(self.bitstream_bch[14:25],2) - int(self.bitstream_bch[13])*(1<<11)
+        self.ra_pos_y= int(self.bitstream_bch[26:37],2) - int(self.bitstream_bch[25])*(1<<11)
+        self.ra_pos_z= int(self.bitstream_bch[38:49],2) - int(self.bitstream_bch[37])*(1<<11)
         self.ra_int=   int(self.bitstream_bch[49:56],2) # 90ms interval of RA (within same sat/cell)
         self.ra_ts=    int(self.bitstream_bch[56:57],2) # timeslot (Broadcast configuration?)
         self.ra_eip=   int(self.bitstream_bch[57:58],2)
@@ -492,7 +493,9 @@ class IridiumRAMessage(IridiumECCMessage):
         str= "IRA: "+self._pretty_header()
         str+= " sat:%02d"%self.ra_sat
         str+= " cell:%02d"%self.ra_cell
-        str+= " pos=(%04d,%04d,%04d)"%(self.ra_pos_x,self.ra_pos_y,self.ra_pos_z)
+#        str+= " pos=(%04d,%04d,%04d)"%(self.ra_pos_x,self.ra_pos_y,self.ra_pos_z)
+        str+= " pos=(%+05.1f/%+06.1f)"%(atan2(self.ra_pos_x,self.ra_pos_z)*180/pi, atan2(self.ra_pos_y,self.ra_pos_z)*180/pi)
+        str+= " alt=%03d"%(sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4-6378+23) # Maybe try WGS84 geoid? :-)
         str+= " int:%02d"%self.ra_int
         str+= " ?%d%d"%(self.ra_ts,self.ra_eip)
         str+= " bch:%02d"%self.ra_bch
