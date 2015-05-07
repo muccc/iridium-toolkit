@@ -64,7 +64,7 @@ if dosatclass == True:
 
 class ParserError(Exception):
     pass
-        
+
 tswarning=False
 tsoffset=0
 maxts=0
@@ -604,7 +604,7 @@ class IridiumMSMessage(IridiumECCMessage):
             str+= " "+group(self.msg_data,20)
         str+=self._pretty_trailer()
         return str
-        
+
 class IridiumMessagingAscii(IridiumMSMessage):
     def __init__(self,immsg):
         self.__dict__=copy.deepcopy(immsg.__dict__)
@@ -666,7 +666,7 @@ class IridiumMessagingAscii(IridiumMSMessage):
        str+= " %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
        str+= self._pretty_trailer()
        return str
-        
+
 class IridiumMessagingUnknown(IridiumMSMessage):
     def __init__(self,immsg):
         self.__dict__=copy.deepcopy(immsg.__dict__)
@@ -692,7 +692,7 @@ class IridiumMessagingUnknown(IridiumMSMessage):
        str+= " %-65s"%group(self.msg_msgdata,4)
        str+= self._pretty_trailer()
        return str
-        
+
 def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), ..."
     return izip(*[iter(iterable)]*n)
