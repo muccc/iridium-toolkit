@@ -2,7 +2,7 @@
 # vim: set ts=4 sw=4 tw=0 et pm=:
 import sys
 import re
-from bch import ndivide, nrepair
+from bch import ndivide, nrepair, bch_repair
 import fileinput
 import getopt
 import types
@@ -179,10 +179,10 @@ class IridiumMessage(Message):
         elif  1626229167<self.frequency<1626312500:
             self.msgtype="RA"
         elif len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
-            (ft,lcw2,lcw3)=de_interleave_lcw(data[:46])
-            (e1,ft)=  nrepair( 29,ft)
-            (e2,lcw2)=nrepair(465,lcw2+'0')  # One bit error expected
-            (e3,lcw3)=nrepair( 41,lcw3)
+            (lcw1,lcw2,lcw3)=de_interleave_lcw(data[:46])
+            (e1,lcw1,bch)= bch_repair( 29,lcw1)
+            (e2,lcw2,bch)= bch_repair(465,lcw2+'0')  # One bit error expected
+            (e3,lcw3,bch)= bch_repair( 41,lcw3)
 #            if e1>=0 and e2>=0 and e3>=0: # Valid LCW
             if e1==0 and 0<=e2<=1 and e3==0: # GOOD LCW
                 self.msgtype="DA"
@@ -219,26 +219,24 @@ class IridiumMessage(Message):
                 self.descrambled+=de_interleave(x)
         elif self.msgtype=="DA":
             lcwlen=46
-            (o_ft,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
-            (e1,ft)=  nrepair( 29,o_ft)
-            (e2,lcw2)=nrepair(465,o_lcw2+'0')  # One bit error expected
-            (e3,lcw3)=nrepair( 41,o_lcw3)
-            ft=int(ft[:3],2)                   # Frame type
-            lcw2=lcw2[:6]
-            lcw3=lcw3[:21]
+            (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
+            (e1,self.lcw1,bch)= bch_repair( 29,o_lcw1)
+            (e2,self.lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit error expected
+            (e3,self.lcw3,bch)= bch_repair( 41,o_lcw3)
+            self.ft=int(self.lcw1,2) # Frame type
             if e1<0 or e2<0 or e3<0:
                 self._new_error("LCW decode failed")
                 self.header="LCW(%s %s/%02d E%d,%s %sx/%03d E%d,%s %s/%02d E%d)"%(o_ft[:3],o_ft[3:],ndivide(29,o_ft),e1,o_lcw2[:6],o_lcw2[6:],ndivide(465,o_lcw2+'0'),e2,o_lcw3[:21],o_lcw3[21:],ndivide(41,o_lcw3),e3)
             else:
-                self.header="LCW(%d,%s,%s E%d)"%(ft,lcw2,lcw3,e1+e2+e3)
+                self.header="LCW(%d,%s,%s E%d)"%(self.ft,self.lcw2,self.lcw3,e1+e2+e3)
             self.descrambled=[]
             data=data[lcwlen:]
 
-            if ft==0: # Voice
+            if self.ft==0: # Voice
                 self.msgtype="VO"
                 self.voice=data[:312]
                 self.descramble_extra=data[312:]
-            elif ft==2:
+            elif self.ft==2:
                 if len(data)<124*2+64:
                     self._new_error("Not enough data in DA packet")
                 self.descramble_extra=data[124*2+64:]
@@ -330,7 +328,7 @@ class IridiumECCMessage(IridiumMessage):
             result=ndivide(poly,bits)
             errs=0
             if result!=0:
-                (errs,block)=nrepair(poly, bits)
+                (errs,bits)=nrepair(poly, bits)
                 if errs>0:
                     self.fixederrs+=1
                 if(errs<0):

@@ -123,3 +123,7 @@ def nrepair(a,b): # "repair" two bit errors by brute force.
                 bnum2str=("{0:0%db}"%blen).format(bnum2)
                 return (2,bnum2str)
     return(-1,b)
+
+def bch_repair(poly,bits):
+    (errs,repaired)=nrepair(poly,bits)
+    return (errs,repaired[:-poly.bit_length()+1],repaired[-poly.bit_length()+1:])
