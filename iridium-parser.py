@@ -188,8 +188,7 @@ class IridiumMessage(Message):
             hdrlen=32
             self.header=data[:hdrlen]
             self.descrambled=[]
-            blocks=slice(data[hdrlen:],64)
-            self.descramble_extra=blocks.pop()
+            (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
         elif self.msgtype=="RA":
@@ -198,8 +197,7 @@ class IridiumMessage(Message):
                 self._new_error("No data to descramble")
             self.header=""
             self.descrambled=de_interleave3(data[:firstlen])
-            blocks=slice(data[firstlen:],64)
-            self.descramble_extra=blocks.pop()
+            (blocks,self.descramble_extra)=slice_extra(data[firstlen:],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
         elif self.msgtype=="BC":
@@ -207,8 +205,7 @@ class IridiumMessage(Message):
             self.header=data[:hdrlen]
             self.descrambled=[]
 
-            blocks=slice(data[hdrlen:],64)
-            self.descramble_extra=blocks.pop()
+            (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
         elif self.msgtype=="DA":
@@ -728,8 +725,13 @@ def group(string,n): # similar to grouped, but keeps rest at the end
     string=re.sub('(.{%d})'%n,'\\1 ',string)
     return string.rstrip()
 
+def slice_extra(string,n):
+    blocks=[string[x:x+n] for x in xrange(0,len(string)+1,n)]
+    extra=blocks.pop()
+    return (blocks,extra)
+
 def slice(string,n):
-    return [string[x:x+n] for x in xrange(0,len(string)+1,n)]
+    return [string[x:x+n] for x in xrange(0,len(string),n)]
 
 if output == "dump":
     file=open(dumpfile,"wb")
