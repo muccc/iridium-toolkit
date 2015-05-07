@@ -11,8 +11,10 @@ import datetime
 from itertools import izip
 from math import sqrt,atan2,pi
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:ps', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:ps', [
                                                          'verbose',
+                                                         'good',
+                                                         'confidence=',
                                                          'input=',
                                                          'output=',
                                                          'perfect',
@@ -30,6 +32,7 @@ acch_bch_poly=3545 # 1207 also works?
 
 verbose = False
 perfect = False
+good = False
 dosatclass = False
 input= "raw"
 output= "line"
@@ -39,6 +42,12 @@ plotargs=["time", "frequency"]
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
         verbose = True
+    elif opt in ('-g','--good'):
+        good = True
+        min_confidence=90
+    elif opt in ('--confidence'):
+        good = True
+        min_confidence=int(arg)
     elif opt in ('-p', '--perfect'):
         perfect = True
     elif opt in ('-s', '--satclass'):
@@ -748,9 +757,13 @@ selected=[]
 def do_input(type):
     if type=="raw":
         for line in fileinput.input(remainder):
-            line=line.strip()
-            q=Message(line.strip()).upgrade()
-            perline(q)
+            if good:
+                q=Message(line.strip())
+                if q.confidence<min_confidence:
+                    continue
+                perline(q.upgrade())
+            else:
+                perline(Message(line.strip()).upgrade())
     elif type=="dump":
         file=open(dumpfile,"rb")
         try:
