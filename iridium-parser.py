@@ -21,6 +21,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:ps', [
                                                          'satclass',
                                                          'plot=',
                                                          'filter=',
+                                                         'voice-dump=',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -38,6 +39,7 @@ input= "raw"
 output= "line"
 linefilter=[]
 plotargs=["time", "frequency"]
+vdumpfile=None
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
@@ -56,6 +58,8 @@ for opt, arg in options:
         plotargs=arg.split(',')
     elif opt in ('--filter'):
         linefilter=arg.split(',')
+    elif opt in ('--voice-dump'):
+        vdumpfile=arg
     elif opt in ('-i', '--input'):
         input=arg
     elif opt in ('-o', '--output'):
@@ -70,6 +74,9 @@ if input == "dump" or output == "dump":
 if dosatclass == True:
     import satclass
     satclass.init()
+
+if vdumpfile != None:
+    vdumpfile=open(vdumpfile,"wb")
 
 class ParserError(Exception):
     pass
@@ -784,6 +791,12 @@ def perline(q):
         if len(linefilter)>1:
             if not eval(linefilter[1]):
                 return
+    if vdumpfile != None and type(q).__name__ == "IridiumVOMessage":
+        if len(q.voice)!=312:
+            raise Exception("illegal Voice frame length")
+        for bits in slice(q.voice, 8):
+            byte = int(bits[::-1],2)
+            vdumpfile.write(chr(byte))
     if output == "err":
         if(q.error):
             selected.append(q)
