@@ -13,7 +13,18 @@ Unless otherwise noted in a file, everyting here is
 and licenced under the 2-Clause BSD Licence
 
 ### Example usage
+#### Capture with [hackrf](https://greatscottgadgets.com/hackrf/) or [rad1o](https://rad1o.badge.events.ccc.de/start) and multiprocessing
 
+Note: The rad1o has to be in hackrf-mode
+
+    hackrf_transfer  -r /dev/stdout -f 1627000000 -a 1 -l 40 -g 20 -s 2000000 | python2 multiprocessing-sec.py -c 1627000000 -r 2000000 -f hackrf --jobs 2 | grep "A:OK" | tee outfile
+
+This writes to `outfile`. Pager messages can be decoded with
+
+    python2 iridium-parser.py outfile
+
+#### Capture with usrp and processing in stages
+##### Manual
 record with usrp. So far we've used two settings:
 
 The catch-all interesting stuff
@@ -34,21 +45,21 @@ the v is replaces with an s on the "narrow" receive settings
 
 To process them, there are three stages:
 
-#### stage1:
+###### stage1:
 
-`detector-fft.py `<rawfilename>`
+`detector-fft.py <rawfilename>`
 
 this searches through the file in 5ms steps to scan for activity
 and copies these parts into snippets called `<rawfilename>-<timestamp>.det`
 
-#### stage2:
+###### stage2:
 
 `cut-and-downmix.py <detectorfile>`
 
 this mixes the signal down to 0Hz and cuts the beginning to match
 the signal exactly. Output is `<detfile>-f<frequency>.cut`
 
-#### stage3:
+###### stage3:
 
 `demod.py`
 
@@ -57,11 +68,13 @@ this does manual dqpsk demodulation of the signal and outputs
 `<cutfile>.data` the raw bitstream
 and on stdout an ascii summary line.
 
-#### stage4:
+###### stage4:
 
 gather all the ascii bits in a single file `<rawfilename>.bits`
 
-### To simplify running these tools, there is doit.pl
+##### Automatic
+
+To simplify running these tools, there is `doit.pl`.
 
 it runs stage1 (if requested)
 then
