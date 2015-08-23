@@ -35,7 +35,7 @@ class Detector(object):
         self._data_histlen=self._search_size
         self._data_postlen=5
         self._signal_maxlen=1+int(30/self._bin_size) # ~ 30 ms
-        self._fft_freq = numpy.fft.fftfreq(self._fft_size)
+        self._fft_freq = numpy.fft.fftshift(numpy.fft.fftfreq(self._fft_size))
         self._signal_width=signal_width/(self._sample_rate/self._fft_size) # Area to ignore around an already found signal in Hz
         
         if self._verbose:
@@ -86,7 +86,7 @@ class Detector(object):
                         slice = slice.astype(numpy.float32) # convert to float
                         slice = slice/128.                  # Normalize
                         slice = slice.view(numpy.complex64) # reinterpret as complex
-                    fft_result = numpy.absolute(numpy.fft.fft(slice * self._window))
+                    fft_result = numpy.absolute(numpy.fft.fftshift(numpy.fft.fft(slice * self._window)))
 
                     if len(fft_hist)>25: # grace period after start of file
                         peakl= (fft_result / fft_avg)*len(fft_hist)
@@ -135,7 +135,8 @@ class Detector(object):
                             peakidx=numpy.argmax(peakl)
                             peak=peakl[peakidx]
                     if burst_signals==6:
-                        print >> sys.stderr, "Ran into burst squelch"
+                        time_stamp = index*self._bin_size
+                        print >> sys.stderr, "Ran into burst squelch at", time_stamp
 
                     peaks_to_collect = filter(lambda e: e[1]<=0, peaks)
                     for peak in peaks_to_collect:
