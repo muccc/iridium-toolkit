@@ -192,6 +192,7 @@ class CutAndDownmix(object):
         #print max(([abs(x.imag) for x in signal]))
 
         ntaps= 161 # 10001, 1001, 161, 41
+        ntaps= 2*int(self._sample_rate/20000)+1
         rrc = filters.rrcosfilter(ntaps, 0.4, 1./self._symbols_per_second, self._sample_rate)[1]
         signal = numpy.convolve(signal, rrc, 'same')
 
