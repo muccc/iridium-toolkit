@@ -89,6 +89,10 @@ class Detector(object):
                         slice = slice.astype(numpy.float32) # convert to float
                         slice = slice/128.                  # Normalize
                         slice = slice.view(numpy.complex64) # reinterpret as complex
+                    if self._struct_elem == numpy.int16:
+                        slice = slice.astype(numpy.float32) # convert to float
+                        slice = slice/32768.                # Normalize
+                        slice = slice.view(numpy.complex64) # reinterpret as complex
                     fft_result = numpy.absolute(numpy.fft.fftshift(numpy.fft.fft(slice * self._window)))
 
                     if len(fft_hist)>25: # grace period after start of file
@@ -200,7 +204,7 @@ if __name__ == "__main__":
         print >> sys.stderr, "Sample rate missing!"
         exit(1)
     if fmt == None:
-        print >> sys.stderr, "Need to specify sample format (one of rtl, hackrf, float)!"
+        print >> sys.stderr, "Need to specify sample format (one of rtl, hackrf, sc16, float)!"
         exit(1)
 
     basename=None
