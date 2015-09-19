@@ -75,7 +75,7 @@ if __name__ == "__main__":
         print >> sys.stderr, "Need to specify center frequency!"
         exit(1)
     if fmt == None:
-        print >> sys.stderr, "Need to specify sample format (one of rtl, hackrf, float)!"
+        print >> sys.stderr, "Need to specify sample format (one of rtl, hackrf, sc16, float)!"
         exit(1)
 
 

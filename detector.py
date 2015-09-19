@@ -24,6 +24,9 @@ class Detector(object):
         elif sample_format == "hackrf":
             self._struct_elem = numpy.int8
             self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
+        elif sample_format == "sc16":
+            self._struct_elem = numpy.int16
+            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
         elif sample_format == "float":
             self._struct_elem = numpy.complex64
             self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size
