@@ -215,7 +215,7 @@ class CutAndDownmix(object):
 
 if __name__ == "__main__":
 
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:v', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:v', ['search-offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
