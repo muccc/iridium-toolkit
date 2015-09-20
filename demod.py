@@ -104,8 +104,8 @@ class Demod(object):
 
         #signal_mag = numpy.abs(signal)
 
-        level=abs(numpy.mean(signal[self._skip:self._skip+self._samples_per_symbol]))
-        lmax=abs(numpy.max(signal[self._skip:self._skip+self._samples_per_symbol]))
+        level=abs(numpy.mean(signal[self._skip:self._skip+16*self._samples_per_symbol]))
+        lmax=abs(numpy.max(signal[self._skip:self._skip+16*self._samples_per_symbol]))
 
         if self._verbose:
             print "level:",level
@@ -294,9 +294,10 @@ class Demod(object):
             return (dataarray, data, access_ok, lead_out_ok, confidence, level, self._nsymbols)
         
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'r:cv', [
+    options, remainder = getopt.getopt(sys.argv[1:], 'r:cdv', [
                                                             'rate=',
                                                             'use-correlation',
+                                                            'debug',
                                                             'verbose',
                                                             ])
 
@@ -310,6 +311,8 @@ if __name__ == "__main__":
             sample_rate=int(arg)
         elif opt in ('-v', '--verbose'):
             verbose = True
+        elif opt in ('-d', '--debug'):
+            debug = True
         elif opt in ('-c', '--use-correlation'):
             use_correlation=True
 
@@ -355,13 +358,13 @@ if __name__ == "__main__":
             s = "<" + len(signal) * 'f'
             out.write(struct.Struct(s).pack(*signal))
 
-    if 0: # The graphical debugging file
+    if debug: # The graphical debugging file
         iq.write("%s.peaks" % (os.path.basename(basename)), d.peaks)
 
     if 0: # The actual samples we used
         iq.write("%s.samples" % (os.path.basename(basename)), mynormalize(d.samples))
 
-    if 1: # The data bitstream
+    if 0: # The data bitstream
         with open("%s.data" % (os.path.basename(basename)), 'wb') as out:
             for c in dataarray:
                 out.write(chr(c))
