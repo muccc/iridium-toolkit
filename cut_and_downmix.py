@@ -131,7 +131,7 @@ class CutAndDownmix(object):
         # Increase size of FFT to inrease resolution
         fft_result, fft_freq = self._fft(preamble, len(preamble) * 16)
         if self._verbose:
-            print 'binsize', (fft_freq[100] - fft_freq[101]) * self._sample_rate
+            print 'binsize', (fft_freq[101] - fft_freq[100]) * self._sample_rate
 
         # Use magnitude of FFT to detect maximum and correct the used bin
         mag = numpy.absolute(fft_result)
@@ -267,5 +267,5 @@ if __name__ == "__main__":
 
     signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, search_window=search_window)
 
-    iq.write("%s-f%10d.cut" % (os.path.basename(basename), freq), signal)
+    iq.write("%s-f%010d.cut" % (os.path.basename(basename), freq), signal)
     print "output=","%s-f%10d.cut" % (os.path.basename(basename), freq)
