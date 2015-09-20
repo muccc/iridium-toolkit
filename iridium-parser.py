@@ -253,6 +253,7 @@ class IridiumMessage(Message):
                 for x in blocks:
                     for i in de_interleave(x): # Not clear what block order is correct
                         self.descrambled+=[i[:31],i[31:62]]
+                        #self.descrambled+=[i[31:62],i[:31]]
                 self.descrambled+=de_interleave(end)
             else: # Need to check what ft=1 is
                 self.descrambled=blocks=slice(data,64)
@@ -406,6 +407,20 @@ class IridiumDAMessage(IridiumECCMessage):
     def pretty(self):
         str= "IDA: "+self._pretty_header()
         str+= " "+" ".join(slice(self.bitstream_bch,16))
+
+        sbd = ''
+
+        sbd += self.bitstream_bch[1*21:1*21+20]
+        sbd += self.bitstream_bch[2*21:2*21+20]
+        sbd += self.bitstream_bch[0*21:0*21+20]
+        sbd += self.bitstream_bch[7*21:7*21+20]
+        sbd += self.bitstream_bch[5*21:5*21+20]
+        sbd += self.bitstream_bch[6*21:6*21+20]
+        sbd += self.bitstream_bch[4*21:4*21+20]
+        sbd += self.bitstream_bch[9*21+1:9*21+1+20]
+
+        ints = [(int(x, 2)) for x in slice(sbd, 8)]
+        str += ' SBD: ' + ''.join([chr(x) for x in ints if x >= 32 and x < 128])
         str+=self._pretty_trailer()
         return str
 
