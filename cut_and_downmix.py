@@ -216,12 +216,13 @@ class CutAndDownmix(object):
 
 if __name__ == "__main__":
 
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:v', ['search-offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:f:v', ['search-offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
                                                             'search-depth=',
                                                             'verbose',
+                                                            'frequency-offset=',
                                                             ])
     center = None
     sample_rate = None
@@ -231,6 +232,7 @@ if __name__ == "__main__":
     search_window = None
     search_depth = 0.007
     verbose = False
+    frequency_offset = 0
 
     for opt, arg in options:
         if opt in ('-o', '--search-offset'):
@@ -243,6 +245,8 @@ if __name__ == "__main__":
             sample_rate = int(arg)
         elif opt in ('-s', '--search'):
             search_depth = float(arg)
+        elif opt in ('-f', '--frequency-offset'):
+            frequency_offset = float(arg)
         elif opt in ('-v', '--verbose'):
             verbose = True
 
@@ -265,7 +269,7 @@ if __name__ == "__main__":
     cad = CutAndDownmix(center=center, sample_rate=sample_rate, symbols_per_second=symbols_per_second, preamble_length=preamble_length,
                             search_depth=search_depth, verbose=verbose)
 
-    signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, search_window=search_window)
+    signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, search_window=search_window, frequency_offset=frequency_offset)
 
     iq.write("%s-f%010d.cut" % (os.path.basename(basename), freq), signal)
     print "output=","%s-f%10d.cut" % (os.path.basename(basename), freq)
