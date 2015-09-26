@@ -212,13 +212,13 @@ class Demod(object):
                             print "Last sample"
                 if self._verbose:
                     print "offset forward"
-                phase+=1
+                phase+=sdiff
             if(offset<-alpha):
                 if self._debug:
                     self.peaks[i-self._samples_per_symbol/10]=complex(-lmax*0.8,0);
                 if self._verbose:
                     print "offset backward"
-                phase-=1
+                phase-=sdiff
 
             symbols=symbols+[symbol]
             if self._debug:
