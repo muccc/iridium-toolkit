@@ -91,8 +91,8 @@ if __name__ == "__main__":
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
     det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose, signal_width=search_window)
-    cad = cut_and_downmix.CutAndDownmix(center=center, sample_rate=sample_rate, search_depth=search_depth, verbose=verbose)
-    dem = demod.Demod(sample_rate=sample_rate, use_correlation=True, verbose=verbose)
+    cad = cut_and_downmix.CutAndDownmix(center=center, input_sample_rate=sample_rate, search_depth=search_depth, verbose=verbose)
+    dem = demod.Demod(sample_rate=cad.output_sample_rate, use_correlation=True, verbose=verbose)
 
     def process_one(basename, time_stamp, signal_strength, bin_index, freq, signal):
         mix_signal, mix_freq = cad.cut_and_downmix(signal=signal, search_offset=freq, search_window=search_window)
