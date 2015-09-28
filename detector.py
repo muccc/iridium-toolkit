@@ -10,13 +10,14 @@ import time
 from functools import partial
 
 class Detector(object):
-    def __init__(self, sample_rate, fft_peak=7.0, sample_format=None, search_size=1, verbose=False, signal_width=40e3):
+    def __init__(self, sample_rate, fft_peak=7.0, sample_format=None, search_size=1, verbose=False, signal_width=40e3, burst_size=6):
         self._sample_rate = sample_rate
         self._fft_size=int(math.pow(2, 1+int(math.log(self._sample_rate/1000,2)))) # fft is approx 1ms long
         self._bin_size = float(self._fft_size)/self._sample_rate * 1000 # How many ms is one fft now?
         self._verbose = verbose
         self._search_size = search_size
         self._fft_peak = fft_peak
+        self._burst_size = burst_size
 
         if sample_format == "rtl":
             self._struct_elem = numpy.uint8
@@ -71,10 +72,13 @@ class Detector(object):
 
         with open(file_name, "rb") as f:
             burst_signals=0
+            burst_mute=0
             while True:
                 data = f.read(self._struct_len)
                 if burst_signals>0:
                     burst_signals-=1
+                if burst_mute>0:
+                    burst_mute-=1
                 if not data: break
                 if len(data) != self._struct_len: break
 
@@ -121,7 +125,7 @@ class Detector(object):
                                 remove_signal(peakl,pi)
                         peakidx=numpy.argmax(peakl)
                         peak=peakl[peakidx]
-                        while(peak>self._fft_peak and burst_signals<6):
+                        while(peak>self._fft_peak and burst_mute==0):
                             signals+=1
                             burst_signals+=1
 
@@ -141,7 +145,9 @@ class Detector(object):
                             remove_signal(peakl,peakidx)
                             peakidx=numpy.argmax(peakl)
                             peak=peakl[peakidx]
-                    if burst_signals==6:
+                    if burst_signals==self._burst_size:
+                        burst_mute=burst_signals
+                        burst_signals=0
                         time_stamp = index*self._bin_size
                         print >> sys.stderr, "Ran into burst squelch at", time_stamp
 
