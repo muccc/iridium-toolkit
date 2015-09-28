@@ -128,6 +128,8 @@ class Detector(object):
                         while(peak>self._fft_peak and burst_mute==0):
                             signals+=1
                             burst_signals+=1
+                            if burst_signals==self._burst_size:
+                                break
 
                             time_stamp = index*self._bin_size
                             signal_strength = 10*math.log(peak,10)
@@ -146,7 +148,7 @@ class Detector(object):
                             peakidx=numpy.argmax(peakl)
                             peak=peakl[peakidx]
                     if burst_signals==self._burst_size:
-                        burst_mute=burst_signals
+                        burst_mute=10
                         burst_signals=0
                         time_stamp = index*self._bin_size
                         print >> sys.stderr, "Ran into burst squelch at", time_stamp
