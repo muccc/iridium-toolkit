@@ -47,8 +47,15 @@ echo "FreqOffset: $off" |tee -a sample.txt
 
 if false ; then # Attempt to correct frequency offset
 	cut_and_downmix.py -f $off -w $window -o $offset -c $center --verbose -r $rate $of >sample.txt.cut2
-	of2b=`tail -1 sample.txt.cut|awk '{print $2}'`
-	demod.py -c -r $rate $of2b |tee -a sample.txt.demod
+	of2b=`tail -1 sample.txt.cut2|awk '{print $2}'`
+	demod.py -v -c -r $rate $of2b > sample.txt.demod2
+
+	grep ^MODE sample.txt.cut2 | tee -a sample.txt
+	grep ^RAW sample.txt.demod2 >> sample.txt
+	grep ^RAW sample.txt.demod2 >> sample.txt.demod
+
+	off2=`grep "^frequency offset:" sample.txt.demod2 |awk '{print $3}'`
+	echo "FreqOffset: $off2" |tee -a sample.txt
 fi
 
 grep ^RAW sample.txt.demod | iridium-parser.py |grep -v Warning >> sample.txt
