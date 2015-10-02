@@ -143,15 +143,15 @@ class CutAndDownmix(object):
         #plt.show()
         return start
 
-        stop = next(i for i, j in enumerate(max_fft[start:]) if not j) + start
+        #stop = next(i for i, j in enumerate(max_fft[start:]) if not j) + start
 
-        m = max_fft[start:stop].index(max(max_fft[start:stop])) + start
-        t = m * self._fft_step
+        #m = max_fft[start:stop].index(max(max_fft[start:stop])) + start
+        #t = m * self._fft_step
 
         #plt.plot(t, 1, 'b*')
         #plt.show()
 
-        return t
+        #return t
 
     def cut_and_downmix(self, signal, search_offset=None, search_window=None, frequency_offset=0):
         #iq.write("/tmp/foo.cfile", signal)
@@ -180,16 +180,15 @@ class CutAndDownmix(object):
         #signal_mag = [abs(x) for x in signal]
         #plt.plot(normalize(signal_mag))
         #begin, signal = self._signal_start(signal, search_offset)
-        t0 = time.time()
+        #t0 = time.time()
         begin = self._signal_start(signal[:int(self._search_depth * self._output_sample_rate)], search_offset)
         #print "_signal_start:", time.time() - t0
 
         if self._verbose:
             print 'begin', begin
 
-        t0 = time.time()
-        # Skip a few samples to have a clean signal
-        signal = signal[begin + self._skip:]
+        signal = signal[begin:]
+        #t0 = time.time()
         preamble = signal[:self._fft_length]
 
         """
@@ -265,7 +264,7 @@ class CutAndDownmix(object):
 
         #print "fft:", time.time() - t0
 
-        t0 = time.time()
+        #t0 = time.time()
         offset_freq = (fft_freq[math.floor(real_index)] + (real_index - math.floor(real_index)) * (fft_freq[math.floor(real_index) + 1] - fft_freq[math.floor(real_index)])) * self._output_sample_rate
         offset_freq+=frequency_offset
 
@@ -284,7 +283,7 @@ class CutAndDownmix(object):
         # Multiply the two signals, effectively shifting signal by offset_freq
         signal = signal*shift_signal
         #print "shift:", time.time() - t0
-        t0 = time.time()
+        #t0 = time.time()
 
         #print "Sync word start after shift:", complex_sync_search.estimate_sync_word_start(signal, self._output_sample_rate)
         offset2, phase = self._sync_search.estimate_sync_word_freq(signal[:(preamble_length+16)*self._output_samples_per_symbol], preamble_length)
@@ -296,10 +295,10 @@ class CutAndDownmix(object):
         #print "shift2:", time.time() - t0
 
         #plt.plot([cmath.phase(x) for x in signal[:self._fft_length]])
-        sin_avg = numpy.average(numpy.sin(numpy.angle(signal[:self._fft_length])))
-        cos_avg = numpy.average(numpy.cos(numpy.angle(signal[:self._fft_length])))
-        preamble_phase = math.atan2(sin_avg, cos_avg)
         if self._verbose:
+            sin_avg = numpy.average(numpy.sin(numpy.angle(signal[:self._fft_length])))
+            cos_avg = numpy.average(numpy.cos(numpy.angle(signal[:self._fft_length])))
+            preamble_phase = math.atan2(sin_avg, cos_avg)
             print "Original preamble phase", math.degrees(preamble_phase)
 
         # Multiplying with a complex number on the unit circle
@@ -309,10 +308,11 @@ class CutAndDownmix(object):
         signal = signal * cmath.rect(1,-phase)
 
         #plt.plot([cmath.phase(x) for x in signal[:self._fft_length]])
-        #sin_avg = numpy.average([math.sin(cmath.phase(x)) for x in signal[:self._fft_length]])
-        #cos_avg = numpy.average([math.cos(cmath.phase(x)) for x in signal[:self._fft_length]])
-        #preamble_phase = math.atan2(sin_avg, cos_avg)
-        #print "Corrected preamble phase", math.degrees(preamble_phase)
+        if self._verbose:
+            sin_avg = numpy.average([math.sin(cmath.phase(x)) for x in signal[:self._fft_length]])
+            cos_avg = numpy.average([math.cos(cmath.phase(x)) for x in signal[:self._fft_length]])
+            preamble_phase = math.atan2(sin_avg, cos_avg)
+            print "Corrected preamble phase", math.degrees(preamble_phase)
 
         #print numpy.average([x.real for x in signal[:self._fft_length]])
         #print numpy.average([x.imag for x in signal[:self._fft_length]])
@@ -341,7 +341,6 @@ class CutAndDownmix(object):
         #plt.plot(preamble)
         #plt.show()
 
-        #return (signal, self._center+offset_freq+search_offset)
         return (signal, center+offset_freq)
 
 if __name__ == "__main__":
