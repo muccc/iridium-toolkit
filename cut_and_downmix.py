@@ -29,8 +29,8 @@ class CutAndDownmix(object):
         self._input_sample_rate = int(input_sample_rate)
 
         if self._input_sample_rate > 1000000:
-            self._output_sample_rate = 1000000
-            #self._output_sample_rate = 500000
+            #self._output_sample_rate = 1000000
+            self._output_sample_rate = 500000
             if self._input_sample_rate % self._output_sample_rate > 0:
                 raise RuntimeError("If the sample rate is > 1e6, it must be a multiple of 1000000")
             self._decimation = self._input_sample_rate / self._output_sample_rate
