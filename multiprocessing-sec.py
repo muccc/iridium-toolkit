@@ -15,14 +15,47 @@ import os
 
 out_queue = multiprocessing.JoinableQueue()
 
+queue_len = 0
+queue_len_max = 0
+
+out_count = 0
+in_count = 0
+drop_count = 0
+drop_count_total = 0
+
+last_print = 0
+
+queue_blocked = False
+
 def printer(out_queue):
+    global queue_len, last_print, queue_len_max, out_count, in_count, drop_count, drop_count_total
     while True:
         msg = out_queue.get()
+        queue_len -= 1
+        out_count += 1
+        if queue_len > queue_len_max:
+            queue_len_max = queue_len
+
+        if time.time() - last_print > 60:
+            dt = time.time() - last_print
+            in_rate = in_count / dt
+            out_rate = out_count/ dt
+            drop_rate = drop_count / dt
+            drop_count_total += drop_rate
+
+            print >> sys.stderr, "%d" % time.time(), "i_rate: %3d" % in_rate, "q: %4d" % queue_len, "q_max: %4d" % queue_len_max, "o_rate: %2d" % out_rate, "d_rate: %3d" % drop_rate, "d: %d" % drop_count_total
+
+            queue_len_max = 0
+            in_count = 0
+            out_count = 0
+            drop_count = 0
+            last_print = time.time()
+
         print msg
         out_queue.task_done()
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:S:vd:f:p:j:', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:S:vd:f:p:j:oq:', ['offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
@@ -33,6 +66,8 @@ if __name__ == "__main__":
                                                             'format=',
                                                             'pipe=',
                                                             'jobs=',
+                                                            'offline',
+                                                            'queuelen='
                                                             ])
 
     center = None # 1626270833
@@ -45,6 +80,8 @@ if __name__ == "__main__":
     fmt = None
     pipe = None
     jobs = 4
+    offline = False
+    max_queue_len = 1000
 
     for opt, arg in options:
         if opt in ('-w', '--search-window'):
@@ -67,6 +104,10 @@ if __name__ == "__main__":
             jobs = int(arg)
         elif opt in ('-p', '--pipe'):
             pipe = arg
+        elif opt in ('-o', '--offline'):
+            offline = True
+        elif opt in ('-q', '--queuelen'):
+            max_queue_len = int(arg)
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -99,10 +140,23 @@ if __name__ == "__main__":
         dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(mix_signal)
         msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
         out_queue.put(msg)
-        if mix_freq < 1626e6 and confidence>95 and nsymbols>40 and access_ok==1:
-            iq.write("keep.%010d-f%010d.raw"%(time_stamp,freq),signal)
 
     def wrap_process(time_stamp, signal_strength, bin_index, freq, signal):
+        global queue_len, queue_blocked, in_count, drop_count
+        if offline:
+            if queue_len > max_queue_len:
+                while queue_len > 0:
+                    time.sleep(1)
+        else:
+            if queue_len > max_queue_len:
+                queue_blocked = True
+            if queue_blocked and queue_len < (max_queue_len / 10):
+                queue_blocked = False
+            if queue_blocked:
+                drop_count += 1
+                return
+        queue_len += 1
+        in_count += 1
         workers.apply_async(process_one,(basename, time_stamp, signal_strength, bin_index, freq, signal))
 
     def init_worker():
