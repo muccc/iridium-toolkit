@@ -55,7 +55,7 @@ def printer(out_queue):
         out_queue.task_done()
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:S:vd:f:p:j:oq:', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:S:vd:f:p:j:oq:b:', ['offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
@@ -68,6 +68,7 @@ if __name__ == "__main__":
                                                             'jobs=',
                                                             'offline',
                                                             'queuelen='
+                                                            'burstsize='
                                                             ])
 
     center = None # 1626270833
@@ -82,6 +83,7 @@ if __name__ == "__main__":
     jobs = 4
     offline = False
     max_queue_len = 1000
+    burst_size = 10
 
     for opt, arg in options:
         if opt in ('-w', '--search-window'):
@@ -108,6 +110,8 @@ if __name__ == "__main__":
             offline = True
         elif opt in ('-q', '--queuelen'):
             max_queue_len = int(arg)
+        elif opt in ('-b', '--burstsize'):
+            burst_size = int(arg)
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -131,7 +135,7 @@ if __name__ == "__main__":
         file_name = remainder[0]
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
-    det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose, signal_width=search_window)
+    det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose, signal_width=search_window, burst_size=burst_size)
     cad = cut_and_downmix.CutAndDownmix(center=center, input_sample_rate=sample_rate, search_depth=search_depth, verbose=verbose)
     dem = demod.Demod(sample_rate=cad.output_sample_rate, use_correlation=True, verbose=verbose)
 
