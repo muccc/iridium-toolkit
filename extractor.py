@@ -22,14 +22,21 @@ out_count = 0
 in_count = 0
 drop_count = 0
 ok_count = 0
+
+in_count_total = 0
+out_count_total = 0
 drop_count_total = 0
+ok_count_total = 0
 
 last_print = 0
+t0 = time.time()
 
 queue_blocked = False
 
 def printer(out_queue):
-    global queue_len, last_print, queue_len_max, out_count, in_count, drop_count, drop_count_total, ok_count
+    global queue_len, last_print, queue_len_max, out_count, in_count
+    global drop_count, drop_count_total, ok_count
+    global ok_count_total, out_count_total, in_count_total, t0
     while True:
         msg = out_queue.get()
         queue_len -= 1
@@ -42,12 +49,30 @@ def printer(out_queue):
         if time.time() - last_print > 60:
             dt = time.time() - last_print
             in_rate = in_count / dt
+            in_count_total += in_count
+            in_rate_avg = in_count_total / (time.time() - t0)
             out_rate = out_count/ dt
             drop_rate = drop_count / dt
             ok_ratio = ok_count / float(out_count)
+            ok_rate = ok_count / dt
             drop_count_total += drop_count
+            ok_count_total += ok_count
+            out_count_total += out_count
+            ok_ratio_total = ok_count_total / float(out_count_total)
+            ok_rate_avg = ok_count_total / (time.time() - t0)
 
-            print >> sys.stderr, "%d" % time.time(), "i_rate: %3d" % in_rate, "q: %4d" % queue_len, "q_max: %4d" % queue_len_max, "o_rate: %2d" % out_rate, "ok_ratio: %.02f" % ok_ratio, "d_rate: %3d" % drop_rate, "d: %d" % drop_count_total
+            stats = ""
+            stats += "%d" % time.time()
+            stats += " | i: %3d/s" % in_rate + " | i_avg: %3d/s" % in_rate_avg
+            stats += " | q: %4d" % queue_len + " | q_max: %4d" % queue_len_max
+            stats += " | o: %2d/s" % out_rate
+            stats += " | ok: %3d%%" % (ok_ratio * 100)
+            stats += " | ok: %2d/s" % ok_rate
+            stats += " | ok_avg: %3d%%" % (ok_ratio_total * 100)
+            stats += " | ok: %10d" % ok_count_total
+            stats += " | ok_avg: %3d/s" % ok_rate_avg
+            stats += " | d: %d" % drop_count_total
+            print >> sys.stderr, stats
 
             queue_len_max = 0
             in_count = 0
