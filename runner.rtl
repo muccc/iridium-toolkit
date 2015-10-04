@@ -10,7 +10,7 @@ rate=250000
 pdir=$(cd $(dirname $0);pwd)
 
 if [ "$1" = "process" ] ; then
-    nc $ip 1234 | $pdir/multiprocessing-sec.py -c $center -r $rate -f rtl --jobs=2
+    nc $ip 1234 | $pdir/extractor.py -c $center -r $rate -f rtl --jobs=2
     echo "Processor died"
     exit 0
 fi
