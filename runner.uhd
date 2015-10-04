@@ -1,0 +1,11 @@
+#!/bin/sh
+
+center=1625500000
+rate=2000000
+queuelen=12000
+
+pdir=$(cd $(dirname $0);pwd)
+
+#specrec --file /dev/fd/3 --rate $rate --freq $center --gain 60 --segsize 0 --metadata 0 --detachhdr false 3>&1 1>&2 | tee /mnt/recording.sc16 | $pdir/extractor.py -c $center -r $rate -f sc16 --jobs=3 | tee -a  all.bits | fgrep "A:OK" >> multiprocessing.bits
+
+uhd_rx_cfile --freq=$center --samp-rate=$rate -A RX2 --gain=60 /dev/fd/3 3>&1 1>&2 | $pdir/extractor.py -c $center -r $rate --queuelen=$queuelen -f float --jobs=3 | tee -a  all.bits | fgrep "A:OK" >> multiprocessing.bits
