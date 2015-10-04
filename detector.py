@@ -68,7 +68,7 @@ class Detector(object):
             p1=idx+w
             if p1>=self._fft_size:
                 p1=self._fft_size-1
-            peaks[p0:p1]=[0]*(p1-p0)
+            peaks[p0:p1+1]=[0]*(p1-p0+1)
 
         with open(file_name, "rb") as f:
             burst_signals=0
