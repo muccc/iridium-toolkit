@@ -41,7 +41,7 @@ def printer(out_queue):
             in_rate = in_count / dt
             out_rate = out_count/ dt
             drop_rate = drop_count / dt
-            drop_count_total += drop_rate
+            drop_count_total += drop_count
 
             print >> sys.stderr, "%d" % time.time(), "i_rate: %3d" % in_rate, "q: %4d" % queue_len, "q_max: %4d" % queue_len_max, "o_rate: %2d" % out_rate, "d_rate: %3d" % drop_rate, "d: %d" % drop_count_total
 
