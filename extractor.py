@@ -69,6 +69,7 @@ if __name__ == "__main__":
                                                             'offline',
                                                             'queuelen='
                                                             'burstsize='
+                                                            'decimate='
                                                             ])
 
     center = None # 1626270833
@@ -84,6 +85,7 @@ if __name__ == "__main__":
     offline = False
     max_queue_len = 1000
     burst_size = 10
+    decimate = 0
 
     for opt, arg in options:
         if opt in ('-w', '--search-window'):
@@ -112,6 +114,8 @@ if __name__ == "__main__":
             max_queue_len = int(arg)
         elif opt in ('-b', '--burstsize'):
             burst_size = int(arg)
+        elif opt in ('--decimate'):
+            decimate = int(arg)
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -123,6 +127,14 @@ if __name__ == "__main__":
         print >> sys.stderr, "Need to specify sample format (one of rtl, hackrf, sc16, float)!"
         exit(1)
 
+    if decimate == 0:
+       if sample_rate > 1000000:
+           osr = 500000
+           if sample_rate % osr > 0:
+               raise RuntimeError("If the sample rate is > 1e6, it must be a multiple of 1000000")
+           decimate = sample_rate / osr
+       else:
+           decimation = 1
 
     basename=None
 
@@ -136,7 +148,7 @@ if __name__ == "__main__":
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
     det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose, signal_width=search_window, burst_size=burst_size)
-    cad = cut_and_downmix.CutAndDownmix(center=center, input_sample_rate=sample_rate, search_depth=search_depth, verbose=verbose)
+    cad = cut_and_downmix.CutAndDownmix(center=center, input_sample_rate=sample_rate, search_depth=search_depth, verbose=verbose, decimation=decimate)
     dem = demod.Demod(sample_rate=cad.output_sample_rate, use_correlation=True, verbose=verbose)
 
     def process_one(basename, time_stamp, signal_strength, bin_index, freq, signal):

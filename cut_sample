@@ -23,12 +23,20 @@ window=`echo $max $min -p|dc`
 offset=`echo $max $min + 2/ $center -p|dc`
 echo win/off: $window $offset
 
+dec=1
+if [ $rate -gt 1000000 ] ; then
+	dec=`echo $rate 500000 / p|dc`
+fi
+osr=`echo $rate $dec / p|dc`
+
+echo "Decimate $dec"
+
 of=sample-$time.raw
 # cut section from source
 dd if=${file} of=$of bs=1 skip=$sbyte count=$lbyte 2>/dev/null || exit 1
 
 # downmix selected signal
-cut_and_downmix.py -f 0 -w $window -o $offset -c $center --verbose -r $rate $of >sample.txt.cut || exit 1
+cut_and_downmix.py -f 0 -w $window -o $offset -c $center --verbose -r $rate -d $dec $of >sample.txt.cut || exit 1
 of2=`tail -1 sample.txt.cut|awk '{print $2}'`
 of3=${of2%.cut}.peaks
 
@@ -36,7 +44,7 @@ if [ ! -f $of2 ] ; then
 	inspectrum $of &
 	exit 1
 fi
-demod.py -v -d -c -r $rate $of2 >sample.txt.demod
+demod.py -v -d -c -r $osr $of2 >sample.txt.demod
 
 rm -f sample.txt
 grep ^MODE sample.txt.cut  | tee -a sample.txt
@@ -64,7 +72,8 @@ grep ^RAW sample.txt.demod | iridium-parser.py |grep -v Warning >> sample.txt
 fmt -s -w 70 < sample.txt > sample.msg
 inspectrum -r $rate $of2 &
 pid=$!
-gr_time_plot_c -N 3000 -r $rate $of2 $of3 &
+n=`echo 3000 $dec / p|dc`
+gr_time_plot_c -N $n -r $rate $of2 $of3 &
 pid2=$!
 xmessage -center -default okay -fn "-bitstream-courier 10 pitch-medium-r-*-*-*-240-*-*-*-*-*-*" -file sample.msg
 kill $pid $pid2

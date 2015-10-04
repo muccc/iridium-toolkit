@@ -22,22 +22,14 @@ def normalize(v):
 
 class CutAndDownmix(object):
     def __init__(self, center, input_sample_rate, search_depth=0.007,
-                    symbols_per_second=25000,
+                    symbols_per_second=25000, decimation=1,
                     verbose=False):
 
         self._center = center
         self._input_sample_rate = int(input_sample_rate)
+        self._decimation=decimation
 
-        if self._input_sample_rate > 1000000:
-            #self._output_sample_rate = 1000000
-            self._output_sample_rate = 500000
-            if self._input_sample_rate % self._output_sample_rate > 0:
-                raise RuntimeError("If the sample rate is > 1e6, it must be a multiple of 1000000")
-            self._decimation = self._input_sample_rate / self._output_sample_rate
-        else:
-            self._decimation = 1
-            self._output_sample_rate = self._input_sample_rate
-
+        self._output_sample_rate = self._input_sample_rate / self._decimation
         self._search_depth = search_depth
         self._symbols_per_second = symbols_per_second
         self._output_samples_per_symbol = self._output_sample_rate/self._symbols_per_second
@@ -345,13 +337,14 @@ class CutAndDownmix(object):
 
 if __name__ == "__main__":
 
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:f:v', ['search-offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:f:vd:', ['search-offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
                                                             'search-depth=',
                                                             'verbose',
                                                             'frequency-offset=',
+                                                            'decimation=',
                                                             ])
     center = None
     sample_rate = None
@@ -361,6 +354,7 @@ if __name__ == "__main__":
     search_depth = 0.007
     verbose = False
     frequency_offset = 0
+    decimation = 1
 
     for opt, arg in options:
         if opt in ('-o', '--search-offset'):
@@ -377,6 +371,9 @@ if __name__ == "__main__":
             frequency_offset = float(arg)
         elif opt in ('-v', '--verbose'):
             verbose = True
+        elif opt in ('-d', '--decimation'):
+            decimation = int(arg)
+            print "deci:",decimation
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -395,7 +392,7 @@ if __name__ == "__main__":
     signal = iq.read(file_name)
 
     cad = CutAndDownmix(center=center, input_sample_rate=sample_rate, symbols_per_second=symbols_per_second,
-                            search_depth=search_depth, verbose=verbose)
+                            search_depth=search_depth, verbose=verbose, decimation=decimation)
 
     signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, search_window=search_window, frequency_offset=frequency_offset)
 
