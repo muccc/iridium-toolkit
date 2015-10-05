@@ -114,7 +114,7 @@ if __name__ == "__main__":
     jobs = 4
     offline = False
     max_queue_len = 1000
-    burst_size = 10
+    burst_size = 20
     decimation = 0
 
     for opt, arg in options:

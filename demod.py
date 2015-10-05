@@ -230,7 +230,7 @@ class Demod(object):
                 self.peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
             i+=self._samples_per_symbol
             if i>=len(signal) : break
-            if abs(signal[i]) < lmax/5:
+            if abs(signal[i]) < lmax/8:
                 break
 
         if self._verbose:

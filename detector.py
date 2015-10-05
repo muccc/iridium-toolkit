@@ -37,7 +37,7 @@ class Detector(object):
         self._window = numpy.blackman(self._fft_size)
         self._fft_histlen=500 # How many items to keep for moving average. 5 times our signal length
         self._data_histlen=self._search_size
-        self._data_postlen=5
+        self._data_postlen=8
         self._signal_maxlen=1+int(30/self._bin_size) # ~ 30 ms
         self._fft_freq = numpy.fft.fftshift(numpy.fft.fftfreq(self._fft_size))
         self._signal_width=signal_width/(self._sample_rate/self._fft_size) # Area to ignore around an already found signal in Hz
