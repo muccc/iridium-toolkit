@@ -260,9 +260,9 @@ class IridiumMessage(Message):
                         #self.descrambled+=[i[31:62],i[:31]]
                 self.descrambled+=de_interleave(end)
             else: # Need to check what ft=1 is
+                self.msgtype="UK"
                 self.descrambled=blocks=slice(data,64)
                 self.descramble_extra=""
-                self._new_error("Unknown frame_type")
 
         self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
         if self.msgtype!="VO" and len(self.descrambled)==0:
@@ -273,6 +273,8 @@ class IridiumMessage(Message):
         try:
             if self.msgtype=="VO":
                 return IridiumVOMessage(self).upgrade()
+            elif self.msgtype=="UK":
+                return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
         except ParserError,e:
             self._new_error(str(e))
