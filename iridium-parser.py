@@ -415,12 +415,16 @@ class IridiumDAMessage(IridiumECCMessage):
         str= "IDA: "+self._pretty_header()
         str+= " "+" ".join(slice(self.bitstream_bch,20))
 
-        sbd = ''
+        sbd= self.bitstream_bch[1*20:9*20]
 
-        sbd += self.bitstream_bch[1*20:9*20]
+        str+=' SBD: '
+        for x in slice(sbd, 8):
+            c=int(x,2)
+            if( c>=32 and c<128):
+                str+=chr(c)
+            else:
+                str+="."
 
-        ints = [(int(x, 2)) for x in slice(sbd, 8)]
-        str += ' SBD: ' + ''.join([chr(x) for x in ints if x >= 32 and x < 128])
         str+=self._pretty_trailer()
         return str
 
