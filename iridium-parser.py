@@ -290,7 +290,8 @@ class IridiumMessage(Message):
         return str
     def _pretty_trailer(self):
         str= super(IridiumMessage,self)._pretty_trailer()
-        str+= " descr_extra:"+re.sub(iridium_lead_out,"["+iridium_lead_out+"]",self.descramble_extra)
+        if self.descramble_extra != "":
+            str+= " descr_extra:"+re.sub(iridium_lead_out,"["+iridium_lead_out+"]",self.descramble_extra)
         return str
     def pretty(self):
         str= "IRI: "+self._pretty_header()
