@@ -318,44 +318,38 @@ class IridiumECCMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
         if self.msgtype == "MS":
-            poly=messaging_bch_poly
+            self.poly=messaging_bch_poly
         elif self.msgtype == "RA":
-            poly=ringalert_bch_poly
+            self.poly=ringalert_bch_poly
         elif self.msgtype == "BC":
-            poly=ringalert_bch_poly
+            self.poly=ringalert_bch_poly
         elif self.msgtype == "DA":
-            poly=acch_bch_poly
+            self.poly=acch_bch_poly
         else:
             raise ParserError("unknown Iridium message type(canthappen)")
         self.bitstream_messaging=""
-
         self.bitstream_bch=""
         self.oddbits=""
         self.fixederrs=0
-        self.bch=[]
         for block in self.descrambled:
             if len(block)!=32 and len(block)!=31:
                 raise ParserError("unknown BCH block len:%d"%len(block))
             if len(block)==32:
-                parity=block[31]
-            bits=block[:31]
-            result=ndivide(poly,bits)
-            errs=0
-            if result!=0:
-                (errs,bits)=nrepair(poly, bits)
-                if errs>0:
-                    self.fixederrs+=1
-                if(errs<0):
-                    self._new_error("BCH decode failed")
+                bits=block[1:32]
+            else:
+                bits=block
+            (errs,data,bch)=bch_repair(self.poly, bits)
+            if errs>0:
+                self.fixederrs+=1
+            if(errs<0):
+                self._new_error("BCH decode failed")
+            parity=(data+bch).count('1') % 2
             if len(block)==32:
-                parity=(bits+parity).count('1') % 2
-            elif len(block)==31:
-                parity=(bits).count('1') % 2
-#            if parity==1: raise ParserError("Parity error")
-            self.bch.append((result,errs,parity))
-            self.bitstream_bch+=block[:21]
-            self.bitstream_messaging+=block[1:21]
-            self.oddbits+=block[0]
+                parity=(int(block[31])+parity)%2
+                #if parity==1: raise ParserError("Parity error")
+            self.bitstream_bch+=data
+            self.bitstream_messaging+=data[1:]
+            self.oddbits+=data[0]
         if len(self.bitstream_bch)==0:
             self._new_error("No data to descramble")
     def upgrade(self):
@@ -384,10 +378,15 @@ class IridiumECCMessage(IridiumMessage):
         str= "IME: "+self._pretty_header()+" "
         for block in xrange(len(self.descrambled)):
             b=self.descrambled[block]
-            (res,errs,parity)=self.bch[block]
             if len(b)==31:
+                (errs,foo)=nrepair(self.poly,b)
+                res=ndivide(self.poly,b)
+                parity=(b).count('1') % 2
                 str+="{%s %s/%04d E%s P%d}"%(b[:21],b[21:31],res,("0","1","2","-")[errs],parity)
             elif len(b)==32:
+                (errs,foo)=nrepair(self.poly,b)
+                res=ndivide(self.poly,b)
+                parity=(b).count('1') % 2
                 str+="{%s %s %s/%04d E%s P%d}"%(b[:21],b[21:31],b[31],res,("0","1","2","-")[errs],parity)
             else:
                 str+="length=%d?"%len(b)
