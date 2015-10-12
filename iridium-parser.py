@@ -186,12 +186,14 @@ class IridiumMessage(Message):
         elif  1626229167<self.frequency<1626312500:
             self.msgtype="RA"
         elif len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
-            (lcw1,lcw2,lcw3)=de_interleave_lcw(data[:46])
-            (e1,lcw1,bch)= bch_repair( 29,lcw1)
-            (e2,lcw2,bch)= bch_repair(465,lcw2+'0')  # One bit error expected
-            (e3,lcw3,bch)= bch_repair( 41,lcw3)
+            (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
+            (e1,lcw1,bch)= bch_repair( 29,o_lcw1)
+            (e2,lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit missing, so we guess
+            if (e2==1): # Maybe the other one...
+                (e2,lcw2,bch)= bch_repair(465,o_lcw2+'1')
+            (e3,lcw3,bch)= bch_repair( 41,o_lcw3)
 #            if e1>=0 and e2>=0 and e3>=0: # Valid LCW
-            if e1==0 and 0<=e2<=1 and e3==0: # GOOD LCW
+            if e1==0 and e2==0 and e3==0: # GOOD LCW
                 self.msgtype="DA"
             elif len(data)>6+64 and ndivide(ringalert_bch_poly,de_interleave(data[6:6+64])[0][:31])==0:
                 self.msgtype="BC"
@@ -229,6 +231,8 @@ class IridiumMessage(Message):
             (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
             (e1,self.lcw1,bch)= bch_repair( 29,o_lcw1)
             (e2,self.lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit error expected
+            if e2==1:
+                (e2,self.lcw2,bch)= bch_repair(465,o_lcw2+'1')  # Other bit flip?
             (e3,self.lcw3,bch)= bch_repair( 41,o_lcw3)
             self.ft=int(self.lcw1,2) # Frame type
             if e1<0 or e2<0 or e3<0:
@@ -320,7 +324,7 @@ class IridiumECCMessage(IridiumMessage):
         elif self.msgtype == "DA":
             poly=acch_bch_poly
         else:
-            raise ParserError("unknown Iridium message type")
+            raise ParserError("unknown Iridium message type(canthappen)")
         self.bitstream_messaging=""
 
         self.bitstream_bch=""
