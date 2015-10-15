@@ -243,10 +243,21 @@ class IridiumMessage(Message):
             self.descrambled=[]
             data=data[lcwlen:]
 
+            def symbol_reverse(bits):
+                r = ''
+                for symbol in grouped(bits, 2):
+                    r += symbol[1] + symbol[0]
+                return r
             if self.ft==0: # Voice
                 self.msgtype="VO"
                 self.voice=data[:312]
                 self.descramble_extra=data[312:]
+            elif self.ft==1: # IP via PPP
+                self.msgtype="IP"
+                self.ip_data=symbol_reverse(data[:312])
+                self.descramble_extra=data[312:]
+                if len(self.ip_data) != 312:
+                    self._new_error("Not enough data")
             elif self.ft==2:
                 if len(data)<124*2+64:
                     self._new_error("Not enough data in DA packet")
@@ -266,7 +277,7 @@ class IridiumMessage(Message):
                 self.descramble_extra=""
 
         self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
-        if self.msgtype!="VO" and len(self.descrambled)==0:
+        if self.msgtype!="VO" and self.msgtype!="IP" and len(self.descrambled)==0:
             self._new_error("No data to descramble")
 
     def upgrade(self):
@@ -274,6 +285,8 @@ class IridiumMessage(Message):
         try:
             if self.msgtype=="VO":
                 return IridiumVOMessage(self).upgrade()
+            elif self.msgtype=="IP":
+                return IridiumIPMessage(self).upgrade()
             elif self.msgtype=="UK":
                 return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
@@ -315,6 +328,33 @@ class IridiumVOMessage(IridiumMessage):
         str+= " "+self.voice
         str+=self._pretty_trailer()
         return str
+
+class IridiumIPMessage(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=copy.deepcopy(imsg.__dict__)
+        # Decode stuff from self.bitstream_bch
+    def upgrade(self):
+        return self
+    def _pretty_header(self):
+        return super(IridiumIPMessage,self)._pretty_header()
+    def _pretty_trailer(self):
+        return super(IridiumIPMessage,self)._pretty_trailer()
+    def pretty(self):
+        s= "IIP: "+self._pretty_header()
+        s+= " "+self.ip_data
+
+        ip_data = ' IP: '
+        for x in slice(self.ip_data, 8):
+            c=int(x[::-1],2)
+            if( c>=32 and c<127):
+                ip_data+=chr(c)
+            else:
+                ip_data+="."
+
+        s += ip_data
+
+        s+=self._pretty_trailer()
+        return s
 
 class IridiumECCMessage(IridiumMessage):
     def __init__(self,imsg):
