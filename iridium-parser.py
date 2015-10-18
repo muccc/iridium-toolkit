@@ -341,7 +341,17 @@ class IridiumIPMessage(IridiumMessage):
             pass
         self.ip_data=[int(x,2) for x in self.descrambled[5:31+5]] # XXX: only len bytes?
         self.ip_cksum= self.descrambled[31+5:]
-
+        def crc24(data):
+            crc = 0xffffff
+            for byte in data:
+                crc=crc^ord(byte)
+                for bit in range(0, 8):
+                    if (crc&0x1):
+                        crc = ((crc >> 1) ^ 0xAD85DD)
+                    else:
+                        crc = crc >> 1
+            return crc ^0x0c91b6 # Check value
+        self.crcval=crc24("".join([chr(int(x,2)) for x in self.descrambled]))
     def upgrade(self):
         return self
     def _pretty_header(self):
@@ -352,7 +362,11 @@ class IridiumIPMessage(IridiumMessage):
         s= "IIP: "+self._pretty_header()
         s+= " %s c1=%03d %s c2=%03d len=%03d"%(self.ip_hdr,self.ip_ctr1,self.ip_uk1,self.ip_ctr2,self.ip_len)
         s+= " ["+" ".join(["%02x"%x for x in self.ip_data])+"]"
-        s+= " "+"".join(self.ip_cksum)
+        s+= " %06x/%06x"%(int("".join(self.ip_cksum),2),self.crcval)
+        if self.crcval==0:
+            s+=" FCS:OK"
+        else:
+            s+=" FCS:no"
 
         ip_data = ' IP: '
         for c in self.ip_data:
