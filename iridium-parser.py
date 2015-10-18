@@ -377,7 +377,7 @@ class IridiumECCMessage(IridiumMessage):
             if len(block)!=32 and len(block)!=31:
                 raise ParserError("unknown BCH block len:%d"%len(block))
             if len(block)==32:
-                bits=block[1:32]
+                bits=block[:31]
             else:
                 bits=block
             (errs,data,bch)=bch_repair(self.poly, bits)
@@ -423,12 +423,12 @@ class IridiumECCMessage(IridiumMessage):
             if len(b)==31:
                 (errs,foo)=nrepair(self.poly,b)
                 res=ndivide(self.poly,b)
-                parity=(b).count('1') % 2
+                parity=(foo).count('1') % 2
                 str+="{%s %s/%04d E%s P%d}"%(b[:21],b[21:31],res,("0","1","2","-")[errs],parity)
             elif len(b)==32:
-                (errs,foo)=nrepair(self.poly,b)
-                res=ndivide(self.poly,b)
-                parity=(b).count('1') % 2
+                (errs,foo)=nrepair(self.poly,b[:31])
+                res=ndivide(self.poly,b[:31])
+                parity=(foo+b[31]).count('1') % 2
                 str+="{%s %s %s/%04d E%s P%d}"%(b[:21],b[21:31],b[31],res,("0","1","2","-")[errs],parity)
             else:
                 str+="length=%d?"%len(b)
