@@ -248,19 +248,18 @@ class IridiumMessage(Message):
                 for symbol in grouped(bits, 2):
                     r += symbol[1] + symbol[0]
                 return r
+            if self.ft<=2 and len(data)<312:
+                    self._new_error("Not enough data in data packet")
             if self.ft==0: # Voice
                 self.msgtype="VO"
                 self.voice=data[:312]
                 self.descramble_extra=data[312:]
             elif self.ft==1: # IP via PPP
                 self.msgtype="IP"
-                self.ip_data=symbol_reverse(data[:312])
+                for x in slice(symbol_reverse(data[:312]),8):
+                    self.descrambled+=[x[::-1]]
                 self.descramble_extra=data[312:]
-                if len(self.ip_data) != 312:
-                    self._new_error("Not enough data")
-            elif self.ft==2:
-                if len(data)<124*2+64:
-                    self._new_error("Not enough data in DA packet")
+            elif self.ft==2: # DAta (SBD)
                 self.descramble_extra=data[124*2+64:]
                 data=data[:124*2+64]
                 blocks=slice(data,124)
@@ -271,9 +270,9 @@ class IridiumMessage(Message):
                     self.descrambled+=[b4,b2,b3,b1]
                 (b1,b2)=de_interleave(end)
                 self.descrambled+=[b2[1:],b1[1:]] # Throw away the extra bit
-            else: # Need to check what ft=1 is
+            else: # Need to check what other ft are
                 self.msgtype="UK"
-                self.descrambled=blocks=slice(data,64)
+                self.descrambled=slice(data,64)
                 self.descramble_extra=""
 
         self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
@@ -332,7 +331,17 @@ class IridiumVOMessage(IridiumMessage):
 class IridiumIPMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
-        # Decode stuff from self.bitstream_bch
+        self.ip_hdr=self.descrambled[0]
+        self.ip_ctr1=int(self.descrambled[1],2)
+        self.ip_uk1=self.descrambled[2]
+        self.ip_ctr2=int(self.descrambled[3],2)
+        self.ip_len= int(self.descrambled[4],2)
+        if self.ip_len>31:
+            #self._new_error("Invalid ip_len")
+            pass
+        self.ip_data=[int(x,2) for x in self.descrambled[5:31+5]] # XXX: only len bytes?
+        self.ip_cksum= self.descrambled[31+5:]
+
     def upgrade(self):
         return self
     def _pretty_header(self):
@@ -341,16 +350,16 @@ class IridiumIPMessage(IridiumMessage):
         return super(IridiumIPMessage,self)._pretty_trailer()
     def pretty(self):
         s= "IIP: "+self._pretty_header()
-        s+= " "+self.ip_data
+        s+= " %s c1=%03d %s c2=%03d len=%03d"%(self.ip_hdr,self.ip_ctr1,self.ip_uk1,self.ip_ctr2,self.ip_len)
+        s+= " ["+" ".join(["%02x"%x for x in self.ip_data])+"]"
+        s+= " "+"".join(self.ip_cksum)
 
         ip_data = ' IP: '
-        for x in slice(self.ip_data, 8):
-            c=int(x[::-1],2)
+        for c in self.ip_data:
             if( c>=32 and c<127):
                 ip_data+=chr(c)
             else:
                 ip_data+="."
-
         s += ip_data
 
         s+=self._pretty_trailer()
