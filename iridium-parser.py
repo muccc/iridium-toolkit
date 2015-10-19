@@ -361,7 +361,7 @@ class IridiumIPMessage(IridiumMessage):
     def pretty(self):
         s= "IIP: "+self._pretty_header()
         s+= " %s c1=%03d %s c2=%03d len=%03d"%(self.ip_hdr,self.ip_ctr1,self.ip_uk1,self.ip_ctr2,self.ip_len)
-        s+= " ["+" ".join(["%02x"%x for x in self.ip_data])+"]"
+        s+= " ["+".".join(["%02x"%x for x in self.ip_data])+"]"
         s+= " %06x/%06x"%(int("".join(self.ip_cksum),2),self.crcval)
         if self.crcval==0:
             s+=" FCS:OK"
@@ -476,7 +476,12 @@ class IridiumDAMessage(IridiumECCMessage):
         return super(IridiumDAMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IDA: "+self._pretty_header()
-        str+= " "+" ".join(slice(self.bitstream_bch,20))
+        str+= " "+self.bitstream_bch[:4]
+        str+= " "+self.bitstream_bch[4:8]
+        str+= " "+self.bitstream_bch[8:20]
+        str+= " ["+".".join(["%02x"%int(x,2) for x in slice(self.bitstream_bch[20:9*20],8)])+"]"
+        str+= " %04x"%int(self.bitstream_bch[9*20:9*20+16],2)
+        str+= " "+self.bitstream_bch[9*20+16:]
 
         sbd= self.bitstream_bch[1*20:9*20]
 
