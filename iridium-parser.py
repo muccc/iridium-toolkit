@@ -477,10 +477,31 @@ class IridiumDAMessage(IridiumECCMessage):
     def pretty(self):
         str= "IDA: "+self._pretty_header()
         str+= " "+self.bitstream_bch[:4]
-        str+= " "+self.bitstream_bch[4:8]
-        str+= " "+self.bitstream_bch[8:20]
+        str+= " ctr="+self.bitstream_bch[4:8]
+        str+= " "+self.bitstream_bch[8:12]
+        str+= " "+self.bitstream_bch[12:16]
+        str+= " 0:"+self.bitstream_bch[16:20]
         str+= " ["+".".join(["%02x"%int(x,2) for x in slice(self.bitstream_bch[20:9*20],8)])+"]"
+
+        def crc16(data): # 0x1021 / 0xffff unreflected
+            crc = 0xffff
+            for byte in data:
+                crc=crc^ord(byte)
+                for bit in range(0, 8):
+                    if (crc&0x1):
+                        crc = ((crc >> 1) ^ 0x8408)
+                    else:
+                        crc = crc >> 1
+            return crc ^ 0xdf9d
+        crcstream=self.bitstream_bch[:16]+"0"*12+self.bitstream_bch[16:]
+        self.sbdcrc=crc16("".join([chr(int(x,2)) for x in crcstream]))
+
         str+= " %04x"%int(self.bitstream_bch[9*20:9*20+16],2)
+        str+="/%04x"%self.sbdcrc
+        if self.sbdcrc==0:
+            str+=" CRC:OK"
+        else:
+            str+=" CRC:no"
         str+= " "+self.bitstream_bch[9*20+16:]
 
         sbd= self.bitstream_bch[1*20:9*20]
