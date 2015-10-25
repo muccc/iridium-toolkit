@@ -191,7 +191,7 @@ if __name__ == "__main__":
         global queue_len, queue_blocked, in_count, drop_count
         if offline:
             if queue_len > max_queue_len:
-                while queue_len > 0:
+                while queue_len > max_queue_len/2:
                     time.sleep(1)
         else:
             if queue_len > max_queue_len:
