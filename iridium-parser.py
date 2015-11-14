@@ -520,12 +520,74 @@ class IridiumDAMessage(IridiumECCMessage):
 class IridiumBCMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
-        # Decode stuff from self.bitstream_bch
-        if len(self.bitstream_bch)<48:
-            raise ParserError("No data to descramble")
-        self.bc_type= int(self.bitstream_bch[46:48],2)
-        self.bc_uplink_ch= int(self.bitstream_bch[32:37],2)
-        self.bc_aqch_av= int(self.bitstream_bch[37:40],2)
+        blocks, _ =slice_extra(self.bitstream_bch,21)
+
+        self.readable = ''
+        if len(blocks) > 1:
+            data1 = blocks[0]
+            data2 = blocks[1]
+
+            self.sv_id = int(data1[0:7], 2)
+            self.beam_id = int(data1[7:13], 2)
+            self.unknown01 = data1[13:14]
+            self.timeslot = int(data1[14:15], 2)
+            self.sv_blocking = int(data1[15:16], 2)
+            self.acqu_classes = data1[16:21] + data2[0:11]
+            self.acqu_subband = int(data2[11:16], 2)
+            self.acqu_channels = int(data2[16:19], 2)
+            self.unknown02 = data2[19:21]
+
+            self.readable += 'sat:%02d cell:%02d %s ts:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.timeslot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
+
+        if len(blocks) > 3:
+            data1 = blocks[2]
+            data2 = blocks[3]
+
+            self.type = int(data1[0:6], 2)
+            if self.type == 0:
+                self.unknown11 = data1[6:21] + data2[0:15]
+                self.max_uplink_pwr = int(data2[15:21], 2)
+                self.readable += ' %s max_uplink_pwr:%02d' % (self.unknown11, self.max_uplink_pwr)
+            elif self.type == 1:
+                self.unknown21 = data1[6:10]
+                self.time = int(data1[10:21], 2) + int(data2[0:21], 2)
+                #self.readable += ' %s time:%02d' % (self.unknown21, self.time)
+            elif self.type == 2:
+                self.unknown31 = data1[6:10]
+                self.tmsi_expiry = int(data1[10:21] + data2[0:21], 2)
+                #self.readable += ' %s tmsi_expiry:%02d' % (self.unknown31, self.tmsi_expiry)
+            elif self.type == 4:
+                if data1+data2 != "000100000000100001110000110000110011110000":
+                    self.readable += ' type: %02d %s%s' % (self.type, data1, data2)
+            else: # Unknown Type
+                #print("RES: unknown Type %s" % type, "%s" % data1 + data2)
+                self.readable += ' type: %02d %s%s' % (self.type, data1, data2)
+        def parse_assignment(data1, data2):
+            result = ''
+            if(data1 + data2 != '110000000000000000000000000000000000000000'):
+                # maybe "Channel Assignment" ?
+                unknown1 = data1[0:3]
+                unknown2 = data1[3:11]
+                timeslot = int(data1[11:13], 2)
+                uplink_subband = int(data1[13:18], 2)
+                downlink_subband = int(data1[18:21] + data2[0:2], 2)
+                unknown3 = data2[2:5]
+                dtoa = int(data2[5:13], 2)
+                dfoa = int(data2[13:19], 2)
+                unknown4 = data2[19:21]
+                result = ' %s %s ts:%d ul_sb:%02d dl_sb:%02d %s dtoa:%03d dfoa: %02d %s' % (unknown1, unknown2, timeslot, uplink_subband, downlink_subband, unknown3, dtoa, dfoa, unknown4)
+            return result
+
+        if len(blocks) > 5:
+            data1 = blocks[4]
+            data2 = blocks[5]
+            self.readable += parse_assignment(data1, data2)
+
+        if len(blocks) > 7:
+            data1 = blocks[6]
+            data2 = blocks[7]
+            self.readable += parse_assignment(data1, data2)
+
     def upgrade(self):
         if self.error: return self
         try:
@@ -539,26 +601,7 @@ class IridiumBCMessage(IridiumECCMessage):
     def _pretty_trailer(self):
         return super(IridiumBCMessage,self)._pretty_trailer()
     def pretty(self):
-        str= "IBC: "+self._pretty_header()
-        str+= " sat:%02d"%int(self.bitstream_bch[:7], 2)
-        str+= " cell:%02d"%int(self.bitstream_bch[7:13], 2)
-        str+= " %s"%self.bitstream_bch[13:16]
-        str+= " %s"%self.bitstream_bch[16:32]
-        str+= " %s"%self.bitstream_bch[32:37]
-        str+= "[%02d]"%self.bc_uplink_ch
-        str+= " %s"%self.bitstream_bch[37:40]
-        str+= "[%02d]"%self.bc_aqch_av
-        str+= " %s"%self.bitstream_bch[40:46]
-        str+= " %s"%self.bitstream_bch[46:48]
-        str+= "[%d]"%self.bc_type
-        if self.bc_type==1:
-            str+= " %s"%self.bitstream_bch[48:64]
-            str+= " "+self.bitstream_bch[64:74]
-            str+= " ctr=[%04d]"%int(self.bitstream_bch[74:83],2)
-            str+= " "+group(self.bitstream_bch[83:],16)
-        else:
-            str+= " %s"%self.bitstream_bch[48:64]
-            str+= " "+group(self.bitstream_bch[64:],16)
+        str= "IBC: "+self._pretty_header() + ' ' + self.readable
         str+=self._pretty_trailer()
         return str
 
