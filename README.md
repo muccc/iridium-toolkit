@@ -1,87 +1,92 @@
-# Simple toolset to decode Iridium signals
+# Simple toolkit to decode Iridium signals
 
-### Requisites:
+### Requisites
 
- * python (2.7)
- * numpy (scipy)
- * perl (5.x)
+ * Python (2.7)
+ * NumPy (scipy)
 
-### Licence
+### License
 
-Unless otherwise noted in a file, everyting here is
+Unless otherwise noted in a file, everything here is
 (c) Sec & schneider
-and licenced under the 2-Clause BSD Licence
+and licensed under the 2-Clause BSD License
 
 ### Example usage
 #### Capture with [hackrf](https://greatscottgadgets.com/hackrf/) or [rad1o](https://rad1o.badge.events.ccc.de/start) and multiprocessing
 
 Note: The rad1o has to be in hackrf-mode
 
-    hackrf_transfer  -r /dev/stdout -f 1627000000 -a 1 -l 40 -g 20 -s 2000000 | python2 multiprocessing-sec.py -c 1627000000 -r 2000000 -f hackrf --jobs 2 | grep "A:OK" | tee outfile
+    hackrf_transfer  -r /dev/stdout -f 1627000000 -a 1 -l 40 -g 20 -s 2000000 | python2 extractor.py -c 1627000000 -r 2000000 -f hackrf --jobs 2 | grep "A:OK" | tee outfile
 
 This writes to `outfile`. Pager messages can be decoded with
 
     python2 iridium-parser.py outfile
 
-#### Capture with usrp and processing in stages
-##### Manual
-record with usrp. So far we've used two settings:
+### Extracting Iridium packets from raw data
 
-The catch-all interesting stuff
- * center frequency: 1626270833
- * sample rate: 2000000 (2M)
+To capture and demodulate Iridium packets use `extractor.py`. You can either process
+a file offline or stream data into the tool.
 
-or to just catch pager channel stuff and smaller files:
- * center frequency: 1626440000
- * sample rate: 250000 (250k)
+#### Command line options:
 
-The output files are named
+##### `-o`, `--offline`: Process a file offline
+By default, the extractor will drop samples if the computing power available is
+not enough to keep up. If you have an already recorded file, use the `-o`,`--offline`
+option to not drop any samples. In this case the extractor will pause reading the
+file (or input stream) until it can process more samples again.
 
-`<date>-vX.raw`
+##### `-q`: Queue length
+The internal queue is filled with samples where the detector has detected activity
+in the file. By default it is 12000 elements long (roughly 4 GB at 2 Maps). You can
+tweak the length of the queue with this option
 
-X is the X'th file of the day
-the v is replaces with an s on the "narrow" receive settings
+##### `-c`: Center frequency
+The center frequency of the samples data in Hz.
 
+##### `-r`: Sample rate
+The sample rate of the samples in sps
 
-To process them, there are three stages:
+##### `-f`: Input file format
+| File Format                                        | `extractor.py` format option |
+|----------------------------------------------------|------------------------------|
+| complex uint8 (RTLSDR)                             | `rtl`                        |
+| complex int8 (hackrf, rad1o)                       | `hackrf`                     |
+| complex int16 (USRP with specrec from gr-analysis) | `sc16`                       |
+| complex float (GNURadio, `uhd_rx_cfile`            | `float`                      |
 
-###### stage1:
+##### `-j`, `--jobs`
+The number of processes to spawn which demodulate packets. The detector runs in the main
+process.
 
-`detector-fft.py <rawfilename>`
+### Main Components
 
-this searches through the file in 5ms steps to scan for activity
+#### Detector
+`detector-fft.py`
+
+Searches through the file in 1 ms steps to scan for activity
 and copies these parts into snippets called `<rawfilename>-<timestamp>.det`
 
-###### stage2:
+#### Cut and Downmix
 
-`cut-and-downmix.py <detectorfile>`
+`cut-and-downmix.py`
 
-this mixes the signal down to 0Hz and cuts the beginning to match
+Mixes the signal down to 0 Hz and cuts the beginning to match
 the signal exactly. Output is `<detfile>-f<frequency>.cut`
 
-###### stage3:
+#### Demod
 
 `demod.py`
 
-this does manual dqpsk demodulation of the signal and outputs
+Does manual DQPSK demodulation of the signal and outputs
 `<cutfile>.peaks` (for debugging)
-`<cutfile>.data` the raw bitstream
-and on stdout an ascii summary line.
+`<cutfile>.data` the raw bit stream
+and on stdout an ASCII summary line.
 
-###### stage4:
+#### Parser
 
-gather all the ascii bits in a single file `<rawfilename>.bits`
+`iridium-parser.py`
 
-##### Automatic
+Takes the demodulated bits and tries to parse them into a readable format.
 
-To simplify running these tools, there is `doit.pl`.
+Supports some different output formats (`-o` option).
 
-it runs stage1 (if requested)
-then
-it runs stage2/3 per output of stage1, up to $ncpu times in paralell
-then
-run stage4 (if requested)
-
-run it as `doit.pl [-1234] rawfilename`
-
-if you give no options, it tries to autodetect what stages haven't yet run
