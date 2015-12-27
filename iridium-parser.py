@@ -236,10 +236,73 @@ class IridiumMessage(Message):
             (e3,self.lcw3,bch)= bch_repair( 41,o_lcw3)
             self.ft=int(self.lcw1,2) # Frame type
             if e1<0 or e2<0 or e3<0:
+# LCW:=xx[type] yyyy[code]
+# 0: maint
+#    6: geoloc
+#    f: "no text"
+#    c: maint [lqi[x1c,2], power[[x19,3]]
+#    789abde: reserved
+#    0: sync [status[xa,1], dtoa[xc,10], dfoa[x16,8]]
+#    3: maint [lqi[xa,2], power[xc,3], fine dtoa[xf,7], fine dfoa[x16,3]]
+#    245: reserved
+#    1: switch [dtoa[xc,10], dfoa[x16,8]]
+# 1: acchl
+#    1: acchl
+#    *: reserved
+# 2: handoff
+#    c: handoff cand.
+#    f: "no text"
+#    3: handoff resp. [cand[%c[0=P,1=S::0xb,1]], denied[0xc,1], ref[xd,1], slot[xf,2]+1, subband up[x11,5], subband down[x16,5], access[x1b,3]+1]
+#    *: reserved
+# 3: reserved
                 self._new_error("LCW decode failed")
                 self.header="LCW(%s %s/%02d E%d,%s %sx/%03d E%d,%s %s/%02d E%d)"%(o_ft[:3],o_ft[3:],ndivide(29,o_ft),e1,o_lcw2[:6],o_lcw2[6:],ndivide(465,o_lcw2+'0'),e2,o_lcw3[:21],o_lcw3[21:],ndivide(41,o_lcw3),e3)
             else:
-                self.header="LCW(%d,%s,%s E%d)"%(self.ft,self.lcw2,self.lcw3,e1+e2+e3)
+#                self.header="LCW(%d,%s,%s E%d)"%(self.ft,self.lcw2,self.lcw3,e1+e2+e3)
+                self.lcw_ft=int(self.lcw2[:2],2)
+                self.lcw_code=int(self.lcw2[2:],2)
+                if self.lcw_ft == 0:
+                    ty="maint"
+                    if self.lcw_code == 6:
+                        code="geoloc"
+                    elif self.lcw_code == 15:
+                        code="<silent>"
+                    elif self.lcw_code == 12:
+                        code="maint[1]"
+                        code+="[lqi:%d,power:%d]"%(int(self.lcw3[19:21],2),int(self.lcw3[16:19],2))
+                    elif self.lcw_code == 0:
+                        code="sync"
+                        code+="[status:%d,dtoa:%d,dfoa:%d]"%(int(self.lcw3[1:2],2),int(self.lcw3[3:13],2),int(self.lcw3[13:21],2))
+                    elif self.lcw_code == 3:
+                        code="maint[2]"
+                        code+="[lqi:%d,power:%d,f_dtoa:%d,f_dfoa:%d]"%(int(self.lcw3[1:3],2),int(self.lcw3[3:6],2),int(self.lcw3[6:13],2),int(self.lcw3[13:20],2))
+                    elif self.lcw_code == 1:
+                        code="switch"
+                        code+="[dtoa:%d,dfoa:%d]"%(int(self.lcw3[3:13],2),int(self.lcw3[13:21],2))
+                    else:
+                        code="rsrvd"
+                elif self.lcw_ft == 1:
+                    ty="acchl"
+                    if self.lcw_code == 1:
+                        code="acchl"
+                    else:
+                        code="rsrvd"
+                elif self.lcw_ft == 2:
+                    ty="hndof"
+                    if self.lcw_code == 12:
+                        code="handoff_cand"
+                    elif self.lcw_code == 3:
+                        code="handoff_resp"
+                        code+="[cand:%d,denied:%d,ref:%d,slot:%d,sband_up:%d,sband_dn:%d,access:%d]"%(int(self.lcw3[2:3],2),int(self.lcw3[3:4],2),int(self.lcw3[4:5],2),1+int(self.lcw3[6:8],2),int(self.lcw3[8:13],2),int(self.lcw3[13:18],2),1+int(self.lcw3[18:21],2))
+                    elif self.lcw_code == 15:
+                        code="<silent>"
+                    else:
+                        code="rsrvd"
+                elif self.lcw_ft == 3:
+                    ty="rsrvd"
+                    code="<>"
+                self.header="LCW(%d,T:%s,C:%s(%s),%s E%d)"%(self.ft,ty,code,int(self.lcw2,2),int(self.lcw3,2),e1+e2+e3)
+                self.header="%-80s "%self.header
             self.descrambled=[]
             data=data[lcwlen:]
 
