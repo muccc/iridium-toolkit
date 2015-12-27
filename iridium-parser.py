@@ -292,7 +292,7 @@ class IridiumMessage(Message):
             elif self.msgtype=="IP":
                 return IridiumIPMessage(self).upgrade()
             elif self.msgtype=="SY":
-                return self # Nothing to do
+                return IridiumSYMessage(self).upgrade()
             elif self.msgtype=="UK":
                 return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
@@ -315,22 +315,34 @@ class IridiumMessage(Message):
     def pretty(self):
         sstr= "IRI: "+self._pretty_header()
         sstr+= " %2s"%self.msgtype
-        if self.msgtype == "SY":
-            errs=0
-            for x in self.sync:
-                if x!=0x55:
-                    errs+=1 # Maybe count bit errors
-            if errs==0:
-                sstr+=" Sync=OK"
-            else:
-                sstr+=" Sync=no, errs=%d"%errs
-        else:
-            if self.descrambled!="":
-                sstr+= " ["
-                sstr+=".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled), 8) ])
-                sstr+="]"
+        if self.descrambled!="":
+            sstr+= " ["
+            sstr+=".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled), 8) ])
+            sstr+="]"
         sstr+= self._pretty_trailer()
         return sstr
+
+class IridiumSYMessage(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=copy.deepcopy(imsg.__dict__)
+    def upgrade(self):
+        return self
+    def _pretty_header(self):
+        return super(IridiumSYMessage,self)._pretty_header()
+    def _pretty_trailer(self):
+        return super(IridiumSYMessage,self)._pretty_trailer()
+    def pretty(self):
+        str= "ISY: "+self._pretty_header()
+        errs=0
+        for x in self.sync:
+            if x!=0x55:
+                errs+=1 # Maybe count bit errors
+        if errs==0:
+            str+=" Sync=OK"
+        else:
+            str+=" Sync=no, errs=%d"%errs
+        str+=self._pretty_trailer()
+        return str
 
 class IridiumVOMessage(IridiumMessage):
     def __init__(self,imsg):
