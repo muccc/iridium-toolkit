@@ -557,6 +557,38 @@ class IridiumDAMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=copy.deepcopy(imsg.__dict__)
         # Decode stuff from self.bitstream_bch
+        self.flags1=self.bitstream_bch[:4]
+        self.flag1b=self.bitstream_bch[4:5]
+        self.da_ctr=int(self.bitstream_bch[5:8],2)
+        self.flags2=self.bitstream_bch[8:12]
+        self.flags3=self.bitstream_bch[12:16]
+        self.zero1=int(self.bitstream_bch[16:20],2)
+        if self.zero1 != 0:
+            self._new_error("zero1 not 0")
+
+        def crc16(data): # 0x1021 / 0xffff unreflected
+            crc = 0xffff
+            for byte in data:
+                crc=crc^ord(byte)
+                for bit in range(0, 8):
+                    if (crc&0x1):
+                        crc = ((crc >> 1) ^ 0x8408)
+                    else:
+                        crc = crc >> 1
+            return crc ^ 0xdf9d
+        self.da_crc=int(self.bitstream_bch[9*20:9*20+16],2)
+        crcstream=self.bitstream_bch[:16]+"0"*12+self.bitstream_bch[16:]
+        the_crc=crc16("".join([chr(int(x,2)) for x in crcstream]))
+        self.crc_ok=(the_crc==0)
+        self.zero2=int(self.bitstream_bch[9*20+16:],2)
+        if self.zero2 != 0:
+            self._new_error("zero2 not 0")
+
+        sbd= self.bitstream_bch[1*20:9*20]
+        self.data=[]
+        for x in slice(sbd, 8):
+            self.data+=[int(x,2)]
+
     def upgrade(self):
         if self.error: return self
         try:
@@ -572,7 +604,8 @@ class IridiumDAMessage(IridiumECCMessage):
     def pretty(self):
         str= "IDA: "+self._pretty_header()
         str+= " "+self.bitstream_bch[:4]
-        str+= " ctr="+self.bitstream_bch[4:8]
+        str+= " "+self.bitstream_bch[4:5]
+        str+= " ctr="+self.bitstream_bch[5:8]
         str+= " "+self.bitstream_bch[8:12]
         str+= " "+self.bitstream_bch[12:16]
         str+= " 0:"+self.bitstream_bch[16:20]
@@ -604,7 +637,7 @@ class IridiumDAMessage(IridiumECCMessage):
         str+=' SBD: '
         for x in slice(sbd, 8):
             c=int(x,2)
-            if( c>=32 and c<128):
+            if( c>=32 and c<127):
                 str+=chr(c)
             else:
                 str+="."
