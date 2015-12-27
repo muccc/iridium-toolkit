@@ -745,8 +745,8 @@ class IridiumRAMessage(IridiumECCMessage):
         self.ra_pos_y= int(self.bitstream_bch[26:37],2) - int(self.bitstream_bch[25])*(1<<11)
         self.ra_pos_z= int(self.bitstream_bch[38:49],2) - int(self.bitstream_bch[37])*(1<<11)
         self.ra_int=   int(self.bitstream_bch[49:56],2) # 90ms interval of RA (within same sat/cell)
-        self.ra_ts=    int(self.bitstream_bch[56:57],2) # timeslot (Broadcast configuration?)
-        self.ra_eip=   int(self.bitstream_bch[57:58],2)
+        self.ra_ts=    int(self.bitstream_bch[56:57],2) # Broadcast slot 1 or 4
+        self.ra_eip=   int(self.bitstream_bch[57:58],2) # EPI ?
         self.ra_bch=   int(self.bitstream_bch[58:63],2) # BCH downlink sub-band
         self.ra_msg= False
         ra_msg=self.bitstream_bch[63:]
@@ -782,11 +782,11 @@ class IridiumRAMessage(IridiumECCMessage):
     def pretty(self):
         str= "IRA: "+self._pretty_header()
         str+= " sat:%02d"%self.ra_sat
-        str+= " cell:%02d"%self.ra_cell
+        str+= " beam:%02d"%self.ra_cell
 #        str+= " pos=(%04d,%04d,%04d)"%(self.ra_pos_x,self.ra_pos_y,self.ra_pos_z)
         str+= " pos=(%+05.1f/%+06.1f)"%(atan2(self.ra_pos_x,self.ra_pos_z)*180/pi, atan2(self.ra_pos_y,self.ra_pos_x)*180/pi)
         str+= " alt=%03d"%(sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4-6378+23) # Maybe try WGS84 geoid? :-)
-        str+= " int:%02d"%self.ra_int
+        str+= " RAI:%02d"%self.ra_int
         str+= " ?%d%d"%(self.ra_ts,self.ra_eip)
         str+= " bch:%02d"%self.ra_bch
 
