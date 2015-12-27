@@ -270,10 +270,15 @@ class IridiumMessage(Message):
                     self.descrambled+=[b4,b2,b3,b1]
                 (b1,b2)=de_interleave(end)
                 self.descrambled+=[b2[1:],b1[1:]] # Throw away the extra bit
+            elif self.ft==7: # Synchronisation
+                self.msgtype="SY"
+                self.descrambled=data[:312]
+                self.sync=[int(x,2) for x in slice(self.descrambled, 8)]
+                self.descramble_extra=data[312:]
             else: # Need to check what other ft are
                 self.msgtype="UK"
-                self.descrambled=slice(data,64)
-                self.descramble_extra=""
+                self.descrambled=data[:312]
+                self.descramble_extra=data[312:]
 
         self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
         if self.msgtype!="VO" and self.msgtype!="IP" and len(self.descrambled)==0:
@@ -286,6 +291,8 @@ class IridiumMessage(Message):
                 return IridiumVOMessage(self).upgrade()
             elif self.msgtype=="IP":
                 return IridiumIPMessage(self).upgrade()
+            elif self.msgtype=="SY":
+                return self # Nothing to do
             elif self.msgtype=="UK":
                 return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
@@ -306,11 +313,24 @@ class IridiumMessage(Message):
             str+= " descr_extra:"+re.sub(iridium_lead_out,"["+iridium_lead_out+"]",self.descramble_extra)
         return str
     def pretty(self):
-        str= "IRI: "+self._pretty_header()
-        str+= " %2s"%self.msgtype
-        str+= " "+" ".join(self.descrambled)
-        str+= self._pretty_trailer()
-        return str
+        sstr= "IRI: "+self._pretty_header()
+        sstr+= " %2s"%self.msgtype
+        if self.msgtype == "SY":
+            errs=0
+            for x in self.sync:
+                if x!=0x55:
+                    errs+=1 # Maybe count bit errors
+            if errs==0:
+                sstr+=" Sync=OK"
+            else:
+                sstr+=" Sync=no, errs=%d"%errs
+        else:
+            if self.descrambled!="":
+                sstr+= " ["
+                sstr+=".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled), 8) ])
+                sstr+="]"
+        sstr+= self._pretty_trailer()
+        return sstr
 
 class IridiumVOMessage(IridiumMessage):
     def __init__(self,imsg):
