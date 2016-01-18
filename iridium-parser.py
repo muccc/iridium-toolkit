@@ -692,7 +692,7 @@ class IridiumBCMessage(IridiumECCMessage):
                 self.readable += ' type: %02d %s%s' % (self.type, data1, data2)
         def parse_assignment(data1, data2):
             result = ''
-            if(data1 + data2 != '110000000000000000000000000000000000000000'):
+            if(data1 + data2 != '1110000000000000000000000000000000000000000'):
                 # maybe "Channel Assignment" ?
                 unknown1 = data1[0:3]
                 unknown2 = data1[3:11]
