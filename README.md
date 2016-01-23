@@ -16,11 +16,19 @@ and licensed under the 2-Clause BSD License
 
 Note: The rad1o has to be in hackrf-mode
 
-    hackrf_transfer  -r /dev/stdout -f 1627000000 -a 1 -l 40 -g 20 -s 2000000 | python2 extractor.py -c 1627000000 -r 2000000 -f hackrf --jobs 2 | grep "A:OK" | tee outfile
+    hackrf_transfer -f 1625800000 -a 1 -l 40 -g 20 -s 2000000 -r /dev/fd3 3>&1 1>&2 | python2 extractor.py -c 1625800000 -r 2000000 -f hackrf --jobs 2 | fgrep "A:OK" >> output.bits
 
-This writes to `outfile`. Pager messages can be decoded with
+If you built/installed the rad1o branch of the hackrf tools, add `-S 26214400` to the commandine like this:
 
-    python2 iridium-parser.py outfile
+    hackrf_transfer -f 1625800000 -a 1 -l 40 -g 20 -s 2000000 -S 26214400 -r /dev/fd3 3>&1 1>&2 | python2 extractor.py -c 1625800000 -r 2000000 -f hackrf --jobs 2 | fgrep "A:OK" >> output.bits
+
+This writes to `output.bits`. Pager messages can be decoded with
+
+    python2 iridium-parser.py output.bits
+
+if you want to speed up that step you can install `pypy` and instead run 
+
+    pypy iridium-parser.py output.bits
 
 ### Extracting Iridium packets from raw data
 
