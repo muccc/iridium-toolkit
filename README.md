@@ -77,7 +77,7 @@ Make sure that the main folder of the toolkit is in your `PATH` variable: `expor
 
 Steps to decode voice:
  - Decode your captured and demodulated bits using `iridium-parser` and put the result into a file: `pypy iridium-parser.py output.bits output.parsed`
- - Use `voc-stats.py` to see streams of captured voice frames: `./voc-stats.py output.parsed`
+ - Use `voc-stats.py` to see streams of captured voice frames: `./voc-stats.py > output.parsed`
  - Click once left and once right to select an area. `voc-stats.py` will try do decode and play the selected samples using the `play-iridium-ambe` script.
 
 
