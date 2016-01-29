@@ -66,6 +66,21 @@ The sample rate of the samples in sps
 The number of processes to spawn which demodulate packets. The detector runs in the main
 process.
 
+### Voice Decoding
+To listen to voice calls, you will need an AMBE decoder. There are two option:
+ - Use tnt's open source AMBE decoder: http://git.osmocom.org/osmo-ir77/tree/codec
+ - Extract an AMBE decoder from a firmware binary. Have a look at the `ambe_emu/` directory.
+
+The easier option is to use tnt's AMBE decoder. You can use the extracted decoder if you want to create bit correct output. There almost no audible difference between the two options. Make sure that either `ir77_ambe_decode` or `ambe` is in your `PATH` variable. Also select the installed one in `play-iridium-ambe`.
+
+Make sure that the main folder of the toolkit is in your `PATH` variable: `export PATH=$PATH:<this diectory>`
+
+Steps to decode voice:
+ - Decode your captured and demodulated bits using `iridium-parser` and put the result into a file: `pypy iridium-parser.py output.bits output.parsed`
+ - Use `voc-stats.py` to see streams of captured voice frames: `./voc-stats.py output.parsed`
+ - Click once left and once right to select an area. `voc-stats.py` will try do decode and play the selected samples using the `play-iridium-ambe` script.
+
+
 ### Main Components
 
 #### Detector
