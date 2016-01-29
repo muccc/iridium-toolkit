@@ -6,33 +6,30 @@ import sys
 import matplotlib.pyplot as plt
 import os
 
-f = open(sys.argv[1])
+def filter_voc(t_start = None, t_stop = None, f_min = None, f_max = None):
+    tsl = []
+    fl = []
+    lines = []
+    f = open(sys.argv[1])
 
-tsl = []
-fl = []
-for line in f:
-    line = line.strip()
-    if 'VOC: ' in line and not "LCW(0,001111,100000000000000000000" in line:
-        line = line.split()
-        lcw = line[8]
-        #if lcw.split(',')[2][0] == '0':
-        #    continue
-        ts_base = int(line[1].split('-')[1].split('.')[0])
-        ts = ts_base + int(line[2])/1000.
-        f = int(line[3])/1000.
-        tsl.append(ts)
-        fl.append(f)
+    for line in f:
+        line = line.strip()
+        if 'VOC: ' in line and not "LCW(0,001111,100000000000000000000" in line:
+            line_split = line.split()
+            lcw = line[8]
+            #ts_base = int(line[1].split('-')[1].split('.')[0])
+            ts_base = 0
+            ts = ts_base + int(line_split[2])/1000.
+            f = int(line_split[3])/1000.
+            if ((not t_start or t_start <= ts) and
+                    (not t_stop or ts <= t_stop) and
+                    (not f_min or f_min <= f) and
+                    (not f_max or f <= f_max)):
+                tsl.append(ts)
+                fl.append(f)
+                lines.append(line)
+    return tsl, fl, lines
 
-print len(tsl)
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-ax.scatter(x = tsl, y = fl)
-
-t_start = None
-t_stop = None
-f_min = None
-f_max = None
 
 def cut_convert_play(t_start, t_stop, f_min, f_max):
     if t_start and t_stop:
@@ -45,22 +42,12 @@ def cut_convert_play(t_start, t_stop, f_min, f_max):
             f_max = f_min
             f_min = tmp
 
-    f = open(sys.argv[1])
-    f_out = open('/tmp/sample.bits', 'w')
-    for line in f:
-        line = line.strip()
-        if 'VOC: ' in line and not "LCW(0,001111,100000000000000000000" in line:
-            split_line = line.split()
-            lcw = split_line[8]
-            #if lcw.split(',')[2][0] == '0':
-            #    continue
-            ts_base = int(split_line[1].split('-')[1].split('.')[0])
-            ts = ts_base + int(split_line[2])/1000.
-            f = int(split_line[3])/1000.
-            if t_start <= ts <= t_stop and f_min <= f <= f_max:
-                f_out.write(line + "\n")
+    f_out = open('/tmp/voice.bits', 'w')
+    _, _, lines = filter_voc(t_start, t_stop, f_min, f_max)
+    for line in lines:
+        f_out.write(line + "\n")
     f_out.close()
-    os.system("mangle-sample")
+    os.system("play-iridium-ambe /tmp/voice.bits")
 
 
 def onclick(event):
@@ -79,9 +66,26 @@ def onclick(event):
     if t_start and t_stop:
         cut_convert_play(t_start, t_stop, f_min, f_max)
 
+def main():
+    tsl, fl, _ = filter_voc()
 
-cid = fig.canvas.mpl_connect('button_press_event', onclick)
+    print len(tsl)
+
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.scatter(x = tsl, y = fl)
+
+    t_start = None
+    t_stop = None
+    f_min = None
+    f_max = None
 
 
-plt.show()
+    cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
+    plt.title("Click once left and once rigth to define an aerea. The script will try to play iridium using the play-iridium-ambe shell script.")
+    plt.show()
+
+
+if __name__ == "__main__":
+    main()
