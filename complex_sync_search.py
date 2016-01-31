@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.signal
 
+DOWNLINK = 0
+UPLINK = 1
 
 class ComplexSyncSearch(object):
     def __init__(self, sample_rate, rrcos=True):
@@ -16,16 +18,21 @@ class ComplexSyncSearch(object):
         self._symbols_per_second = 25000
         self._samples_per_symbol = self._sample_rate / self._symbols_per_second
 
-        self._sync_words = {}
-        self._sync_words[0] = self.generate_padded_sync_words(-1000, 1000, 0, rrcos)
-        self._sync_words[16] = self.generate_padded_sync_words(-1000, 1000, 16, rrcos)
-        self._sync_words[64] = self.generate_padded_sync_words(-1000, 1000, 64, rrcos)
+        self._sync_words = [{},{}]
+        self._sync_words[DOWNLINK][0] = self.generate_padded_sync_words(-20000, 20000, 0, rrcos, True)
+        self._sync_words[DOWNLINK][16] = self.generate_padded_sync_words(-20000, 20000, 16, rrcos, True)
+        self._sync_words[DOWNLINK][64] = self.generate_padded_sync_words(-20000, 20000, 64, rrcos, True)
 
-    def generate_padded_sync_words(self, f_min, f_max, preamble_length, rrcos=True):
+        self._sync_words[UPLINK][16] = self.generate_padded_sync_words(-20000, 20000, 16, rrcos, False)
+
+    def generate_padded_sync_words(self, f_min, f_max, preamble_length, rrcos=True, downlink=True):
         s1 = -1-1j
         s0 = -s1
 
-        sync_word = [s0] * preamble_length + [s0, s1, s1, s1, s1, s0, s0, s0, s1, s0, s0, s1]
+        if downlink:
+            sync_word = [s0] * preamble_length + [s0, s1, s1, s1, s1, s0, s0, s0, s1, s0, s0, s1]
+        else:
+            sync_word = [s0, s1] * (preamble_length / 2) + [s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1, s1]
         sync_word_padded = []
 
         for bit in sync_word:
@@ -50,19 +57,25 @@ class ComplexSyncSearch(object):
         return sync_words_shifted
 
 
-    def estimate_sync_word_start(self, signal, preamble_length, offset=0):
-        #c = numpy.correlate(signal, sync_word_shifted[offset], 'same')
-        c = scipy.signal.fftconvolve(signal, self._sync_words[preamble_length][offset], 'same')
+    def estimate_sync_word_start(self, signal, preamble):
+        #c = numpy.correlate(signal, preamble, 'same')
+        c = scipy.signal.fftconvolve(signal, preamble, 'same')
 
         sync_middle = numpy.argmax(numpy.abs(c))
-        sync_start = sync_middle - len(self._sync_words[preamble_length][offset]) / 2
+        sync_start = sync_middle - len(preamble) / 2
 
         return sync_start, numpy.abs(c[sync_middle]), numpy.angle(c[sync_middle])
 
 
-    def estimate_sync_word_freq(self, signal, preamble_length):
+    def estimate_sync_word_freq(self, signal, preamble_length, direction=DOWNLINK):
+        sync_words = self._sync_words[direction][preamble_length]
         if 0:
-            offsets = range(-1000, 1000)
+
+            #plt.plot([x.real for x in signal])
+            #plt.plot([x.imag for x in signal])
+            #plt.show()
+
+            offsets = range(-20000, 20000)
             cs = []
             phases = []
 
@@ -70,7 +83,7 @@ class ComplexSyncSearch(object):
             #print 'sync word led', len(sync_word_shifted[0])
 
             for offset in offsets:
-                start, c, phase = self._estimate_sync_word_start(signal, offset)
+                start, c, phase = self.estimate_sync_word_start(signal, sync_words[offset])
                 cs.append(c)
                 phases.append(phase)
 
@@ -78,22 +91,22 @@ class ComplexSyncSearch(object):
             #plt.plot(phases)
             plt.show()
 
-            print "best freq:", offsets[numpy.argmax(cs)]
+            print "best freq (brute force):", offsets[numpy.argmax(cs)]
             #print "phase:", math.degrees(phases[numpy.argmax(cs)])
 
             #print "current phase:", math.degrees(estimate(signal, 0)[1])
             #return offsets[numpy.argmax(cs)]
         
 
-        def f_est(freq):
+        def f_est(freq, preambles):
             #print freq
-            #c = numpy.correlate(signal, sync_word_shifted[int(freq+0.5)], 'same')
-            c = scipy.signal.fftconvolve(signal, self._sync_words[preamble_length][int(freq+0.5)], 'same')
+            #c = numpy.correlate(signal, preambles[int(freq+0.5)], 'same')
+            c = scipy.signal.fftconvolve(signal, preambles[int(freq+0.5)], 'same')
             return -numpy.max(numpy.abs(c))
 
-        freq = int(scipy.optimize.fminbound(f_est, -100, 100, xtol=1) + 0.5)
-        _, _, phase = self.estimate_sync_word_start(signal, preamble_length, freq)
+        freq = int(scipy.optimize.fminbound(f_est, -20000, 20000, args = (sync_words,), xtol=1) + 0.5)
+        print "best freq (optimize):", freq
+        _, _, phase = self.estimate_sync_word_start(signal, sync_words[freq])
 
-        #print "best freq:", freq
         #print "phase:", phase
         return freq, phase
