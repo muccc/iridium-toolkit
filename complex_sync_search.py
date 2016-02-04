@@ -11,19 +11,27 @@ import scipy.signal
 
 DOWNLINK = 0
 UPLINK = 1
+F_SEARCH = 100
+
+def normalize(v):
+    m = max(v)
+    return [x/m for x in v]
 
 class ComplexSyncSearch(object):
-    def __init__(self, sample_rate, rrcos=True):
+
+    def __init__(self, sample_rate, rrcos=True, verbose=False):
         self._sample_rate = sample_rate
         self._symbols_per_second = 25000
         self._samples_per_symbol = self._sample_rate / self._symbols_per_second
 
         self._sync_words = [{},{}]
-        self._sync_words[DOWNLINK][0] = self.generate_padded_sync_words(-20000, 20000, 0, rrcos, True)
-        self._sync_words[DOWNLINK][16] = self.generate_padded_sync_words(-20000, 20000, 16, rrcos, True)
-        self._sync_words[DOWNLINK][64] = self.generate_padded_sync_words(-20000, 20000, 64, rrcos, True)
+        self._sync_words[DOWNLINK][0] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 0, rrcos, True)
+        self._sync_words[DOWNLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, rrcos, True)
+        self._sync_words[DOWNLINK][64] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 64, rrcos, True)
 
-        self._sync_words[UPLINK][16] = self.generate_padded_sync_words(-20000, 20000, 16, rrcos, False)
+        self._sync_words[UPLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, rrcos, False)
+
+        self._verbose = verbose
 
     def generate_padded_sync_words(self, f_min, f_max, preamble_length, rrcos=True, downlink=True):
         s1 = -1-1j
@@ -32,7 +40,10 @@ class ComplexSyncSearch(object):
         if downlink:
             sync_word = [s0] * preamble_length + [s0, s1, s1, s1, s1, s0, s0, s0, s1, s0, s0, s1]
         else:
-            sync_word = [s0, s1] * (preamble_length / 2) + [s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1, s1]
+            #sync_word = [s0, s1] * (preamble_length / 2) + [s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1, s1]
+            sync_word = [s0, s1] * ((preamble_length / 2) - 1) + [s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1]
+            #sync_word = [s0, s1] * (preamble_length / 2)
+            #sync_word = [s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1]
         sync_word_padded = []
 
         for bit in sync_word:
@@ -68,14 +79,16 @@ class ComplexSyncSearch(object):
 
 
     def estimate_sync_word_freq(self, signal, preamble_length, direction=DOWNLINK):
+        direction = UPLINK
+
         sync_words = self._sync_words[direction][preamble_length]
-        if 0:
+        if self._verbose:
 
             #plt.plot([x.real for x in signal])
             #plt.plot([x.imag for x in signal])
             #plt.show()
 
-            offsets = range(-20000, 20000)
+            offsets = range(-F_SEARCH, F_SEARCH)
             cs = []
             phases = []
 
@@ -87,9 +100,9 @@ class ComplexSyncSearch(object):
                 cs.append(c)
                 phases.append(phase)
 
-            plt.plot(cs)
+            #plt.plot(normalize(cs))
             #plt.plot(phases)
-            plt.show()
+            #plt.show()
 
             print "best freq (brute force):", offsets[numpy.argmax(cs)]
             #print "phase:", math.degrees(phases[numpy.argmax(cs)])
@@ -104,9 +117,15 @@ class ComplexSyncSearch(object):
             c = scipy.signal.fftconvolve(signal, preambles[int(freq+0.5)], 'same')
             return -numpy.max(numpy.abs(c))
 
-        freq = int(scipy.optimize.fminbound(f_est, -20000, 20000, args = (sync_words,), xtol=1) + 0.5)
-        print "best freq (optimize):", freq
+        freq = int(scipy.optimize.fminbound(f_est, -F_SEARCH, F_SEARCH, args = (sync_words,), xtol=1) + 0.5)
+        if self._verbose:
+            print "best freq (optimize):", freq
+
+        if self._verbose:
+            freq = numpy.argmax(cs) - F_SEARCH
+
         _, _, phase = self.estimate_sync_word_start(signal, sync_words[freq])
 
-        #print "phase:", phase
+        if self._verbose:
+            print "phase:", phase
         return freq, phase
