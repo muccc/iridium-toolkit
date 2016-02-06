@@ -20,6 +20,9 @@ def normalize(v):
     m = max(v)
     return [x/m for x in v]
 
+class DownmixError(Exception):
+    pass
+
 class CutAndDownmix(object):
     def __init__(self, center, input_sample_rate, search_depth=0.007,
                     symbols_per_second=25000, decimation=1,
@@ -182,6 +185,8 @@ class CutAndDownmix(object):
 
         #t0 = time.time()
         offset, phase = self._sync_search.estimate_sync_word_freq(signal[:(preamble_length+16)*self._output_samples_per_symbol], preamble_length)
+        if offset == None:
+            raise DownmixError("No valid freq offset for sync word found")
         offset = -offset
 
         phase += phase_offset

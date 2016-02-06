@@ -114,15 +114,19 @@ class ComplexSyncSearch(object):
         def f_est(freq, preambles):
             #print freq
             #c = numpy.correlate(signal, preambles[int(freq+0.5)], 'same')
+            f_index = int(freq+0.5)
             c = scipy.signal.fftconvolve(signal, preambles[int(freq+0.5)], 'same')
             return -numpy.max(numpy.abs(c))
 
-        freq = int(scipy.optimize.fminbound(f_est, -F_SEARCH, F_SEARCH, args = (sync_words,), xtol=1) + 0.5)
+        freq = int(scipy.optimize.fminbound(f_est, -(F_SEARCH - 1), (F_SEARCH - 1), args = (sync_words,), xtol=1) + 0.5)
         if self._verbose:
             print "best freq (optimize):", freq
 
         if self._verbose:
             freq = numpy.argmax(cs) - F_SEARCH
+
+        if abs(freq) == F_SEARCH - 1:
+            return None, None
 
         _, _, phase = self.estimate_sync_word_start(signal, sync_words[freq])
 
