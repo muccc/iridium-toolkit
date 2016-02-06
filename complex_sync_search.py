@@ -53,7 +53,6 @@ class ComplexSyncSearch(object):
             filter = filters.rrcosfilter(161, 0.4, 1./self._symbols_per_second, self._sample_rate)[1]
             sync_word_padded_filtered = numpy.convolve(sync_word_padded, filter, 'full')
         else:
-            filter = filters.rcosfilter(161, 0.4, 1./self._symbols_per_second, self._sample_rate)[1]
             sync_word_padded_filtered = sync_word_padded
 
         sync_words_shifted = {}
@@ -78,6 +77,9 @@ class ComplexSyncSearch(object):
 
     def estimate_sync_word_freq(self, signal, preamble_length, direction=DOWNLINK):
         direction = UPLINK
+
+        if preamble_length not in self._sync_words[direction]:
+            return None, None
 
         sync_words = self._sync_words[direction][preamble_length]
         if self._verbose:
