@@ -41,8 +41,12 @@ def printer(out_queue):
         msg = out_queue.get()
         queue_len -= 1
         out_count += 1
-        if "A:OK" in msg:
-            ok_count += 1
+
+        if msg:
+            if "A:OK" in msg:
+                ok_count += 1
+            print msg
+
         if queue_len > queue_len_max:
             queue_len_max = queue_len
 
@@ -81,7 +85,6 @@ def printer(out_queue):
             ok_count = 0
             last_print = time.time()
 
-        print msg
         out_queue.task_done()
 
 if __name__ == "__main__":
@@ -182,10 +185,18 @@ if __name__ == "__main__":
     dem = demod.Demod(sample_rate=cad.output_sample_rate, use_correlation=True, verbose=verbose)
 
     def process_one(basename, time_stamp, signal_strength, bin_index, freq, signal):
-        mix_signal, mix_freq = cad.cut_and_downmix(signal=signal, search_offset=freq, search_window=search_window)
-        dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(mix_signal)
-        msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
-        out_queue.put(msg)
+        try:
+            msg = None
+            try:
+                mix_signal, mix_freq = cad.cut_and_downmix(signal=signal, search_offset=freq, search_window=search_window)
+                dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(mix_signal)
+                msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
+            except cut_and_downmix.DownmixError:
+                pass
+            out_queue.put(msg)
+        except:
+            import traceback
+            traceback.print_exc()
 
     def wrap_process(time_stamp, signal_strength, bin_index, freq, signal):
         global queue_len, queue_blocked, in_count, drop_count
