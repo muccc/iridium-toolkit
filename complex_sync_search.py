@@ -40,10 +40,8 @@ class ComplexSyncSearch(object):
         if downlink:
             sync_word = [s0] * preamble_length + [s0, s1, s1, s1, s1, s0, s0, s0, s1, s0, s0, s1]
         else:
-            #sync_word = [s0, s1] * (preamble_length / 2) + [s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1, s1]
-            sync_word = [s0, s1] * ((preamble_length / 2) - 1) + [s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1]
-            #sync_word = [s0, s1] * (preamble_length / 2)
-            #sync_word = [s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1]
+            sync_word = [s1, s0] * (preamble_length / 2) + [s1, s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1]
+
         sync_word_padded = []
 
         for bit in sync_word:

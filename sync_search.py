@@ -8,7 +8,10 @@ import filters
 
 def estimate_sync_word_start(signal, sample_rate, symbols_per_second):
     samples_per_symbol = sample_rate / symbols_per_second
-    sync_word = [-1, 1, 1, 1, 1, -1, -1, -1, 1, -1, -1, 1]
+    downlink_sync_word = [-1, 1, 1, 1, 1, -1, -1, -1, 1, -1, -1, 1]
+    uplink_sync_word = [1, 1, -1, -1, -1, 1, -1, -1, 1, -1, 1, 1]
+
+    sync_word = uplink_sync_word
     sync_word_padded = []
     for bit in sync_word:
         sync_word_padded += [bit]

@@ -13,6 +13,10 @@ import sync_search
 import iq
 import getopt
 
+
+#UW = "022220002002"
+UW = "220002002022"
+
 def normalize(v):
     m = max([abs(x) for x in v])
     return [x/m for x in v]
@@ -237,7 +241,7 @@ class Demod(object):
             print "Done."
 
         access=""
-        for s in symbols[:12]:
+        for s in symbols[:len(UW)]:
             access+=str(s)
 
         # Do gray code on symbols
@@ -259,9 +263,8 @@ class Demod(object):
             dataarray+=[(bits&2)/2,bits&1]
 
         access_ok=False
-        if access=="022220002002": access_ok=True
+        if access==UW: access_ok=True
 
-        #lead_out = "011010110101111001110011001111"
         lead_out = "100101111010110110110011001111"
         lead_out_ok = lead_out in data
 
@@ -280,7 +283,7 @@ class Demod(object):
             print "frequency offset:", self._real_freq_offset
 
         if access_ok:
-            data="<"+data[:24]+"> "+data[24:]
+            data="<"+data[:len(UW)*2]+"> "+data[len(UW)*2:]
 
         if lead_out_ok:
             lead_out_index = data.find(lead_out)
@@ -348,7 +351,7 @@ if __name__ == "__main__":
 
     dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = d.demod(signal)
 
-    print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
+    print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-len(UW)),data)
 
     if 0: # Create r / phi file
         with open("%s.rphi" % (os.path.basename(basename)), 'wb') as out:

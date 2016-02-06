@@ -24,8 +24,8 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:ps', [
                                                          'voice-dump=',
                                                          ])
 
-UW_DOWNLINK = 001100000011000011110011 # Actually 0x789h in BPSK
-UW_UPLINK = "1111000011110011111100"
+UW_DOWNLINK = "001100000011000011110011" # Actually 0x789h in BPSK
+UW_UPLINK = "110011000011110011111100"
 
 iridium_access = UW_UPLINK
 iridium_lead_out="100101111010110110110011001111"
