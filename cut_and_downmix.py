@@ -54,7 +54,6 @@ class CutAndDownmix(object):
         if self._verbose:
             print 'input sample_rate', self._input_sample_rate
             print 'output sample_rate', self._output_sample_rate
-        self._debug_file_count = 0
 
     @property
     def output_sample_rate(self):
@@ -124,7 +123,6 @@ class CutAndDownmix(object):
             print 'begin', begin
             iq.write("/tmp/signal-filtered-deci-cut-start.cfile", signal)
             iq.write("/tmp/signal-filtered-deci-cut-start-x2.cfile", signal ** 2)
-            #iq.write("/tmp/deci-x4-cut-start.cfile", signal*signal*signal*signal)
 
         #t0 = time.time()
         signal_preamble = signal[:fft_length] ** 2
@@ -188,14 +186,11 @@ class CutAndDownmix(object):
         offset, phase = self._sync_search.estimate_sync_word_freq(signal[:(preamble_length+16)*self._output_samples_per_symbol], preamble_length)
         if offset == None:
             raise DownmixError("No valid freq offset for sync word found")
+
         offset = -offset
 
         phase += phase_offset
         offset += frequency_offset
-
-        if abs(offset) >= 90:
-            iq.write("/tmp/signal-%d-%d.cfile" % (self._debug_file_count, search_offset), original)
-            self._debug_file_count += 1
 
         shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset/float(self._output_sample_rate))
         signal = signal*shift_signal
