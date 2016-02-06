@@ -49,6 +49,8 @@ class CutAndDownmix(object):
 
         self._sync_search = complex_sync_search.ComplexSyncSearch(self._output_sample_rate, verbose=self._verbose)
 
+        self._pre_start_samples = int(0.1e-3 * self._output_sample_rate)
+
         if self._verbose:
             print 'input sample_rate', self._input_sample_rate
             print 'output sample_rate', self._output_sample_rate
@@ -73,12 +75,12 @@ class CutAndDownmix(object):
     def _signal_start(self, signal, frequency_offset=None):
         signal_mag = numpy.abs(signal)
         signal_mag_lp = numpy.convolve(signal_mag, self._low_pass2, mode='same')
-        #plt.plot(signal_mag)
-        #plt.plot(signal_mag_lp)
 
         threshold = numpy.max(signal_mag_lp) * 0.5
-        start = numpy.where(signal_mag_lp>threshold)[0][0]
-
+        start = max(numpy.where(signal_mag_lp>threshold)[0][0] - self._pre_start_samples, 0)
+        
+        #plt.plot(signal_mag)
+        #plt.plot(signal_mag_lp)
         #plt.plot(start, signal_mag_lp[start], 'b*')
         #plt.show()
         return start
@@ -115,7 +117,6 @@ class CutAndDownmix(object):
 
         #t0 = time.time()
         begin = self._signal_start(signal[:int(self._search_depth * self._output_sample_rate)])
-        #begin = 800
         #print "t_signal_start:", time.time() - t0
         signal = signal[begin:]
 
