@@ -11,6 +11,7 @@ import re
 import threading
 import multiprocessing
 import signal
+import iridium
 import os
 
 out_queue = multiprocessing.JoinableQueue()
