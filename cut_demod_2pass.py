@@ -76,14 +76,14 @@ if __name__ == "__main__":
 
     cad = cut_and_downmix.CutAndDownmix(center=center, sample_rate=sample_rate, symbols_per_second=symbols_per_second, preamble_length=preamble_length,
                             search_depth=search_depth, verbose=verbose, search_window=search_window)
-    d = demod.Demod(sample_rate=sample_rate, use_correlation=True, verbose=verbose)
+    d = demod.Demod(sample_rate=sample_rate, verbose=verbose)
 
-    temp_signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction)
+    temp_signal, freq, _ = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction)
 
     dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols, final_offset = d.demod(temp_signal,return_final_offset=True)
 
     print "RAW: %s %d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,0,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
-    signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, frequency_offset=-final_offset)
+    signal, freq, _ = cad.cut_and_downmix(signal=signal, search_offset=search_offset, frequency_offset=-final_offset)
     print "F_off:",-final_offset
     dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols, final_offset = d.demod(signal,return_final_offset=True)
     print "RAW: %s %d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,0,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)

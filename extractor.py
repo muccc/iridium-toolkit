@@ -178,14 +178,14 @@ if __name__ == "__main__":
 
     det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose, signal_width=search_window, burst_size=burst_size)
     cad = cut_and_downmix.CutAndDownmix(center=center, input_sample_rate=sample_rate, search_depth=search_depth, verbose=verbose, search_window=search_window)
-    dem = demod.Demod(sample_rate=cad.output_sample_rate, use_correlation=True, verbose=verbose)
+    dem = demod.Demod(sample_rate=cad.output_sample_rate, verbose=verbose)
 
     def process_one(basename, time_stamp, signal_strength, bin_index, freq, signal):
         try:
             msg = None
             try:
-                mix_signal, mix_freq = cad.cut_and_downmix(signal=signal, search_offset=freq, direction=direction)
-                dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(mix_signal)
+                mix_signal, mix_freq, mix_direction = cad.cut_and_downmix(signal=signal, search_offset=freq, direction=direction)
+                dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(signal=mix_signal, direction=mix_direction)
                 msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
             except cut_and_downmix.DownmixError:
                 pass

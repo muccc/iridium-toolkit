@@ -9,13 +9,14 @@ import os.path
 import cmath
 import filters
 import re
-import sync_search
+import complex_sync_search
 import iq
 import getopt
+import iridium
 
 
-#UW = "022220002002"
-UW = "220002002022"
+UW_DOWNLINK = "022220002002"
+UW_UPLINK = "220002002022"
 
 def normalize(v):
     m = max([abs(x) for x in v])
@@ -30,28 +31,25 @@ def mynormalize(v):
     return zip
 
 class Demod(object):
-    def __init__(self, sample_rate=200000, use_correlation=False, symbols_per_second=25000, verbose=False, debug=False):
+    def __init__(self, sample_rate, verbose=False, debug=False):
         self._sample_rate=sample_rate
-        self._use_correlation=use_correlation
-        self._symbols_per_second = symbols_per_second
         self._verbose=verbose
         self._debug = debug
         
         if self._verbose:
             print "sample rate:",self._sample_rate
-            print "symbol rate:",self._symbols_per_second
 
-
-        if self._sample_rate % self._symbols_per_second != 0:
+        if self._sample_rate % iridium.SYMBOLS_PER_SECOND != 0:
             raise Exception("Non-int samples per symbol")
 
-        self._samples_per_symbol= self._sample_rate / self._symbols_per_second
+        self._samples_per_symbol= self._sample_rate / iridium.SYMBOLS_PER_SECOND
 
         if self._verbose:
             print "samples per symbol:",self._samples_per_symbol
 
         self._skip = 5*self._samples_per_symbol # beginning might be flaky
 
+        self._sync_search = complex_sync_search.ComplexSyncSearch(self._sample_rate, verbose=self._verbose)
 
     def qpsk(self, phase):
         self._nsymbols+=1
@@ -69,40 +67,23 @@ class Demod(object):
 
         return sym,off
 
-    def _find_start(self, signal, level, lmax): 
-
-        if self._use_correlation:
-            start=sync_search.estimate_sync_word_start(signal, self._sample_rate, self._symbols_per_second)
-            if self._verbose:
-                print "correlated start of sync word", start
+    def _find_start(self, signal, direction): 
+        if direction is not None:
+            start, _ = self._sync_search.estimate_sync_word_start(signal, direction)
         else:
-            # Skip a few samples to have a clean signal
-            if self._verbose:
-                print "skip:",self._skip
-
-            for i in xrange(self._skip,len(signal)):
-                lvl= abs(signal[i])/level
-                ang= cmath.phase(signal[i])/math.pi*180
-                
-                if lvl < 0.5:
-                    if self._verbose:
-                        print "First transition is @",i
-                    transition=i
-                    break
-
-            if 1:
-                mag = [abs(x) for x in signal[transition:transition+self._samples_per_symbol]]
-                peak=max(mag)
-                peakidx=transition+mag.index(peak) - 6 # -6 is "magic best feeling"
-                if self._verbose:
-                    print "peak is @",peakidx, " (",peak/level,")"
+            start_dl, confidence_dl = self._sync_search.estimate_sync_word_start(signal, iridium.DOWNLINK)
+            start_ul, confidence_ul = self._sync_search.estimate_sync_word_start(signal, iridium.UPLINK)
+            
+            if confidence_dl > confidence_ul:
+                start = start_dl
             else:
-                peakidx=transition-self._samples_per_symbol/2
+                start = start_ul
 
-            start=peakidx-self._samples_per_symbol
+        if self._verbose:
+            print "correlated start of sync word", start
         return start
 
-    def demod(self, signal, return_final_offset=False):
+    def demod(self, signal, direction=None, return_final_offset=False):
         self._errors=0
         self._nsymbols=0
 
@@ -115,7 +96,7 @@ class Demod(object):
             print "level:",level
             print 'lmax:', lmax
 
-        i=self._find_start(signal, level, lmax)
+        i=self._find_start(signal, direction)
         symbols=[]
         if self._debug:
             self.samples=[]
@@ -241,7 +222,7 @@ class Demod(object):
             print "Done."
 
         access=""
-        for s in symbols[:len(UW)]:
+        for s in symbols[:iridium.UW_LENGTH]:
             access+=str(s)
 
         # Do gray code on symbols
@@ -262,15 +243,17 @@ class Demod(object):
             data+=str((bits&2)/2)+str(bits&1)
             dataarray+=[(bits&2)/2,bits&1]
 
-        access_ok=False
-        if access==UW: access_ok=True
+        if access == UW_DOWNLINK or access == UW_UPLINK:
+            access_ok = True
+        else:
+            access_ok = False
 
         lead_out = "100101111010110110110011001111"
         lead_out_ok = lead_out in data
 
         confidence = (1-float(self._errors)/self._nsymbols)*100
 
-        self._real_freq_offset=phase/360.*self._symbols_per_second/self._nsymbols
+        self._real_freq_offset=phase/360.*iridium.SYMBOLS_PER_SECOND/self._nsymbols
 
         if self._verbose:
             print "access:",access_ok,"(%s)"%access
@@ -283,7 +266,7 @@ class Demod(object):
             print "frequency offset:", self._real_freq_offset
 
         if access_ok:
-            data="<"+data[:len(UW)*2]+"> "+data[len(UW)*2:]
+            data="<"+data[:iridium.UW_LENGTH*2]+"> "+data[iridium.UW_LENGTH*2:]
 
         if lead_out_ok:
             lead_out_index = data.find(lead_out)
@@ -297,17 +280,18 @@ class Demod(object):
             return (dataarray, data, access_ok, lead_out_ok, confidence, level, self._nsymbols)
         
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'r:cdv', [
+    options, remainder = getopt.getopt(sys.argv[1:], 'r:dv', [
                                                             'rate=',
-                                                            'use-correlation',
                                                             'debug',
                                                             'verbose',
+                                                            'uplink',
+                                                            'downlink'
                                                             ])
 
-    use_correlation=False
     sample_rate = None
     debug = False
     verbose = False
+    direction = None
 
     for opt, arg in options:
         if opt in ('-r', '--rate'):
@@ -316,8 +300,10 @@ if __name__ == "__main__":
             verbose = True
         elif opt in ('-d', '--debug'):
             debug = True
-        elif opt in ('-c', '--use-correlation'):
-            use_correlation=True
+        elif opt == '--downlink':
+            direction = iridium.DOWNLINK
+        elif opt == '--uplink':
+            direction = iridium.UPLINK
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -347,11 +333,11 @@ if __name__ == "__main__":
         print "raw filename:",rawfile
         print "base freq:",freq
 
-    d = Demod(sample_rate=sample_rate, use_correlation=use_correlation, verbose=verbose, debug=debug)
+    d = Demod(sample_rate=sample_rate, verbose=verbose, debug=debug)
 
-    dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = d.demod(signal)
+    dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = d.demod(signal, direction)
 
-    print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-len(UW)),data)
+    print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-iridium.UW_LENGTH),data)
 
     if 0: # Create r / phi file
         with open("%s.rphi" % (os.path.basename(basename)), 'wb') as out:

@@ -43,7 +43,7 @@ if [ ! -f $of2 ] ; then
 	inspectrum $of &
 	exit 1
 fi
-demod.py -v -d -c -r $osr $of2 >sample.txt.demod
+demod.py -v -d -r $osr $of2 >sample.txt.demod
 
 rm -f sample.txt
 grep ^MODE sample.txt.cut  | tee -a sample.txt

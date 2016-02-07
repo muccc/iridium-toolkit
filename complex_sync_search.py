@@ -59,19 +59,23 @@ class ComplexSyncSearch(object):
         return sync_words_shifted
 
 
-    def estimate_sync_word_start(self, signal, preamble):
-        #c = numpy.correlate(signal, preamble, 'same')
+    def estimate_sync_word_start(self, signal, direction):
+        
+        sync_middle, confidence, _ = self.estimate_sync_word(signal, self._sync_words[direction][16][0])
+        
+        # Compensate for the 16 symbols of preamble
+        sync_start = sync_middle + 2 * self._samples_per_symbol 
+
+        return sync_start, confidence
+
+    def estimate_sync_word(self, signal, preamble):
         c = scipy.signal.fftconvolve(signal, preamble, 'same')
-
         sync_middle = numpy.argmax(numpy.abs(c))
-        sync_start = sync_middle - len(preamble) / 2
 
-        return sync_start, numpy.abs(c[sync_middle]), numpy.angle(c[sync_middle])
+        return sync_middle, numpy.abs(c[sync_middle]), numpy.angle(c[sync_middle])
 
 
-    def estimate_sync_word_freq(self, signal, preamble_length, direction=None):
-        if direction == None:
-            direction = iridium.UPLINK
+    def estimate_sync_word_freq(self, signal, preamble_length, direction):
 
         if preamble_length not in self._sync_words[direction]:
             return None, None
@@ -91,7 +95,7 @@ class ComplexSyncSearch(object):
             #print 'sync word led', len(sync_word_shifted[0])
 
             for offset in offsets:
-                start, c, phase = self.estimate_sync_word_start(signal, sync_words[offset])
+                _, c, phase = self.estimate_sync_word(signal, sync_words[offset])
                 cs.append(c)
                 phases.append(phase)
 
@@ -123,8 +127,8 @@ class ComplexSyncSearch(object):
         if abs(freq) == F_SEARCH - 1:
             return None, None
 
-        _, _, phase = self.estimate_sync_word_start(signal, sync_words[freq])
+        _, confidence, phase = self.estimate_sync_word(signal, sync_words[freq])
 
         if self._verbose:
             print "phase:", phase
-        return freq, phase
+        return freq, phase, confidence

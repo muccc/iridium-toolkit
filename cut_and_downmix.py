@@ -112,6 +112,7 @@ class CutAndDownmix(object):
         # Ring Alert and Pager Channels have a 64 symbol preamble
         if signal_center > 1626000000:
             preamble_length = 64
+            direction = iridium.DOWNLINK
         else:
             preamble_length = 16
 
@@ -196,7 +197,22 @@ class CutAndDownmix(object):
 
         #t0 = time.time()
         preamble_uw = signal[:(preamble_length + 16) * self._output_samples_per_symbol]
-        offset, phase = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, direction)
+
+        if direction is not None:
+            offset, phase, _ = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, direction)
+        else:
+            offset_dl, phase_dl, confidence_dl = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, iridium.DOWNLINK)
+            offset_ul, phase_ul, confidence_ul = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, iridium.UPLINK)
+
+            if confidence_dl > confidence_ul:
+                direction = iridium.DOWNLINK
+                offset = offset_dl
+                phase = phase_dl
+            else:
+                direction = iridium.UPLINK
+                offset = offset_ul
+                phase = phase_ul
+
         if offset == None:
             raise DownmixError("No valid freq offset for sync word found")
 
@@ -242,7 +258,7 @@ class CutAndDownmix(object):
         #plt.plot(signal_preamble)
         #plt.show()
 
-        return (signal, signal_center+offset_freq)
+        return (signal, signal_center+offset_freq, direction)
 
 if __name__ == "__main__":
 
@@ -309,7 +325,7 @@ if __name__ == "__main__":
     cad = CutAndDownmix(center=center, input_sample_rate=sample_rate, symbols_per_second=symbols_per_second,
                             search_depth=search_depth, verbose=verbose, search_window=search_window)
 
-    signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
+    signal, freq, _ = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
     iq.write("%s-f%010d.cut" % (os.path.basename(basename), freq), signal)
     print "output=","%s-f%10d.cut" % (os.path.basename(basename), freq)
