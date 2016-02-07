@@ -78,7 +78,7 @@ class ComplexSyncSearch(object):
     def estimate_sync_word_freq(self, signal, preamble_length, direction):
 
         if preamble_length not in self._sync_words[direction]:
-            return None, None
+            return None, None, None
 
         sync_words = self._sync_words[direction][preamble_length]
         if self._verbose:
@@ -125,7 +125,7 @@ class ComplexSyncSearch(object):
             freq = numpy.argmax(cs) - F_SEARCH
 
         if abs(freq) == F_SEARCH - 1:
-            return None, None
+            return None, None, None
 
         _, confidence, phase = self.estimate_sync_word(signal, sync_words[freq])
 
