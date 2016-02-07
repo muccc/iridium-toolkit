@@ -73,7 +73,7 @@ class CutAndDownmix(object):
 
     def _signal_start(self, signal, frequency_offset=None):
         signal_mag = numpy.abs(signal)
-        signal_mag_lp = numpy.convolve(signal_mag, self._low_pass2, mode='same')
+        signal_mag_lp = scipy.signal.fftconvolve(signal_mag, self._low_pass2, mode='same')
 
         threshold = numpy.max(signal_mag_lp) * 0.5
         start = max(numpy.where(signal_mag_lp>threshold)[0][0] - self._pre_start_samples, 0)
@@ -88,10 +88,19 @@ class CutAndDownmix(object):
         if self._verbose:
             iq.write("/tmp/signal.cfile", signal)
 
-        original = signal
-
+        #t0 = time.time()
         shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*search_offset/float(self._input_sample_rate))
-        signal = numpy.convolve(signal * shift_signal, self._input_low_pass, mode='same')
+        #print "t_shift_signal:", time.time() - t0
+
+        #t0 = time.time()
+        signal = signal * shift_signal
+        #print "t_shift1:", time.time() - t0
+
+        #t0 = time.time()
+        signal = scipy.signal.fftconvolve(signal, self._input_low_pass, mode='same')
+        #print "t_filter:", time.time() - t0
+
+        #t0 = time.time()
         signal_center = self._center + search_offset
         if self._verbose:
             iq.write("/tmp/signal-shifted-filtered.cfile", signal)
@@ -113,16 +122,18 @@ class CutAndDownmix(object):
 
         #signal_mag = [abs(x) for x in signal]
         #plt.plot(normalize(signal_mag))
+        #print "t_misc:", time.time() - t0
 
         #t0 = time.time()
         begin = self._signal_start(signal[:int(self._search_depth * self._output_sample_rate)])
-        #print "t_signal_start:", time.time() - t0
         signal = signal[begin:]
 
         if self._verbose:
             print 'begin', begin
             iq.write("/tmp/signal-filtered-deci-cut-start.cfile", signal)
             iq.write("/tmp/signal-filtered-deci-cut-start-x2.cfile", signal ** 2)
+
+        #print "t_signal_start:", time.time() - t0
 
         #t0 = time.time()
         signal_preamble = signal[:fft_length] ** 2
@@ -160,9 +171,7 @@ class CutAndDownmix(object):
         correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma)
         real_index = max_index + correction
 
-        #print "fft:", time.time() - t0
 
-        #t0 = time.time()
 
         a = math.floor(real_index)
         corrected_index = fft_freq[a] + (real_index - a) * fft_bin_size
@@ -173,6 +182,9 @@ class CutAndDownmix(object):
             print 'FFT interpolated peak:', max_index - correction
             print 'FFT interpolated peak (Hz):', offset_freq
 
+        #print "t_fft:", time.time() - t0
+
+        #t0 = time.time()
         # Generate a complex signal at offset_freq Hz.
         shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset_freq/float(self._output_sample_rate))
 
@@ -180,7 +192,7 @@ class CutAndDownmix(object):
         signal = signal*shift_signal
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci-cut-start-shift.cfile", signal)
-        #print "shift:", time.time() - t0
+        #print "t_shift2:", time.time() - t0
 
         #t0 = time.time()
         preamble_uw = signal[:(preamble_length + 16) * self._output_samples_per_symbol]
@@ -192,15 +204,18 @@ class CutAndDownmix(object):
 
         phase += phase_offset
         offset += frequency_offset
+        #print "t_css:", time.time() - t0
 
+        #t0 = time.time()
         shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset/float(self._output_sample_rate))
         signal = signal*shift_signal
         offset_freq += offset
 
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci-cut-start-shift-shift.cfile", signal)
-        #print "shift2:", time.time() - t0
+        #print "t_shift3:", time.time() - t0
 
+        #t0 = time.time()
         #plt.plot([cmath.phase(x) for x in signal[:fft_length]])
 
         # Multiplying with a complex number on the unit circle
@@ -211,8 +226,9 @@ class CutAndDownmix(object):
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci-cut-start-shift-shift-rotate.cfile", signal)
 
-        signal = numpy.convolve(signal, self._rrc, 'same')
+        signal = scipy.signal.fftconvolve(signal, self._rrc, 'same')
 
+        #print "t_rrc:", time.time() - t0
         #plt.plot([x.real for x in signal])
         #plt.plot([x.imag for x in signal])
 
