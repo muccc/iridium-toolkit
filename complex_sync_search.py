@@ -8,9 +8,8 @@ import filters
 import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.signal
+import iridium
 
-DOWNLINK = 0
-UPLINK = 1
 F_SEARCH = 100
 
 def normalize(v):
@@ -25,11 +24,11 @@ class ComplexSyncSearch(object):
         self._samples_per_symbol = self._sample_rate / self._symbols_per_second
 
         self._sync_words = [{},{}]
-        self._sync_words[DOWNLINK][0] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 0, rrcos, True)
-        self._sync_words[DOWNLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, rrcos, True)
-        self._sync_words[DOWNLINK][64] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 64, rrcos, True)
+        self._sync_words[iridium.DOWNLINK][0] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 0, rrcos, True)
+        self._sync_words[iridium.DOWNLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, rrcos, True)
+        self._sync_words[iridium.DOWNLINK][64] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 64, rrcos, True)
 
-        self._sync_words[UPLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, rrcos, False)
+        self._sync_words[iridium.UPLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, rrcos, False)
 
         self._verbose = verbose
 
@@ -48,7 +47,6 @@ class ComplexSyncSearch(object):
             sync_word_padded += [bit]
             sync_word_padded += [0] * (self._samples_per_symbol - 1)
         
-        #rrcos = True
         if rrcos:
             filter = filters.rrcosfilter(161, 0.4, 1./self._symbols_per_second, self._sample_rate)[1]
             sync_word_padded_filtered = numpy.convolve(sync_word_padded, filter, 'full')
@@ -75,8 +73,9 @@ class ComplexSyncSearch(object):
         return sync_start, numpy.abs(c[sync_middle]), numpy.angle(c[sync_middle])
 
 
-    def estimate_sync_word_freq(self, signal, preamble_length, direction=DOWNLINK):
-        direction = UPLINK
+    def estimate_sync_word_freq(self, signal, preamble_length, direction=None):
+        if direction == None:
+            direction = iridium.UPLINK
 
         if preamble_length not in self._sync_words[direction]:
             return None, None

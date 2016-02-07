@@ -1,0 +1,3 @@
+DOWNLINK = 0
+UPLINK = 1
+

@@ -13,6 +13,7 @@ import getopt
 import scipy.signal
 import complex_sync_search
 import time
+import iridium
 
 import matplotlib.pyplot as plt
 
@@ -83,7 +84,7 @@ class CutAndDownmix(object):
         #plt.show()
         return start
 
-    def cut_and_downmix(self, signal, search_offset=None, frequency_offset=0, phase_offset=0):
+    def cut_and_downmix(self, signal, search_offset=None, direction=None, frequency_offset=0, phase_offset=0):
         if self._verbose:
             iq.write("/tmp/signal.cfile", signal)
 
@@ -182,7 +183,8 @@ class CutAndDownmix(object):
         #print "shift:", time.time() - t0
 
         #t0 = time.time()
-        offset, phase = self._sync_search.estimate_sync_word_freq(signal[:(preamble_length+16)*self._output_samples_per_symbol], preamble_length)
+        preamble_uw = signal[:(preamble_length + 16) * self._output_samples_per_symbol]
+        offset, phase = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, direction)
         if offset == None:
             raise DownmixError("No valid freq offset for sync word found")
 
@@ -235,7 +237,9 @@ if __name__ == "__main__":
                                                             'search-depth=',
                                                             'verbose',
                                                             'frequency-offset=',
-                                                            'phase-offset='
+                                                            'phase-offset=',
+                                                            'uplink',
+                                                            'downlink'
                                                             ])
     center = None
     sample_rate = None
@@ -246,6 +250,7 @@ if __name__ == "__main__":
     verbose = False
     frequency_offset = 0
     phase_offset = 0
+    direction = None
 
     for opt, arg in options:
         if opt in ('-o', '--search-offset'):
@@ -264,6 +269,10 @@ if __name__ == "__main__":
             phase_offset = float(arg)/180. * numpy.pi;
         elif opt in ('-v', '--verbose'):
             verbose = True
+        elif opt == '--uplink':
+            direction = iridium.UPLINK
+        elif opt == '--downlink':
+            direction = iridium.DOWNLINK
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -284,7 +293,7 @@ if __name__ == "__main__":
     cad = CutAndDownmix(center=center, input_sample_rate=sample_rate, symbols_per_second=symbols_per_second,
                             search_depth=search_depth, verbose=verbose, search_window=search_window)
 
-    signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, frequency_offset=frequency_offset, phase_offset=phase_offset)
+    signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
     iq.write("%s-f%010d.cut" % (os.path.basename(basename), freq), signal)
     print "output=","%s-f%10d.cut" % (os.path.basename(basename), freq)

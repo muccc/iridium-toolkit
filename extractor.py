@@ -102,6 +102,8 @@ if __name__ == "__main__":
                                                             'offline',
                                                             'queuelen=',
                                                             'burstsize=',
+                                                            'uplink',
+                                                            'downlink'
                                                             ])
 
     center = None # 1626270833
@@ -117,6 +119,7 @@ if __name__ == "__main__":
     offline = False
     max_queue_len = 1000
     burst_size = 20
+    direction = None
 
     for opt, arg in options:
         if opt in ('-w', '--search-window'):
@@ -145,6 +148,11 @@ if __name__ == "__main__":
             max_queue_len = int(arg)
         elif opt in ('-b', '--burstsize'):
             burst_size = int(arg)
+        elif opt == '--uplink':
+            direction = iridium.UPLINK
+        elif opt == '--downlink':
+            direction = iridium.DOWNLINK
+
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -175,7 +183,7 @@ if __name__ == "__main__":
         try:
             msg = None
             try:
-                mix_signal, mix_freq = cad.cut_and_downmix(signal=signal, search_offset=freq)
+                mix_signal, mix_freq = cad.cut_and_downmix(signal=signal, search_offset=freq, direction=direction)
                 dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(mix_signal)
                 msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
             except cut_and_downmix.DownmixError:

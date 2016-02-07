@@ -22,6 +22,8 @@ if __name__ == "__main__":
                                                             'search-depth=',
                                                             'use-correlation',
                                                             'verbose',
+                                                            'downlink',
+                                                            'uplink'
                                                             ])
 
     center = None
@@ -33,6 +35,7 @@ if __name__ == "__main__":
     search_depth = 0.007
     use_correlation=False
     verbose = False
+    direction = None
 
     for opt, arg in options:
         if opt in ('-o', '--search-offset'):
@@ -49,6 +52,11 @@ if __name__ == "__main__":
             use_correlation=True
         elif opt in ('-v', '--verbose'):
             verbose = True
+        elif opt in ('-u', '--uplink'):
+            direction = iridium.UPLINK
+        elif opt in ('-d', '--downlink'):
+            direction = iridium.DOWNLINK
+
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -70,7 +78,7 @@ if __name__ == "__main__":
                             search_depth=search_depth, verbose=verbose, search_window=search_window)
     d = demod.Demod(sample_rate=sample_rate, use_correlation=True, verbose=verbose)
 
-    temp_signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset)
+    temp_signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction)
 
     dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols, final_offset = d.demod(temp_signal,return_final_offset=True)
 
