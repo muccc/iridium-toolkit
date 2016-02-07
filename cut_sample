@@ -29,14 +29,13 @@ if [ $rate -gt 1000000 ] ; then
 fi
 osr=`echo $rate $dec / p|dc`
 
-echo "Decimate $dec"
 
 of=sample-$time.raw
 # cut section from source
 dd if=${file} of=$of bs=1 skip=$sbyte count=$lbyte 2>/dev/null || exit 1
 
 # downmix selected signal
-cut_and_downmix.py -f 0 -w $window -o $offset -c $center --verbose -r $rate -d $dec $of >sample.txt.cut || exit 1
+cut_and_downmix.py -f 0 -w $window -o $offset -c $center --verbose -r $rate $of >sample.txt.cut || exit 1
 of2=`tail -1 sample.txt.cut|awk '{print $2}'`
 of3=${of2%.cut}.peaks
 

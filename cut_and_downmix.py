@@ -25,8 +25,7 @@ class DownmixError(Exception):
 
 class CutAndDownmix(object):
     def __init__(self, center, input_sample_rate, search_depth=7e-3, search_window=50e3,
-                    symbols_per_second=25000, decimation=1,
-                    verbose=False):
+                    symbols_per_second=25000, verbose=False):
 
         self._center = center
         self._input_sample_rate = int(input_sample_rate)
@@ -229,14 +228,13 @@ class CutAndDownmix(object):
 
 if __name__ == "__main__":
 
-    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:f:vd:p:', ['search-offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'o:w:c:r:s:f:v:p:', ['search-offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
                                                             'search-depth=',
                                                             'verbose',
                                                             'frequency-offset=',
-                                                            'decimation=',
                                                             'phase-offset='
                                                             ])
     center = None
@@ -248,7 +246,6 @@ if __name__ == "__main__":
     verbose = False
     frequency_offset = 0
     phase_offset = 0
-    decimation = 1
 
     for opt, arg in options:
         if opt in ('-o', '--search-offset'):
@@ -267,9 +264,6 @@ if __name__ == "__main__":
             phase_offset = float(arg)/180. * numpy.pi;
         elif opt in ('-v', '--verbose'):
             verbose = True
-        elif opt in ('-d', '--decimation'):
-            decimation = int(arg)
-            print "deci:",decimation
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -288,7 +282,7 @@ if __name__ == "__main__":
     signal = iq.read(file_name)
 
     cad = CutAndDownmix(center=center, input_sample_rate=sample_rate, symbols_per_second=symbols_per_second,
-                            search_depth=search_depth, verbose=verbose, decimation=decimation, search_window=search_window)
+                            search_depth=search_depth, verbose=verbose, search_window=search_window)
 
     signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
