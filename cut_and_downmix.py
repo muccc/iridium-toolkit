@@ -24,7 +24,7 @@ class DownmixError(Exception):
     pass
 
 class CutAndDownmix(object):
-    def __init__(self, center, input_sample_rate, search_depth=0.007,
+    def __init__(self, center, input_sample_rate, search_depth=7e-3, search_window=50e3,
                     symbols_per_second=25000, decimation=1,
                     verbose=False):
 
@@ -43,7 +43,7 @@ class CutAndDownmix(object):
         self._verbose = verbose
         #self._verbose = True
 
-        self._input_low_pass = scipy.signal.firwin(401, 50e3/self._input_sample_rate)
+        self._input_low_pass = scipy.signal.firwin(401, float(search_window)/self._input_sample_rate)
         self._low_pass2= scipy.signal.firwin(401, 10e3/self._output_sample_rate)
         self._rrc = filters.rrcosfilter(51, 0.4, 1./self._symbols_per_second, self._output_sample_rate)[1]
 
@@ -84,7 +84,7 @@ class CutAndDownmix(object):
         #plt.show()
         return start
 
-    def cut_and_downmix(self, signal, search_offset=None, search_window=None, frequency_offset=0, phase_offset=0):
+    def cut_and_downmix(self, signal, search_offset=None, frequency_offset=0, phase_offset=0):
         if self._verbose:
             iq.write("/tmp/signal.cfile", signal)
 
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     sample_rate = None
     symbols_per_second = 25000
     search_offset = None
-    search_window = None
+    search_window = 50e3
     search_depth = 0.007
     verbose = False
     frequency_offset = 0
@@ -288,9 +288,9 @@ if __name__ == "__main__":
     signal = iq.read(file_name)
 
     cad = CutAndDownmix(center=center, input_sample_rate=sample_rate, symbols_per_second=symbols_per_second,
-                            search_depth=search_depth, verbose=verbose, decimation=decimation)
+                            search_depth=search_depth, verbose=verbose, decimation=decimation, search_window=search_window)
 
-    signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, search_window=search_window, frequency_offset=frequency_offset, phase_offset=phase_offset)
+    signal, freq = cad.cut_and_downmix(signal=signal, search_offset=search_offset, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
     iq.write("%s-f%010d.cut" % (os.path.basename(basename), freq), signal)
     print "output=","%s-f%10d.cut" % (os.path.basename(basename), freq)
