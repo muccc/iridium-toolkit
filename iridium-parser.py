@@ -24,10 +24,8 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:ps', [
                                                          'voice-dump=',
                                                          ])
 
-UW_DOWNLINK = "001100000011000011110011" # Actually 0x789h in BPSK
-UW_UPLINK = "110011000011110011111100"
-
-iridium_access = UW_UPLINK
+iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
+uplink_access= "110011000011110011111100" # BPSK: 0xc4b
 iridium_lead_out="100101111010110110110011001111"
 header_messaging="00110011111100110011001111110011" # 0x9669 in BPSK
 messaging_bch_poly=1897
@@ -148,12 +146,17 @@ class Message(object):
     def upgrade(self):
         if self.error: return self
         if(self.bitstream_raw.startswith(iridium_access)):
-            try:
-                return IridiumMessage(self).upgrade()
-            except ParserError,e:
-                self._new_error(str(e))
-                return self
-        return self
+            self.uplink=0
+        elif(self.bitstream_raw.startswith(uplink_access)):
+            self.uplink=1
+        else:
+            self._new_error("Access code missing")
+            return self
+        try:
+            return IridiumMessage(self).upgrade()
+        except ParserError,e:
+            self._new_error(str(e))
+            return self
     def _new_error(self,msg):
         self.error=True
         msg=str(type(self).__name__) + ": "+msg
@@ -172,6 +175,9 @@ class Message(object):
         if (bs.startswith(iridium_access)):
             str+=" <%s>"%iridium_access
             bs=bs[len(iridium_access):]
+        elif (bs.startswith(uplink_access)):
+            str+=" <U%s>"%uplink_access
+            bs=bs[len(uplink_access):]
         str+=" "+" ".join(slice(bs,16))
         if("extra_data" in self.__dict__):
             str+=" "+self.extra_data
@@ -181,7 +187,10 @@ class Message(object):
 class IridiumMessage(Message):
     def __init__(self,msg):
         self.__dict__=copy.deepcopy(msg.__dict__)
-        data=self.bitstream_raw[len(iridium_access):]
+        if (self.uplink):
+            data=self.bitstream_raw[len(uplink_access):]
+        else:
+            data=self.bitstream_raw[len(iridium_access):]
 
         # Try to detect packet type
         if data[:32] == header_messaging:
@@ -369,7 +378,11 @@ class IridiumMessage(Message):
     def _pretty_header(self):
         str= super(IridiumMessage,self)._pretty_header()
         str+= " %03d"%(self.symbols-len(iridium_access)/2)
-        str+=" L:"+("no","OK")[self.lead_out_ok]
+#        str+=" L:"+("no","OK")[self.lead_out_ok]
+        if (self.uplink):
+            str+=" UL"
+        else:
+             str+=" DL"
         if self.header:
             str+=" "+self.header
         return str
