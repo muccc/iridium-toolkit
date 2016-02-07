@@ -18,27 +18,26 @@ def normalize(v):
 
 class ComplexSyncSearch(object):
 
-    def __init__(self, sample_rate, rrcos=True, verbose=False):
+    def __init__(self, sample_rate, verbose=False):
         self._sample_rate = sample_rate
-        self._symbols_per_second = 25000
-        self._samples_per_symbol = self._sample_rate / self._symbols_per_second
+        self._samples_per_symbol = self._sample_rate / iridium.SYMBOLS_PER_SECOND
 
         self._sync_words = [{},{}]
-        self._sync_words[iridium.DOWNLINK][0] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 0, rrcos, True)
-        self._sync_words[iridium.DOWNLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, rrcos, True)
-        self._sync_words[iridium.DOWNLINK][64] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 64, rrcos, True)
+        self._sync_words[iridium.DOWNLINK][0] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 0, iridium.DOWNLINK)
+        self._sync_words[iridium.DOWNLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, iridium.DOWNLINK)
+        self._sync_words[iridium.DOWNLINK][64] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 64, iridium.DOWNLINK)
 
-        self._sync_words[iridium.UPLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, rrcos, False)
+        self._sync_words[iridium.UPLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, iridium.UPLINK)
 
         self._verbose = verbose
 
-    def generate_padded_sync_words(self, f_min, f_max, preamble_length, rrcos=True, downlink=True):
+    def generate_padded_sync_words(self, f_min, f_max, preamble_length, direction):
         s1 = -1-1j
         s0 = -s1
 
-        if downlink:
+        if direction == iridium.DOWNLINK:
             sync_word = [s0] * preamble_length + [s0, s1, s1, s1, s1, s0, s0, s0, s1, s0, s0, s1]
-        else:
+        elif direction == iridium.UPLINK:
             sync_word = [s1, s0] * (preamble_length / 2) + [s1, s1, s0, s0, s0, s1, s0, s0, s1, s0, s1, s1]
 
         sync_word_padded = []
@@ -47,11 +46,8 @@ class ComplexSyncSearch(object):
             sync_word_padded += [bit]
             sync_word_padded += [0] * (self._samples_per_symbol - 1)
         
-        if rrcos:
-            filter = filters.rrcosfilter(161, 0.4, 1./self._symbols_per_second, self._sample_rate)[1]
-            sync_word_padded_filtered = numpy.convolve(sync_word_padded, filter, 'full')
-        else:
-            sync_word_padded_filtered = sync_word_padded
+        filter = filters.rrcosfilter(161, 0.4, 1./iridium.SYMBOLS_PER_SECOND, self._sample_rate)[1]
+        sync_word_padded_filtered = numpy.convolve(sync_word_padded, filter, 'full')
 
         sync_words_shifted = {}
 
