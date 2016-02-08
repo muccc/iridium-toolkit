@@ -14,6 +14,9 @@ import scipy.signal
 import complex_sync_search
 import time
 import iridium
+import gnuradio.gr
+import gnuradio.blocks
+import gnuradio.filter
 
 import matplotlib.pyplot as plt
 
@@ -51,6 +54,15 @@ class CutAndDownmix(object):
 
         self._pre_start_samples = int(0.1e-3 * self._output_sample_rate)
 
+        self._src = gnuradio.blocks.vector_source_c([])
+        self._fir_filter = gnuradio.filter.freq_xlating_fir_filter_ccf(self._decimation,
+                taps=self._input_low_pass, center_freq=0, sampling_freq=self._input_sample_rate)
+        self._dst = gnuradio.blocks.vector_sink_c()
+
+        self._tb = gnuradio.gr.top_block()
+        self._tb.connect(self._src, self._fir_filter)
+        self._tb.connect(self._fir_filter, self._dst)
+
         if self._verbose:
             print 'input sample_rate', self._input_sample_rate
             print 'output sample_rate', self._output_sample_rate
@@ -84,28 +96,26 @@ class CutAndDownmix(object):
         #plt.show()
         return start
 
-    def cut_and_downmix(self, signal, search_offset=None, direction=None, frequency_offset=0, phase_offset=0):
+    def cut_and_downmix(self, signal, search_offset, direction=None, frequency_offset=0, phase_offset=0):
         if self._verbose:
             iq.write("/tmp/signal.cfile", signal)
 
-        #t0 = time.time()
-        shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*search_offset/float(self._input_sample_rate))
-        #print "t_shift_signal:", time.time() - t0
+        t0 = time.time()
+        self._src.set_data(signal.astype(complex))
+        self._fir_filter.set_center_freq(search_offset)
+        #print "t_set:", time.time() - t0
 
-        #t0 = time.time()
-        signal = signal * shift_signal
-        #print "t_shift1:", time.time() - t0
-
-        #t0 = time.time()
-        signal = scipy.signal.fftconvolve(signal, self._input_low_pass, mode='same')
+        t0 = time.time()
+        self._dst.reset()
+        self._tb.run()
         #print "t_filter:", time.time() - t0
 
-        #t0 = time.time()
-        signal_center = self._center + search_offset
-        if self._verbose:
-            iq.write("/tmp/signal-shifted-filtered.cfile", signal)
+        t0 = time.time()
+        signal = numpy.array(self._dst.data())
+        #print "t_get:", time.time() - t0
 
-        signal = signal[::self._decimation]
+        t0 = time.time()
+        signal_center = self._center + search_offset
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci.cfile", signal)
 
@@ -125,7 +135,7 @@ class CutAndDownmix(object):
         #plt.plot(normalize(signal_mag))
         #print "t_misc:", time.time() - t0
 
-        #t0 = time.time()
+        t0 = time.time()
         begin = self._signal_start(signal[:int(self._search_depth * self._output_sample_rate)])
         signal = signal[begin:]
 
@@ -136,7 +146,8 @@ class CutAndDownmix(object):
 
         #print "t_signal_start:", time.time() - t0
 
-        #t0 = time.time()
+        t0 = time.time()
+
         signal_preamble = signal[:fft_length] ** 2
 
         #plt.plot([begin+skip, begin+skip], [0, 1], 'r')
@@ -185,7 +196,7 @@ class CutAndDownmix(object):
 
         #print "t_fft:", time.time() - t0
 
-        #t0 = time.time()
+        t0 = time.time()
         # Generate a complex signal at offset_freq Hz.
         shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset_freq/float(self._output_sample_rate))
 
@@ -195,7 +206,7 @@ class CutAndDownmix(object):
             iq.write("/tmp/signal-filtered-deci-cut-start-shift.cfile", signal)
         #print "t_shift2:", time.time() - t0
 
-        #t0 = time.time()
+        t0 = time.time()
         preamble_uw = signal[:(preamble_length + 16) * self._output_samples_per_symbol]
 
         if direction is not None:
@@ -222,7 +233,7 @@ class CutAndDownmix(object):
         offset += frequency_offset
         #print "t_css:", time.time() - t0
 
-        #t0 = time.time()
+        t0 = time.time()
         shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset/float(self._output_sample_rate))
         signal = signal*shift_signal
         offset_freq += offset
@@ -231,20 +242,22 @@ class CutAndDownmix(object):
             iq.write("/tmp/signal-filtered-deci-cut-start-shift-shift.cfile", signal)
         #print "t_shift3:", time.time() - t0
 
-        #t0 = time.time()
+        t0 = time.time()
         #plt.plot([cmath.phase(x) for x in signal[:fft_length]])
 
         # Multiplying with a complex number on the unit circle
         # just changes the angle.
         # See http://www.mash.dept.shef.ac.uk/Resources/7_6multiplicationanddivisionpolarform.pdf
         signal = signal * cmath.rect(1,-phase)
+        #print "t_phase:", time.time() - t0
 
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci-cut-start-shift-shift-rotate.cfile", signal)
 
-        signal = scipy.signal.fftconvolve(signal, self._rrc, 'same')
-
+        t0 = time.time()
+        signal = numpy.convolve(signal, self._rrc, 'same')
         #print "t_rrc:", time.time() - t0
+
         #plt.plot([x.real for x in signal])
         #plt.plot([x.imag for x in signal])
 
