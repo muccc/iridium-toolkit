@@ -17,6 +17,7 @@ import iridium
 import gnuradio.gr
 import gnuradio.blocks
 import gnuradio.filter
+import collections
 
 import matplotlib.pyplot as plt
 
@@ -27,6 +28,34 @@ def normalize(v):
 class DownmixError(Exception):
     pass
 
+class source_c(gnuradio.gr.sync_block):
+    def __init__(self):
+        gnuradio.gr.sync_block.__init__(self,
+            name="source_c",
+            in_sig=[],
+            out_sig=[numpy.complex64])
+
+    def set_data(self, data):
+        self._data = data
+        self._data_index = 0
+        self._data_left = len(self._data)
+
+    def work(self, input_items, output_items):
+        out = output_items[0]
+        n = len(out)
+
+        if self._data_left >= n:
+            out[:] = self._data[self._data_index:self._data_index+n]
+        elif self._data_left > 0:
+            n = self._data_left
+            out = self._data[self._data_index:self._data_index+n]
+        else:
+            return -1
+
+        self._data_index += n
+        self._data_left -= n
+        return n
+
 class CutAndDownmix(object):
     def __init__(self, center, input_sample_rate, search_depth=7e-3, search_window=50e3,
                     symbols_per_second=25000, verbose=False):
@@ -34,6 +63,7 @@ class CutAndDownmix(object):
         self._center = center
         self._input_sample_rate = int(input_sample_rate)
         self._output_sample_rate = 500000
+        #self._output_sample_rate = 250000
 
         if self._input_sample_rate % self._output_sample_rate:
             raise RuntimeError("Input sample rate must be a multiple of %d" % self._output_sample_rate)
@@ -47,25 +77,91 @@ class CutAndDownmix(object):
         #self._verbose = True
 
         self._input_low_pass = scipy.signal.firwin(401, float(search_window)/self._input_sample_rate)
-        self._low_pass2= scipy.signal.firwin(401, 10e3/self._output_sample_rate)
+        self._low_pass2 = scipy.signal.firwin(401, 10e3/self._output_sample_rate)
         self._rrc = filters.rrcosfilter(51, 0.4, 1./self._symbols_per_second, self._output_sample_rate)[1]
 
         self._sync_search = complex_sync_search.ComplexSyncSearch(self._output_sample_rate, verbose=self._verbose)
 
         self._pre_start_samples = int(0.1e-3 * self._output_sample_rate)
 
-        self._src = gnuradio.blocks.vector_source_c([])
-        self._fir_filter = gnuradio.filter.freq_xlating_fir_filter_ccf(self._decimation,
-                taps=self._input_low_pass, center_freq=0, sampling_freq=self._input_sample_rate)
+        self._tb = gnuradio.gr.top_block()
+
+        self._src = source_c()
+
         self._dst = gnuradio.blocks.vector_sink_c()
 
-        self._tb = gnuradio.gr.top_block()
-        self._tb.connect(self._src, self._fir_filter)
-        self._tb.connect(self._fir_filter, self._dst)
+        #self._xlating_filter = gnuradio.filter.freq_xlating_fir_filter_ccf(self._decimation,
+        #        taps=self._input_low_pass, center_freq=0, sampling_freq=self._input_sample_rate)
+
+        #self._xlating_filter = gnuradio.filter.freq_xlating_fft_filter_ccc(decim=self._decimation,
+        #        taps=(self._input_low_pass * 1+0j), center_freq=0, samp_rate=self._input_sample_rate)
+
+        # Precompute a few filters to swap in. It takes some time to change the center frequency on the fly.
+        self._xlating_filters = {}
+        for center_freq in range(-int(self._input_sample_rate)/2, int(self._input_sample_rate)/2, 5000):
+            self._xlating_filters[center_freq] = gnuradio.filter.freq_xlating_fft_filter_ccc(decim=self._decimation,
+                taps=(self._input_low_pass * 1+0j), center_freq=center_freq, samp_rate=self._input_sample_rate)
+
+        #self._tb.connect(self._src, self._xlating_filter)
+        #self._tb.connect(self._xlating_filter, self._dst)
+
+        self._timing_debug = False
+
+        self._timing_signals = 0
+        self._timing_accounts_sum = {}
+        self._input_lengths = 0
 
         if self._verbose:
             print 'input sample_rate', self._input_sample_rate
             print 'output sample_rate', self._output_sample_rate
+
+    def _timing_start(self):
+        if not self._timing_debug: return
+        self._timing_accounts = collections.OrderedDict()
+        self._timing_real_start = time.time()
+         
+    def _timing_start_step(self):
+        if not self._timing_debug: return
+        self._timing_step_start = time.time()
+
+    def _timing_finish_step(self, account_name):
+        if not self._timing_debug: return
+        t = time.time() - self._timing_step_start
+        self._timing_accounts[account_name] = t
+        
+    def _timing_finish(self, length):
+        if not self._timing_debug: return
+
+        self._timing_signals += 1
+        self._input_lengths += length
+
+        total = sum(self._timing_accounts.values())
+        self._timing_accounts['total'] = total
+        
+        real = time.time() - self._timing_real_start
+        self._timing_accounts['real'] = real
+
+        for account_name in self._timing_accounts: 
+            if account_name not in self._timing_accounts_sum:
+                self._timing_accounts_sum[account_name] = 0.0
+            self._timing_accounts_sum[account_name] += self._timing_accounts[account_name]
+
+        if self._timing_signals == 100:
+            avg_len = float(self._input_lengths) / self._timing_signals
+            print >> sys.stderr, "Input Samplerate: %d, Output Samplerate: %d, Signals: %d, Signal len: %d" % (self._input_sample_rate, self._output_sample_rate, self._timing_signals, avg_len)
+            for account in self._timing_accounts: 
+                t = self._timing_accounts[account]
+                t_sum = self._timing_accounts_sum[account]
+                t_avg = t_sum / self._timing_signals
+
+                print >> sys.stderr, "%030s: %5.02f" % (account, t_avg * 1000)
+
+            print >> sys.stderr, "--------------------------------"
+
+            self._timing_signals = 0
+            self._timing_accounts_sum = {}
+            self._input_lengths = 0
+
 
     @property
     def output_sample_rate(self):
@@ -83,7 +179,7 @@ class CutAndDownmix(object):
 
         return (fft_result, fft_freq)
 
-    def _signal_start(self, signal, frequency_offset=None):
+    def _signal_start(self, signal):
         signal_mag = numpy.abs(signal)
         signal_mag_lp = scipy.signal.fftconvolve(signal_mag, self._low_pass2, mode='same')
 
@@ -100,21 +196,34 @@ class CutAndDownmix(object):
         if self._verbose:
             iq.write("/tmp/signal.cfile", signal)
 
-        t0 = time.time()
-        self._src.set_data(signal.astype(complex))
-        self._fir_filter.set_center_freq(search_offset)
-        #print "t_set:", time.time() - t0
+        input_length = len(signal)
+        self._timing_start()
 
-        t0 = time.time()
+        self._timing_start_step()
+        self._src.set_data(signal)
+        self._timing_finish_step("set_data")
+
+        self._timing_start_step()
+        #self._xlating_filter.set_center_freq(search_offset)
+        search_offset = int(search_offset) / 5000 * 5000
+        self._tb.connect(self._src, self._xlating_filters[search_offset])
+        self._tb.connect(self._xlating_filters[search_offset], self._dst)
+        self._timing_finish_step("set_center_freq")
+
+        self._timing_start_step()
         self._dst.reset()
+        self._timing_finish_step("dst.reset")
+
+        self._timing_start_step()
         self._tb.run()
-        #print "t_filter:", time.time() - t0
+        self._tb.disconnect_all()
+        self._timing_finish_step("xlating_filter")
 
-        t0 = time.time()
+        self._timing_start_step()
         signal = numpy.array(self._dst.data())
-        #print "t_get:", time.time() - t0
+        self._timing_finish_step("get_data")
 
-        t0 = time.time()
+        self._timing_start_step()
         signal_center = self._center + search_offset
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci.cfile", signal)
@@ -133,21 +242,19 @@ class CutAndDownmix(object):
 
         #signal_mag = [abs(x) for x in signal]
         #plt.plot(normalize(signal_mag))
-        #print "t_misc:", time.time() - t0
+        self._timing_finish_step("misc")
 
-        t0 = time.time()
+        self._timing_start_step()
         begin = self._signal_start(signal[:int(self._search_depth * self._output_sample_rate)])
         signal = signal[begin:]
+        self._timing_finish_step("signal_start")
 
         if self._verbose:
             print 'begin', begin
             iq.write("/tmp/signal-filtered-deci-cut-start.cfile", signal)
             iq.write("/tmp/signal-filtered-deci-cut-start-x2.cfile", signal ** 2)
 
-        #print "t_signal_start:", time.time() - t0
-
-        t0 = time.time()
-
+        self._timing_start_step()
         signal_preamble = signal[:fft_length] ** 2
 
         #plt.plot([begin+skip, begin+skip], [0, 1], 'r')
@@ -183,8 +290,6 @@ class CutAndDownmix(object):
         correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma)
         real_index = max_index + correction
 
-
-
         a = math.floor(real_index)
         corrected_index = fft_freq[a] + (real_index - a) * fft_bin_size
         offset_freq = corrected_index * self._output_sample_rate / 2.
@@ -194,19 +299,20 @@ class CutAndDownmix(object):
             print 'FFT interpolated peak:', max_index - correction
             print 'FFT interpolated peak (Hz):', offset_freq
 
-        #print "t_fft:", time.time() - t0
+        self._timing_finish_step("fft")
 
-        t0 = time.time()
+        self._timing_start_step()
         # Generate a complex signal at offset_freq Hz.
         shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset_freq/float(self._output_sample_rate))
 
         # Multiply the two signals, effectively shifting signal by offset_freq
         signal = signal*shift_signal
+        self._timing_finish_step("shift_fft")
+
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci-cut-start-shift.cfile", signal)
-        #print "t_shift2:", time.time() - t0
 
-        t0 = time.time()
+        self._timing_start_step()
         preamble_uw = signal[:(preamble_length + 16) * self._output_samples_per_symbol]
 
         if direction is not None:
@@ -231,32 +337,32 @@ class CutAndDownmix(object):
 
         phase += phase_offset
         offset += frequency_offset
-        #print "t_css:", time.time() - t0
+        self._timing_finish_step("complex_sync_search")
 
-        t0 = time.time()
+
+        self._timing_start_step()
         shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset/float(self._output_sample_rate))
         signal = signal*shift_signal
         offset_freq += offset
+        self._timing_finish_step("shift_css")
 
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci-cut-start-shift-shift.cfile", signal)
-        #print "t_shift3:", time.time() - t0
 
-        t0 = time.time()
+        self._timing_start_step()
         #plt.plot([cmath.phase(x) for x in signal[:fft_length]])
-
         # Multiplying with a complex number on the unit circle
         # just changes the angle.
         # See http://www.mash.dept.shef.ac.uk/Resources/7_6multiplicationanddivisionpolarform.pdf
         signal = signal * cmath.rect(1,-phase)
-        #print "t_phase:", time.time() - t0
+        self._timing_finish_step("shift_phase")
 
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci-cut-start-shift-shift-rotate.cfile", signal)
 
-        t0 = time.time()
+        self._timing_start_step()
         signal = numpy.convolve(signal, self._rrc, 'same')
-        #print "t_rrc:", time.time() - t0
+        self._timing_finish_step("filter_rrc")
 
         #plt.plot([x.real for x in signal])
         #plt.plot([x.imag for x in signal])
@@ -271,6 +377,7 @@ class CutAndDownmix(object):
         #plt.plot(signal_preamble)
         #plt.show()
 
+        self._timing_finish(input_length)
         return (signal, signal_center+offset_freq, direction)
 
 if __name__ == "__main__":
@@ -337,6 +444,8 @@ if __name__ == "__main__":
 
     cad = CutAndDownmix(center=center, input_sample_rate=sample_rate, symbols_per_second=symbols_per_second,
                             search_depth=search_depth, verbose=verbose, search_window=search_window)
+    #for i in range(100):
+    #    cad.cut_and_downmix(signal=signal[:], search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
     signal, freq, _ = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
