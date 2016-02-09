@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.signal
 import iridium
+import scipy.interpolate
+import time
 
 F_SEARCH = 100
 
@@ -51,7 +53,7 @@ class ComplexSyncSearch(object):
 
         sync_words_shifted = {}
 
-        for offset in range(f_min, f_max):
+        for offset in range(f_min, f_max + 1):
             shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(sync_word_padded_filtered))*2*numpy.pi*offset/float(self._sample_rate))
             sync_words_shifted[offset] = sync_word_padded_filtered * shift_signal
             sync_words_shifted[offset] = numpy.conjugate(sync_words_shifted[offset][::-1])
@@ -81,6 +83,7 @@ class ComplexSyncSearch(object):
             return None, None, None
 
         sync_words = self._sync_words[direction][preamble_length]
+
         if self._verbose:
 
             #plt.plot([x.real for x in signal])
@@ -117,14 +120,23 @@ class ComplexSyncSearch(object):
             c = scipy.signal.fftconvolve(signal, preambles[int(freq+0.5)], 'same')
             return -numpy.max(numpy.abs(c))
 
-        freq = int(scipy.optimize.fminbound(f_est, -(F_SEARCH - 1), (F_SEARCH - 1), args = (sync_words,), xtol=1) + 0.5)
+        x = numpy.linspace(-F_SEARCH, F_SEARCH, 4)
+        y = [f_est(f, sync_words) for f in x]
+        f = scipy.interpolate.UnivariateSpline(x, y)
+
+        #t0 = time.time()
+        #for i in range(1000):
+        #    f(i%50)
+        #print time.time() - t0
+
+        freq = int(scipy.optimize.fminbound(f, -(F_SEARCH - 1), (F_SEARCH - 1), xtol=2) + 0.5)
         if self._verbose:
-            print "best freq (optimize):", freq
+            print "best freq (interpolate, optimize):", freq
 
         if self._verbose:
             freq = numpy.argmax(cs) - F_SEARCH
 
-        if abs(freq) == F_SEARCH - 1:
+        if abs(freq) > F_SEARCH * 0.9:
             return None, None, None
 
         _, confidence, phase = self.estimate_sync_word(signal, sync_words[freq])
