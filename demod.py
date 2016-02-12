@@ -47,8 +47,6 @@ class Demod(object):
         if self._verbose:
             print "samples per symbol:",self._samples_per_symbol
 
-        self._skip = 5*self._samples_per_symbol # beginning might be flaky
-
         self._sync_search = complex_sync_search.ComplexSyncSearch(self._sample_rate, verbose=self._verbose)
 
     def qpsk(self, phase):
@@ -68,11 +66,12 @@ class Demod(object):
         return sym,off
 
     def _find_start(self, signal, direction): 
+        sync_signal = signal
         if direction is not None:
-            start, _ = self._sync_search.estimate_sync_word_start(signal, direction)
+            start, _, _ = self._sync_search.estimate_sync_word_start(sync_signal, direction)
         else:
-            start_dl, confidence_dl = self._sync_search.estimate_sync_word_start(signal, iridium.DOWNLINK)
-            start_ul, confidence_ul = self._sync_search.estimate_sync_word_start(signal, iridium.UPLINK)
+            start_dl, confidence_dl, _ = self._sync_search.estimate_sync_word_start(sync_signal, iridium.DOWNLINK)
+            start_ul, confidence_ul, _ = self._sync_search.estimate_sync_word_start(sync_signal, iridium.UPLINK)
             
             if confidence_dl > confidence_ul:
                 start = start_dl
@@ -83,20 +82,26 @@ class Demod(object):
             print "correlated start of sync word", start
         return start
 
-    def demod(self, signal, direction=None, return_final_offset=False):
+    def demod(self, signal, direction=None, return_final_offset=False, start_sample=None, timestamp=None):
         self._errors=0
         self._nsymbols=0
 
-        #signal_mag = numpy.abs(signal)
-
-        level=abs(numpy.mean(signal[self._skip:self._skip+16*self._samples_per_symbol]))
-        lmax=abs(numpy.max(signal[self._skip:self._skip+16*self._samples_per_symbol]))
+        level=abs(numpy.mean(signal[:16*self._samples_per_symbol]))
+        lmax=abs(numpy.max(signal[:16*self._samples_per_symbol]))
 
         if self._verbose:
             print "level:",level
             print 'lmax:', lmax
 
-        i=self._find_start(signal, direction)
+        if start_sample == None:
+            i = self._find_start(signal, direction)
+        else:
+            i = start_sample
+
+        # Make sure we do not get a slightly negative index
+        # from the correlations
+        i = max(i, 0)
+
         symbols=[]
         if self._debug:
             self.samples=[]
