@@ -127,6 +127,7 @@ class Demod(object):
             if self._debug:
                 self.peaks[i]=complex(-lmax,lmax/10.)
 
+            """
             # Adjust our sample rate to reality
             try:
                 cur=signal[i].real
@@ -189,6 +190,7 @@ class Demod(object):
             except IndexError:
                 if self._verbose:
                     print "Last sample"
+            """
 
             lvl= abs(signal[i])/level
             ang= cmath.phase(signal[i])/math.pi*180
