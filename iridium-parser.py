@@ -518,7 +518,9 @@ class IridiumECCMessage(IridiumMessage):
             if errs>0:
                 self.fixederrs+=1
             if(errs<0):
-                self._new_error("BCH decode failed")
+                if len(self.bitstream_bch) == 0:
+                    self._new_error("BCH decode failed")
+                break
             parity=(data+bch).count('1') % 2
             if len(block)==32:
                 parity=(int(block[31])+parity)%2
@@ -592,6 +594,10 @@ class IridiumDAMessage(IridiumECCMessage):
                     else:
                         crc = crc >> 1
             return crc ^ 0xdf9d
+
+        if len(self.bitstream_bch) < 9*20+16:
+            raise ParserError("Not enough data in data packet")
+
         self.da_crc=int(self.bitstream_bch[9*20:9*20+16],2)
         crcstream=self.bitstream_bch[:16]+"0"*12+self.bitstream_bch[16:]
         the_crc=crc16("".join([chr(int(x,2)) for x in crcstream]))
