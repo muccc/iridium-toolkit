@@ -316,7 +316,7 @@ class CutAndDownmix(object):
             iq.write("/tmp/signal-filtered-deci-cut-start-shift.cfile", signal)
 
         self._timing_start_step()
-        preamble_uw = signal[:(preamble_length + iridium.UW_LENGTH + 2) * self._output_samples_per_symbol]
+        preamble_uw = signal[:(iridium.PREAMBLE_LENGTH_SIMPLEX + iridium.UW_LENGTH + 2) * self._output_samples_per_symbol]
 
         if direction is not None:
             offset, phase, _, uw_start = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, direction)
