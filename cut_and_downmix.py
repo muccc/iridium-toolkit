@@ -322,7 +322,7 @@ class CutAndDownmix(object):
             offset, phase, _, uw_start = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, direction)
         else:
             offset_dl, phase_dl, confidence_dl, uw_start_dl = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, iridium.DOWNLINK)
-            offset_ul, phase_ul, confidence_ul, uw_start_dl = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, iridium.UPLINK)
+            offset_ul, phase_ul, confidence_ul, uw_start_ul = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, iridium.UPLINK)
 
             if confidence_dl > confidence_ul:
                 direction = iridium.DOWNLINK
