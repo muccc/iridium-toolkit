@@ -61,7 +61,9 @@ class Demod(object):
         if (abs(off)>22):
             if self._verbose:
                 print "Symbol offset >22"
-            self._errors+=1
+            self._errors+='1'
+        else:
+            self._errors+='0'
 
         return sym,off
 
@@ -83,7 +85,7 @@ class Demod(object):
         return start
 
     def demod(self, signal, direction=None, return_final_offset=False, start_sample=None, timestamp=None):
-        self._errors=0
+        self._errors=''
         self._nsymbols=0
 
         level=abs(numpy.mean(signal[:16*self._samples_per_symbol]))
@@ -256,7 +258,14 @@ class Demod(object):
         lead_out = "100101111010110110110011001111"
         lead_out_ok = lead_out in data
 
-        confidence = (1-float(self._errors)/self._nsymbols)*100
+        if lead_out_ok:
+            # TODO: Check if we are above 1626 MHz
+            data = data[:data.find(lead_out)]
+            self._nsymbols = (len(data) + len(lead_out)) / 2
+            self._errors = self._errors[:self._nsymbols]
+
+        error_count = self._errors.count('1')
+        confidence = (1-float(error_count)/self._nsymbols)*100
 
         self._real_freq_offset=phase/360.*iridium.SYMBOLS_PER_SECOND/self._nsymbols
 
@@ -272,10 +281,6 @@ class Demod(object):
 
         if access_ok:
             data="<"+data[:iridium.UW_LENGTH*2]+"> "+data[iridium.UW_LENGTH*2:]
-
-        if lead_out_ok:
-            lead_out_index = data.find(lead_out)
-            data=data[:lead_out_index]+"["+data[lead_out_index:lead_out_index+len(lead_out)]+"]"  +data[lead_out_index+len(lead_out):]
 
         data=re.sub(r'([01]{32})',r'\1 ',data)
 
