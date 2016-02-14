@@ -70,7 +70,8 @@ class CutAndDownmix(object):
             
         self._decimation = self._input_sample_rate / self._output_sample_rate
 
-        self._search_depth = search_depth
+        self._search_depth_samples = int(search_depth * self._output_sample_rate)
+
         self._symbols_per_second = symbols_per_second
         self._output_samples_per_symbol = self._output_sample_rate/self._symbols_per_second
         self._verbose = verbose
@@ -192,7 +193,7 @@ class CutAndDownmix(object):
         #plt.show()
         return start
 
-    def cut_and_downmix(self, signal, search_offset, direction=None, frequency_offset=0, phase_offset=0):
+    def cut_and_downmix(self, signal, search_offset, direction=None, frequency_offset=0, phase_offset=0, timestamp=None):
         if self._verbose:
             iq.write("/tmp/signal.cfile", signal)
 
@@ -228,15 +229,15 @@ class CutAndDownmix(object):
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci.cfile", signal)
 
-        # Ring Alert and Pager Channels have a 64 symbol preamble
+
         if signal_center > 1626000000:
-            preamble_length = 64
             direction = iridium.DOWNLINK
+            max_frame_length = iridium.MAX_FRAME_LENGTH_SIMPLEX
         else:
-            preamble_length = 16
+            max_frame_length = iridium.MAX_FRAME_LENGTH_NORMAL
 
         # Take the FFT over the preamble + 10 symbols from the unique word (UW)
-        fft_length = 2 ** int(math.log(self._output_samples_per_symbol * (preamble_length + 10), 2))
+        fft_length = 2 ** int(math.log(self._output_samples_per_symbol * (iridium.PREAMBLE_LENGTH_SHORT + 10), 2))
         if self._verbose:
             print 'fft_length', fft_length
 
@@ -245,8 +246,8 @@ class CutAndDownmix(object):
         self._timing_finish_step("misc")
 
         self._timing_start_step()
-        begin = self._signal_start(signal[:int(self._search_depth * self._output_sample_rate)])
-        signal = signal[begin:]
+        begin = self._signal_start(signal[:self._search_depth_samples])
+        signal = signal[max(begin, 0):]
         self._timing_finish_step("signal_start")
 
         if self._verbose:
@@ -313,38 +314,34 @@ class CutAndDownmix(object):
             iq.write("/tmp/signal-filtered-deci-cut-start-shift.cfile", signal)
 
         self._timing_start_step()
-        preamble_uw = signal[:(preamble_length + 16) * self._output_samples_per_symbol]
+        preamble_uw = signal[:(iridium.PREAMBLE_LENGTH_LONG + iridium.UW_LENGTH + 2) * self._output_samples_per_symbol]
+
+        offset = 0
 
         if direction is not None:
-            offset, phase, _ = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, direction)
+            uw_start, _, phase = self._sync_search.estimate_sync_word_start(preamble_uw, direction, 0)
         else:
-            offset_dl, phase_dl, confidence_dl = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, iridium.DOWNLINK)
-            offset_ul, phase_ul, confidence_ul = self._sync_search.estimate_sync_word_freq(preamble_uw, preamble_length, iridium.UPLINK)
-
+            uw_start_dl, confidence_dl, phase_dl = self._sync_search.estimate_sync_word_start(preamble_uw, iridium.DOWNLINK, 0)
+            uw_start_ul, confidence_ul, phase_ul = self._sync_search.estimate_sync_word_start(preamble_uw, iridium.UPLINK, 0)
             if confidence_dl > confidence_ul:
                 direction = iridium.DOWNLINK
-                offset = offset_dl
                 phase = phase_dl
+                uw_start = uw_start_dl
             else:
                 direction = iridium.UPLINK
-                offset = offset_ul
                 phase = phase_ul
-
-        if offset == None:
-            raise DownmixError("No valid freq offset for sync word found")
-
-        offset = -offset
+                uw_start = uw_start_ul
 
         phase += phase_offset
         offset += frequency_offset
         self._timing_finish_step("complex_sync_search")
 
-
-        self._timing_start_step()
-        shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset/float(self._output_sample_rate))
-        signal = signal*shift_signal
-        offset_freq += offset
-        self._timing_finish_step("shift_css")
+        if offset:
+            self._timing_start_step()
+            shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset/float(self._output_sample_rate))
+            signal = signal*shift_signal
+            offset_freq += offset
+            self._timing_finish_step("shift_css")
 
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci-cut-start-shift-shift.cfile", signal)
@@ -364,6 +361,10 @@ class CutAndDownmix(object):
         signal = numpy.convolve(signal, self._rrc, 'same')
         self._timing_finish_step("filter_rrc")
 
+        self._timing_start_step()
+        signal = signal[:max(uw_start, 0) + max_frame_length * self._output_samples_per_symbol]
+        self._timing_finish_step("cut_signal")
+
         #plt.plot([x.real for x in signal])
         #plt.plot([x.imag for x in signal])
 
@@ -378,7 +379,7 @@ class CutAndDownmix(object):
         #plt.show()
 
         self._timing_finish(input_length)
-        return (signal, signal_center+offset_freq, direction)
+        return (signal, signal_center+offset_freq, direction, uw_start)
 
 if __name__ == "__main__":
 

@@ -29,6 +29,7 @@ class ComplexSyncSearch(object):
         self._sync_words[iridium.DOWNLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, iridium.DOWNLINK)
         self._sync_words[iridium.DOWNLINK][64] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 64, iridium.DOWNLINK)
 
+        self._sync_words[iridium.UPLINK][0] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 0, iridium.UPLINK)
         self._sync_words[iridium.UPLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, iridium.UPLINK)
 
         self._verbose = verbose
@@ -47,6 +48,9 @@ class ComplexSyncSearch(object):
         for bit in sync_word:
             sync_word_padded += [bit]
             sync_word_padded += [0] * (self._samples_per_symbol - 1)
+
+        # Remove the padding after the last symbol...
+        sync_word_padded = sync_word_padded[:-(self._samples_per_symbol - 1)]
         
         filter = filters.rrcosfilter(161, 0.4, 1./iridium.SYMBOLS_PER_SECOND, self._sample_rate)[1]
         sync_word_padded_filtered = numpy.convolve(sync_word_padded, filter, 'full')
@@ -61,26 +65,30 @@ class ComplexSyncSearch(object):
         return sync_words_shifted
 
 
-    def estimate_sync_word_start(self, signal, direction):
-        
-        sync_middle, confidence, _ = self.estimate_sync_word(signal, self._sync_words[direction][16][0])
-        
-        # Compensate for the 16 symbols of preamble
-        sync_start = sync_middle + 2 * self._samples_per_symbol 
+        return sync_middle - len(sync_word_mag) / 2
 
-        return sync_start, confidence
+    def estimate_sync_word_start(self, signal, direction, preamble_length=16):
+        uw_start, confidence, phase = self.estimate_sync_word(signal, self._sync_words[direction][preamble_length][0], preamble_length)
+        return uw_start, confidence, phase
 
-    def estimate_sync_word(self, signal, preamble):
+    def estimate_sync_word(self, signal, preamble, preamble_length):
         c = scipy.signal.fftconvolve(signal, preamble, 'same')
-        sync_middle = numpy.argmax(numpy.abs(c))
 
-        return sync_middle, numpy.abs(c[sync_middle]), numpy.angle(c[sync_middle])
+        sync_middle = numpy.argmax(numpy.abs(c))
+        confidence = numpy.abs(c[sync_middle])
+        phase = numpy.angle(c[sync_middle])
+
+        # Compensate for the symbols of the preamble
+        uw_start = sync_middle + ((preamble_length - (preamble_length + iridium.UW_LENGTH) / 2)
+                                    * self._samples_per_symbol + self._samples_per_symbol / 2)
+
+        return uw_start, confidence, phase
 
 
     def estimate_sync_word_freq(self, signal, preamble_length, direction):
 
         if preamble_length not in self._sync_words[direction]:
-            return None, None, None
+            return None, None, None, None
 
         sync_words = self._sync_words[direction][preamble_length]
 
@@ -98,7 +106,7 @@ class ComplexSyncSearch(object):
             #print 'sync word led', len(sync_word_shifted[0])
 
             for offset in offsets:
-                _, c, phase = self.estimate_sync_word(signal, sync_words[offset])
+                uw_start, c, phase = self.estimate_sync_word(signal, sync_words[offset], preamble_length)
                 cs.append(c)
                 phases.append(phase)
 
@@ -118,6 +126,7 @@ class ComplexSyncSearch(object):
             #c = numpy.correlate(signal, preambles[int(freq+0.5)], 'same')
             f_index = int(freq+0.5)
             c = scipy.signal.fftconvolve(signal, preambles[int(freq+0.5)], 'same')
+
             return -numpy.max(numpy.abs(c))
 
         x = numpy.linspace(-F_SEARCH, F_SEARCH, 4)
@@ -137,10 +146,11 @@ class ComplexSyncSearch(object):
             freq = numpy.argmax(cs) - F_SEARCH
 
         if abs(freq) > F_SEARCH * 0.9:
-            return None, None, None
+            return None, None, None, None
 
-        _, confidence, phase = self.estimate_sync_word(signal, sync_words[freq])
+        uw_start, confidence, phase = self.estimate_sync_word(signal, sync_words[freq], preamble_length)
 
         if self._verbose:
             print "phase:", phase
-        return freq, phase, confidence
+
+        return freq, phase, confidence, uw_start

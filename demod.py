@@ -47,8 +47,6 @@ class Demod(object):
         if self._verbose:
             print "samples per symbol:",self._samples_per_symbol
 
-        self._skip = 5*self._samples_per_symbol # beginning might be flaky
-
         self._sync_search = complex_sync_search.ComplexSyncSearch(self._sample_rate, verbose=self._verbose)
 
     def qpsk(self, phase):
@@ -63,16 +61,19 @@ class Demod(object):
         if (abs(off)>22):
             if self._verbose:
                 print "Symbol offset >22"
-            self._errors+=1
+            self._errors+='1'
+        else:
+            self._errors+='0'
 
         return sym,off
 
     def _find_start(self, signal, direction): 
+        sync_signal = signal
         if direction is not None:
-            start, _ = self._sync_search.estimate_sync_word_start(signal, direction)
+            start, _, _ = self._sync_search.estimate_sync_word_start(sync_signal, direction)
         else:
-            start_dl, confidence_dl = self._sync_search.estimate_sync_word_start(signal, iridium.DOWNLINK)
-            start_ul, confidence_ul = self._sync_search.estimate_sync_word_start(signal, iridium.UPLINK)
+            start_dl, confidence_dl, _ = self._sync_search.estimate_sync_word_start(sync_signal, iridium.DOWNLINK)
+            start_ul, confidence_ul, _ = self._sync_search.estimate_sync_word_start(sync_signal, iridium.UPLINK)
             
             if confidence_dl > confidence_ul:
                 start = start_dl
@@ -83,20 +84,26 @@ class Demod(object):
             print "correlated start of sync word", start
         return start
 
-    def demod(self, signal, direction=None, return_final_offset=False):
-        self._errors=0
+    def demod(self, signal, direction=None, return_final_offset=False, start_sample=None, timestamp=None):
+        self._errors=''
         self._nsymbols=0
 
-        #signal_mag = numpy.abs(signal)
-
-        level=abs(numpy.mean(signal[self._skip:self._skip+16*self._samples_per_symbol]))
-        lmax=abs(numpy.max(signal[self._skip:self._skip+16*self._samples_per_symbol]))
+        level=abs(numpy.mean(signal[:16*self._samples_per_symbol]))
+        lmax=abs(numpy.max(signal[:16*self._samples_per_symbol]))
 
         if self._verbose:
             print "level:",level
             print 'lmax:', lmax
 
-        i=self._find_start(signal, direction)
+        if start_sample == None:
+            i = self._find_start(signal, direction)
+        else:
+            i = start_sample
+
+        # Make sure we do not get a slightly negative index
+        # from the correlations
+        i = max(i, 0)
+
         symbols=[]
         if self._debug:
             self.samples=[]
@@ -122,6 +129,7 @@ class Demod(object):
             if self._debug:
                 self.peaks[i]=complex(-lmax,lmax/10.)
 
+            """
             # Adjust our sample rate to reality
             try:
                 cur=signal[i].real
@@ -184,6 +192,7 @@ class Demod(object):
             except IndexError:
                 if self._verbose:
                     print "Last sample"
+            """
 
             lvl= abs(signal[i])/level
             ang= cmath.phase(signal[i])/math.pi*180
@@ -215,8 +224,6 @@ class Demod(object):
                 self.peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
             i+=self._samples_per_symbol
             if i>=len(signal) : break
-            if abs(signal[i]) < lmax/8:
-                break
 
         if self._verbose:
             print "Done."
@@ -251,7 +258,14 @@ class Demod(object):
         lead_out = "100101111010110110110011001111"
         lead_out_ok = lead_out in data
 
-        confidence = (1-float(self._errors)/self._nsymbols)*100
+        if lead_out_ok:
+            # TODO: Check if we are above 1626 MHz
+            data = data[:data.find(lead_out)]
+            self._nsymbols = (len(data) + len(lead_out)) / 2
+            self._errors = self._errors[:self._nsymbols]
+
+        error_count = self._errors.count('1')
+        confidence = (1-float(error_count)/self._nsymbols)*100
 
         self._real_freq_offset=phase/360.*iridium.SYMBOLS_PER_SECOND/self._nsymbols
 
@@ -267,10 +281,6 @@ class Demod(object):
 
         if access_ok:
             data="<"+data[:iridium.UW_LENGTH*2]+"> "+data[iridium.UW_LENGTH*2:]
-
-        if lead_out_ok:
-            lead_out_index = data.find(lead_out)
-            data=data[:lead_out_index]+"["+data[lead_out_index:lead_out_index+len(lead_out)]+"]"  +data[lead_out_index+len(lead_out):]
 
         data=re.sub(r'([01]{32})',r'\1 ',data)
 
