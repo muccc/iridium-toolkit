@@ -62,8 +62,8 @@ class CutAndDownmix(object):
 
         self._center = center
         self._input_sample_rate = int(input_sample_rate)
-        self._output_sample_rate = 500000
-        #self._output_sample_rate = 250000
+        #self._output_sample_rate = 500000
+        self._output_sample_rate = 250000
 
         if self._input_sample_rate % self._output_sample_rate:
             raise RuntimeError("Input sample rate must be a multiple of %d" % self._output_sample_rate)
