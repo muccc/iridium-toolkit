@@ -53,7 +53,7 @@ class Demod(object):
         self._nsymbols+=1
         phase = phase % 360
 
-        # In theory we should only see 0, 90, 180 and 270 here.
+        # In theory we should only see 45, 135, 225 and 315 here.
         sym=int(phase)/90
         #print "symbol", sym
 
@@ -197,6 +197,10 @@ class Demod(object):
             lvl= abs(signal[i])/level
             ang= cmath.phase(signal[i])/math.pi*180
             symbol,offset = self.qpsk(ang+phase)
+
+            phase += offset/5.
+
+            """
             if(offset>alpha):
                 if self._debug:
                     try:
@@ -214,6 +218,7 @@ class Demod(object):
                     print "offset backward"
                 phase-=sdiff
 
+            """
             symbols=symbols+[symbol]
             if self._debug:
                 self.samples=self.samples+[signal[i]]
@@ -223,6 +228,7 @@ class Demod(object):
             if self._debug:
                 self.peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
             i+=self._samples_per_symbol
+
             if i>=len(signal) : break
 
         if self._verbose:
