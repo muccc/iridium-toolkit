@@ -29,6 +29,7 @@ class ComplexSyncSearch(object):
         self._sync_words[iridium.DOWNLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, iridium.DOWNLINK)
         self._sync_words[iridium.DOWNLINK][64] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 64, iridium.DOWNLINK)
 
+        self._sync_words[iridium.UPLINK][0] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 0, iridium.UPLINK)
         self._sync_words[iridium.UPLINK][16] = self.generate_padded_sync_words(-F_SEARCH, F_SEARCH, 16, iridium.UPLINK)
 
         self._verbose = verbose
