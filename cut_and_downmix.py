@@ -47,8 +47,8 @@ class source_c(gnuradio.gr.sync_block):
         if self._data_left >= n:
             out[:] = self._data[self._data_index:self._data_index+n]
         elif self._data_left > 0:
-            n = self._data_left
-            out = self._data[self._data_index:self._data_index+n]
+            out[:self._data_left] = self._data[self._data_index:self._data_index+n]
+            out[self._data_left:] = [0 + 0j] * (n - self._data_left)
         else:
             return -1
 
