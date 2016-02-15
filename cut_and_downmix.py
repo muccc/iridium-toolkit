@@ -448,7 +448,7 @@ if __name__ == "__main__":
     #for i in range(100):
     #    cad.cut_and_downmix(signal=signal[:], search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
-    signal, freq, _ = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
+    signal, freq, _, _ = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
     iq.write("%s-f%010d.cut" % (os.path.basename(basename), freq), signal)
     print "output=","%s-f%10d.cut" % (os.path.basename(basename), freq)
