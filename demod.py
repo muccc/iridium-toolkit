@@ -111,6 +111,7 @@ class Demod(object):
         #Graphical debugging stuff (the *.peaks file)
         if self._debug:
             self.peaks=[complex(-lmax,0)]*len(signal)
+            self.turned_signal=[0+0j] * len(signal)
             mapping= [2,1,-2,-1] # mapping: symbols->*.peaks output
 
         if self._verbose:
@@ -227,6 +228,7 @@ class Demod(object):
                 print "Symbol @%06d (%3d°,%3.0f%%)=%d delay=%d phase=%d"%(i,ang%360,lvl*100,symbol,delay,phase)
             if self._debug:
                 self.peaks[i]=complex(+lmax,mapping[symbol]*lmax/5.)
+                self.turned_signal[i:i+self._samples_per_symbol] = signal[i:i+self._samples_per_symbol] * cmath.rect(1,numpy.radians(phase))
             i+=self._samples_per_symbol
 
             if i>=len(signal) : break
@@ -365,6 +367,7 @@ if __name__ == "__main__":
 
     if debug: # The graphical debugging file
         iq.write("%s.peaks" % (os.path.basename(basename)), d.peaks)
+        iq.write("%s.turned" % (os.path.basename(basename)), d.turned_signal)
 
     if 0: # The actual samples we used
         iq.write("%s.samples" % (os.path.basename(basename)), mynormalize(d.samples))
