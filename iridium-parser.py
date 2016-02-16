@@ -836,7 +836,7 @@ class IridiumMSMessage(IridiumECCMessage):
 
         if len(rest) < 32:
             raise ParserError("Not enough data received")
-            
+
         self.zero1 = rest[0:4]
         if self.zero1 != '0000':
             self._new_error("zero1 not 0000")
