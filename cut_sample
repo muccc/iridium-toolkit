@@ -38,6 +38,7 @@ dd if=${file} of=$of bs=1 skip=$sbyte count=$lbyte 2>/dev/null || exit 1
 cut_and_downmix.py -f 0 -w $window -o $offset -c $center --verbose -r $rate $of >sample.txt.cut || exit 1
 of2=`tail -1 sample.txt.cut|awk '{print $2}'`
 of3=${of2%.cut}.peaks
+of4=${of2%.cut}.turned
 
 if [ ! -f $of2 ] ; then
 	inspectrum $of &
@@ -72,7 +73,7 @@ fmt -s -w 70 < sample.txt > sample.msg
 inspectrum -r $rate $of2 &
 pid=$!
 n=`echo 3000 $dec / p|dc`
-gr_time_plot_c -N $n -r $rate $of2 $of3 &
+gr_time_plot_c -N $n -r $rate $of2 $of3 $of4 &
 pid2=$!
 xmessage -center -default okay -fn "-bitstream-courier 10 pitch-medium-r-*-*-*-240-*-*-*-*-*-*" -file sample.msg
 kill $pid $pid2
