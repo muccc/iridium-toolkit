@@ -25,7 +25,7 @@ echo win/off: $window $offset
 
 dec=1
 if [ $rate -gt 1000000 ] ; then
-	dec=`echo $rate 500000 / p|dc`
+	dec=`echo $rate 250000 / p|dc`
 fi
 osr=`echo $rate $dec / p|dc`
 
