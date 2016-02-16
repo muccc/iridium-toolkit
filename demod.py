@@ -123,6 +123,8 @@ class Demod(object):
         delay=0
         sdiff=2 # Timing check difference
 
+        low = 0 # Number of signals below threshold
+
         if(self._samples_per_symbol<20):
             sdiff=1
 
@@ -232,6 +234,11 @@ class Demod(object):
             i+=self._samples_per_symbol
 
             if i>=len(signal) : break
+
+            if abs(signal[i]) < lmax/8.:
+                low += 1
+                if low > 2:
+                    break
 
         if self._verbose:
             print "Done."
