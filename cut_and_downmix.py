@@ -94,17 +94,17 @@ class CutAndDownmix(object):
         #self._xlating_filter = gnuradio.filter.freq_xlating_fir_filter_ccf(self._decimation,
         #        taps=self._input_low_pass, center_freq=0, sampling_freq=self._input_sample_rate)
 
-        self._xlating_filter = gnuradio.filter.freq_xlating_fft_filter_ccc(decim=self._decimation,
-                taps=(self._input_low_pass * 1+0j), center_freq=0, samp_rate=self._input_sample_rate)
+        #self._xlating_filter = gnuradio.filter.freq_xlating_fft_filter_ccc(decim=self._decimation,
+        #        taps=(self._input_low_pass * 1+0j), center_freq=0, samp_rate=self._input_sample_rate)
 
         # Precompute a few filters to swap in. It takes some time to change the center frequency on the fly.
-        #self._xlating_filters = {}
-        #for center_freq in range(-int(self._input_sample_rate)/2, int(self._input_sample_rate)/2, 5000):
-        #    self._xlating_filters[center_freq] = gnuradio.filter.freq_xlating_fft_filter_ccc(decim=self._decimation,
-        #        taps=(self._input_low_pass * 1+0j), center_freq=center_freq, samp_rate=self._input_sample_rate)
+        self._xlating_filters = {}
+        for center_freq in range(-int(self._input_sample_rate)/2, int(self._input_sample_rate)/2, 5000):
+            self._xlating_filters[center_freq] = gnuradio.filter.freq_xlating_fft_filter_ccc(decim=self._decimation,
+                taps=(self._input_low_pass * 1+0j), center_freq=center_freq, samp_rate=self._input_sample_rate)
 
-        self._tb.connect(self._src, self._xlating_filter)
-        self._tb.connect(self._xlating_filter, self._dst)
+        #self._tb.connect(self._src, self._xlating_filter)
+        #self._tb.connect(self._xlating_filter, self._dst)
 
         self._timing_debug = False
 
@@ -205,10 +205,10 @@ class CutAndDownmix(object):
         self._timing_finish_step("set_data")
 
         self._timing_start_step()
-        self._xlating_filter.set_center_freq(search_offset)
-        #search_offset = int(search_offset) / 5000 * 5000
-        #self._tb.connect(self._src, self._xlating_filters[search_offset])
-        #self._tb.connect(self._xlating_filters[search_offset], self._dst)
+        search_offset = int(search_offset) / 5000 * 5000
+        #self._xlating_filter.set_center_freq(search_offset)
+        self._tb.connect(self._src, self._xlating_filters[search_offset])
+        self._tb.connect(self._xlating_filters[search_offset], self._dst)
         self._timing_finish_step("set_center_freq")
 
         self._timing_start_step()
@@ -217,7 +217,7 @@ class CutAndDownmix(object):
 
         self._timing_start_step()
         self._tb.run()
-        #self._tb.disconnect_all()
+        self._tb.disconnect_all()
         self._timing_finish_step("xlating_filter")
 
         self._timing_start_step()
