@@ -457,8 +457,17 @@ int  main(int argc, char ** argv) {
 	else
 		strcpy(ext,".out");
 
-	fout = fopen(outfile, "wb");
 	fin = fopen(argv[optind], "rb");
+	if (!fin){
+		perror("input file");
+		exit(1);
+	};
+	fout = fopen(outfile, "wb");
+	if (!fout){
+		fprintf(stderr,"output file(\"%s\")",outfile);
+		perror("");
+		exit(1);
+	};
 
 	if (wav)
 		wavhdr(fout);
