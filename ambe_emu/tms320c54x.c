@@ -447,6 +447,8 @@ int  main(int argc, char ** argv) {
 	/* create output file name */
 	outfile=calloc(1,strlen(argv[optind])+4);
 	strcpy(outfile, argv[optind]);
+	if (strrchr(outfile,'/')!=NULL)
+		outfile=1+strrchr(outfile,'/');
 	char * ext=strrchr(outfile, '.');
 	if(!ext)
 		ext=outfile+strlen(outfile);
