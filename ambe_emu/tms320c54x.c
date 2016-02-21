@@ -421,18 +421,20 @@ void decode (FILE*fin, FILE* fout){
 }
 
 int  main(int argc, char ** argv) {
-	int wav=0;
+	int wav=1;
 	int opt;
 	char *outfile;
 	FILE *fin, *fout;
 
-	while ((opt = getopt(argc, argv,"wh")) != -1) {
+	while ((opt = getopt(argc, argv,"wrh")) != -1) {
 		switch (opt) {
 			case 'w' : wav = 1;
 					   break;
+			case 'r' : wav = 0;
+					   break;
 			default: 
 					   fprintf(stderr, "Usage:\n");
-					   fprintf(stderr, "\t%s: [-w] input.dfs\n",argv[0]);
+					   fprintf(stderr, "\t%s: [-w] [-r] input.dfs\n",argv[0]);
 					   exit(EXIT_FAILURE);
 		}
 	}
