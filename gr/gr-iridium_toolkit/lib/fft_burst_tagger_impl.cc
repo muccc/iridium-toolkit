@@ -182,7 +182,9 @@ namespace gr {
           burst b;
           b.id = burst_id++;
           b.center_bin = p.bin;
-          b.relative_magnitude = p.relative_magnitude;
+
+          // Normalize the relative magnitude
+          b.magnitude = 10 * log10(p.relative_magnitude * d_history_size);
           // The burst might have started one FFT earlier
           b.start = d_index - d_burst_pre_len;
           b.last_active = b.start;
@@ -267,8 +269,10 @@ namespace gr {
         //printf("new burst %lu %lu %lu\n", nitems_read(0), b.start, nitems_read(0) - b.start);
         pmt::pmt_t key = pmt::string_to_symbol("new_burst");
         float relative_frequency = (b.center_bin - d_fft_size / 2) / float(d_fft_size);
-        pmt::pmt_t value = pmt::make_vector(2, pmt::from_uint64(b.id));
+        pmt::pmt_t value = pmt::make_vector(3, pmt::PMT_NIL);
+        pmt::vector_set(value, 0, pmt::from_uint64(b.id));
         pmt::vector_set(value, 1, pmt::from_float(relative_frequency));
+        pmt::vector_set(value, 2, pmt::from_float(b.magnitude));
 
         // Our output is lagging by d_burst_pre_len samples.
         // Compensate by moving the tag into the past

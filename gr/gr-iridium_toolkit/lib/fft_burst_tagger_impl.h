@@ -32,7 +32,7 @@ namespace gr {
         uint64_t stop;
         uint64_t last_active;
         int center_bin;
-        float relative_magnitude;
+        float magnitude;
         uint64_t id;
     };
 
