@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<block>
+  <name>fft_burst_tagger</name>
+  <key>iridium_toolkit_fft_burst_tagger</key>
+  <category>iridium_toolkit</category>
+  <import>import iridium_toolkit</import>
+  <make>iridium_toolkit.fft_burst_tagger($fft_size, $burst_pre_len, $burst_post_len,
+                            $burst_width, $threshold, $history_size, $debug)
+  </make>
+  <param>
+    <name>FFT Size</name>
+    <key>fft_size</key>
+	<value>1024</value>
+    <type>int</type>
+  </param>
+
+  <param>
+    <name>Pre Burst Samples</name>
+    <key>burst_pre_len</key>
+	<value>1000</value>
+    <type>int</type>
+  </param>
+
+  <param>
+    <name>Post Burst Samples</name>
+    <key>burst_post_len</key>
+	<value>1000</value>
+    <type>int</type>
+  </param>
+
+  <param>
+    <name>Burst Width</name>
+    <key>burst_width</key>
+	<value>100</value>
+    <type>int</type>
+  </param>
+
+  <param>
+    <name>Threshold</name>
+    <key>threshold</key>
+	<value>7</value>
+    <type>float</type>
+  </param>
+
+  <param>
+    <name>History Size</name>
+    <key>history_size</key>
+	<value>512</value>
+    <type>int</type>
+  </param>
+
+  <param>
+    <name>Debug Output</name>
+    <key>debug</key>
+	<value>False</value>
+    <type>bool</type>
+  </param>
+
+  <sink>
+    <name>in</name>
+    <type>complex</type>
+  </sink>
+
+  <source>
+    <name>out</name>
+    <type>complex</type>
+  </source>
+</block>
