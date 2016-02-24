@@ -10,13 +10,13 @@ import time
 from functools import partial
 
 class Detector(object):
-    def __init__(self, sample_rate, fft_peak=7.0, sample_format=None, search_size=1, verbose=False, signal_width=40e3, burst_size=6):
+    def __init__(self, sample_rate, threshold=7.0, sample_format=None, search_size=1, verbose=False, signal_width=40e3, burst_size=6):
         self._sample_rate = sample_rate
         self._fft_size=int(math.pow(2, 1+int(math.log(self._sample_rate/1000,2)))) # fft is approx 1ms long
         self._bin_size = float(self._fft_size)/self._sample_rate * 1000 # How many ms is one fft now?
         self._verbose = verbose
         self._search_size = search_size
-        self._fft_peak = fft_peak
+        self._threshold = pow(10,threshold/10.)
         self._burst_size = burst_size
 
         if sample_format == "rtl":
@@ -35,7 +35,7 @@ class Detector(object):
             raise Exception("No sample format given")
 
         self._window = numpy.blackman(self._fft_size)
-        self._fft_histlen=500 # How many items to keep for moving average. 5 times our signal length
+        self._fft_histlen=512 # How many items to keep for moving average. 5 times our signal length
         self._data_histlen=self._search_size
         self._data_postlen=8
         self._signal_maxlen=1+int(30/self._bin_size) # ~ 30 ms
@@ -45,10 +45,10 @@ class Detector(object):
         if self._verbose:
             print "fft_size=%d (=> %f ms)"%(self._fft_size,self._bin_size)
             print "calculate fft once every %d block(s)"%(self._search_size)
-            print "require %.1f dB"%(10*math.log(self._fft_peak,10))
+            print "require %.1f dB"%(10*math.log(self._threshold,10))
             print "signal_width: %d (= %.1f Hz)"%(self._signal_width,self._signal_width*self._sample_rate/self._fft_size)
 
-    def process_file(self, file_name, data_collector):
+    def process(self, data_collector, file_name):
         data_hist = []
         fft_avg = [0.0]*self._fft_size
         fft_hist = []
@@ -111,7 +111,7 @@ class Detector(object):
                                 print "Peak B%4d: %4.1f dB"%(pi,10*math.log(peakl[pi],10)),
                                 pa=numpy.average(peakl[pi-10:pi+10])
                                 print "(avg: %4.1f dB)"%(10*math.log(pa,10)),
-                            if peakl[p[0]]>self._fft_peak:
+                            if peakl[p[0]]>self._threshold:
                                 if self._verbose:
                                     print "still peak",
                                 p[1]=self._search_size+self._data_postlen
@@ -125,7 +125,7 @@ class Detector(object):
                                 remove_signal(peakl,pi)
                         peakidx=numpy.argmax(peakl)
                         peak=peakl[peakidx]
-                        while(peak>self._fft_peak and burst_mute==0):
+                        while(peak>self._threshold and burst_mute==0):
                             signals+=1
                             burst_signals+=1
                             if burst_signals==self._burst_size:
@@ -133,13 +133,12 @@ class Detector(object):
 
                             time_stamp = index*self._bin_size
                             signal_strength = 10*math.log(peak,10)
-                            bin_index = peakidx
                             freq = self._fft_freq[peakidx]*self._sample_rate
-                            info = (time_stamp, signal_strength, bin_index, freq)
+                            info = (time_stamp, signal_strength, freq)
                             signal = numpy.append(numpy.concatenate(data_hist), slice)
                             if self._verbose:
                                 print "New peak:",
-                                print "Peak t=%5d (%4.1f dB) B:%3d @ %.0f Hz"%info
+                                print "Peak t=%5d (%4.1f dB) %.0f Hz"%info
 
                             writepost=self._search_size+self._data_postlen
                             peaks.append([peakidx,writepost,index,info, signal])
@@ -155,7 +154,7 @@ class Detector(object):
 
                     peaks_to_collect = filter(lambda e: e[1]<=0, peaks)
                     for peak in peaks_to_collect:
-                        data_collector(peak[3][0], peak[3][1], peak[3][2], peak[3][3], peak[4])
+                        data_collector(peak[3][0], peak[3][1], peak[3][2], peak[4])
                     peaks = filter(lambda e: e[1]>0, peaks)
 
                     # keep fft in history buffer and update average
@@ -179,9 +178,8 @@ def file_collector(basename, time_stamp, signal_strength, bin_index, freq, signa
     signal.tofile(file_name)
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'r:s:d:vf:p:', [
+    options, remainder = getopt.getopt(sys.argv[1:], 'r:d:vf:p:', [
                                                             'rate=', 
-                                                            'speed=', 
                                                             'db=', 
                                                             'verbose',
                                                             'format=',
@@ -189,18 +187,15 @@ if __name__ == "__main__":
                                                             ])
     sample_rate = None
     verbose = False
-    search_size=1 # Only calulate every (search_size)'th fft
-    fft_peak = 7.0 # about 8.5 dB over noise
+    threshold = 8.5 # about 8.5 dB over noise
     fmt = None
     pipe = None
 
     for opt, arg in options:
         if opt in ('-r', '--rate'):
             sample_rate = int(arg)
-        elif opt in ('-s', '--speed'):
-            search_size = int(arg)
         elif opt in ('-d', '--db'):
-            fft_peak = pow(10,float(arg)/10)
+            threshold = float(arg)
         elif opt in ('-v', '--verbose'):
             verbose = True
         elif opt in ('-f', '--format'):
@@ -228,6 +223,6 @@ if __name__ == "__main__":
         file_name = remainder[0]
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
-    d = Detector(sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose)
-    d.process_file(file_name, partial(file_collector, basename))
+    d = Detector(sample_rate, threshold=threshold, sample_format=fmt, verbose=verbose)
+    d.process(partial(file_collector, basename), file_name)
 

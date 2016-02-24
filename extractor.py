@@ -89,13 +89,12 @@ def printer(out_queue):
         out_queue.task_done()
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:S:vd:f:p:j:oq:b:', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:p:j:oq:b:', ['offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
                                                             'search-depth=',
                                                             'verbose',
-                                                            'speed=',
                                                             'db=',
                                                             'format=',
                                                             'pipe=',
@@ -113,7 +112,7 @@ if __name__ == "__main__":
     verbose = False
     search_size=1 # Only calulate every (search_size)'th fft
     sample_rate = None
-    fft_peak = 7.0 # about 8.5 dB over noise
+    threshold = 8.5 # about 8.5 dB over noise
     fmt = None
     pipe = None
     jobs = 4
@@ -131,10 +130,8 @@ if __name__ == "__main__":
             sample_rate = int(arg)
         elif opt in ('-s', '--search'):
             search_depth = float(arg)
-        elif opt in ('-S', '--speed'):
-            search_size = int(arg)
         elif opt in ('-d', '--db'):
-            fft_peak = pow(10,float(arg)/10)
+            threshold = float(arg)
         elif opt in ('-v', '--verbose'):
             verbose = True
         elif opt in ('-f', '--format'):
@@ -176,11 +173,11 @@ if __name__ == "__main__":
         file_name = remainder[0]
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
-    det = detector.Detector(sample_rate=sample_rate, fft_peak=fft_peak, sample_format=fmt, search_size=search_size, verbose=verbose, signal_width=search_window, burst_size=burst_size)
+    det = detector.Detector(sample_rate=sample_rate, threshold=threshold, sample_format=fmt, verbose=verbose, signal_width=search_window)
     cad = cut_and_downmix.CutAndDownmix(center=center, input_sample_rate=sample_rate, search_depth=search_depth, verbose=verbose, search_window=search_window)
     dem = demod.Demod(sample_rate=cad.output_sample_rate, verbose=verbose)
 
-    def process_one(basename, time_stamp, signal_strength, bin_index, freq, signal):
+    def process_one(basename, time_stamp, signal_strength, freq, signal):
         try:
             msg = None
             try:
@@ -194,7 +191,7 @@ if __name__ == "__main__":
             import traceback
             traceback.print_exc()
 
-    def wrap_process(time_stamp, signal_strength, bin_index, freq, signal):
+    def wrap_process(time_stamp, signal_strength, freq, signal):
         global queue_len, queue_blocked, in_count, drop_count
         if offline:
             if queue_len > max_queue_len:
@@ -210,7 +207,7 @@ if __name__ == "__main__":
                 return
         queue_len += 1
         in_count += 1
-        workers.apply_async(process_one,(basename, time_stamp, signal_strength, bin_index, freq, signal))
+        workers.apply_async(process_one,(basename, time_stamp, signal_strength, freq, signal))
 
     def init_worker():
         signal.signal(signal.SIGINT, signal.SIG_IGN)
@@ -221,7 +218,7 @@ if __name__ == "__main__":
 
     workers = multiprocessing.Pool(processes=jobs, initializer=init_worker)
     try:
-        det.process_file(file_name, wrap_process)
+        det.process(wrap_process, file_name)
     except KeyboardInterrupt:
         print "Going to DIE"
         out_queue.join()
