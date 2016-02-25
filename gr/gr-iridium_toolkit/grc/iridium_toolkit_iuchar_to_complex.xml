@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<block>
+  <name>iuchar_to_complex</name>
+  <key>iridium_toolkit_iuchar_to_complex</key>
+  <category>iridium_toolkit</category>
+  <import>import iridium_toolkit</import>
+  <make>iridium_toolkit.iuchar_to_complex()</make>
+  <sink>
+    <name>in</name>
+    <type>byte</type>
+  </sink>
+
+  <source>
+    <name>out</name>
+    <type>complex</type>
+  </source>
+</block>

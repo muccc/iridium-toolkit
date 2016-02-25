@@ -17,5 +17,6 @@
 # the Free Software Foundation, Inc., 51 Franklin Street,
 # Boston, MA 02110-1301, USA.
 install(FILES
-    iridium_toolkit_fft_burst_tagger.xml DESTINATION share/gnuradio/grc/blocks
+    iridium_toolkit_fft_burst_tagger.xml
+    iridium_toolkit_iuchar_to_complex.xml DESTINATION share/gnuradio/grc/blocks
 )

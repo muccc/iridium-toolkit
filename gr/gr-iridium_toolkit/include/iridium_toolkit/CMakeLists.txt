@@ -22,5 +22,6 @@
 ########################################################################
 install(FILES
     api.h
-    fft_burst_tagger.h DESTINATION include/iridium_toolkit
+    fft_burst_tagger.h
+    iuchar_to_complex.h DESTINATION include/iridium_toolkit
 )
