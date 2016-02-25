@@ -163,7 +163,7 @@ namespace gr {
 
       while (b != std::end(d_bursts)) {
         if((b->last_active + d_burst_post_len) < d_index) {
-          //printf("Deleting gone burst at %lu (%lu, %lu)\n", i->start, i->last_active, d_index); 
+          //printf("Deleting gone burst %lu (start=%lu, d_index=%lu)\n", b->id, b->start, d_index); 
           b->stop = d_index;
           d_gone_bursts.push_back(*b);
           b = d_bursts.erase(b);
@@ -276,6 +276,7 @@ namespace gr {
 
         // Our output is lagging by d_burst_pre_len samples.
         // Compensate by moving the tag into the past
+        //printf("Tagging new burst %lu on sample %lu (nitems_read(0)=%lu)\n", b.id, b.start + d_burst_pre_len, nitems_read(0));
         add_item_tag(0, b.start + d_burst_pre_len, key, value);
       }
       d_new_bursts.clear();
@@ -289,9 +290,10 @@ namespace gr {
       while (b != std::end(d_gone_bursts)) {
         uint64_t output_index = b->stop + d_burst_pre_len;
 
-        if(d_index <= output_index && output_index < d_index + noutput_items) {
+        if(nitems_read(0) <= output_index && output_index < nitems_read(0) + noutput_items) {
           pmt::pmt_t key = pmt::string_to_symbol("gone_burst");
           pmt::pmt_t value = pmt::from_uint64(b->id);
+          //printf("Tagging gone burst %lu on sample %lu (nitems_read(0)=%lu, noutput_items=%u)\n", b->id, output_index, nitems_read(0), noutput_items);
           add_item_tag(0, output_index, key, value);
 
           b = d_gone_bursts.erase(b);
