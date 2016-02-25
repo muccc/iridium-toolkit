@@ -29,13 +29,14 @@ class burst_sink_c(gr.sync_block):
         tags = self.get_tags_in_window(0, 0, n)
         for tag in tags:
             if str(tag.key) == 'new_burst':
-                #print "new burst", tag.value
                 id = gr.pmt.to_uint64(gr.pmt.vector_ref(tag.value, 0))
                 rel_freq = gr.pmt.to_float(gr.pmt.vector_ref(tag.value, 1))
                 mag = gr.pmt.to_float(gr.pmt.vector_ref(tag.value, 2))
                 self._bursts[id] = [self.nitems_read(0), mag, rel_freq, numpy.array((), dtype=numpy.complex64)]
+                #print "new burst:", id, rel_freq
             elif str(tag.key) == 'gone_burst':
                 id = gr.pmt.to_uint64(tag.value)
+                #print "gone burst", id
                 self._callback(self._bursts[id])
                 del self._bursts[id]
 
@@ -66,35 +67,64 @@ class Detector(object):
         self._data_collector = data_collector
         self._filename = filename
 
-        if filename:
+        if filename.endswith(".conf"):
+            import ConfigParser
+            config = ConfigParser.ConfigParser()
+            config.read(filename)
+            items = config.items("osmosdr-source")
+            d = {key: value for key, value in items}
+
+            if 'device_args' in d:
+                source = osmosdr.source(args=d['device_args'])
+            else:
+                source = osmosdr.source()
+
+            source.set_sample_rate(int(d['sample_rate']))
+            source.set_center_freq(int(d['center_freq']), 0)
+            if 'gain' in d:
+                source.set_gain(int(d['gain']), 0)
+            if 'if_gain' in d:
+                source.set_if_gain(int(d['if_gain']), 0)
+            if 'bb_gain' in d:
+                source.set_bb_gain(int(d['bb_gain']), 0)
+            if 'bandwidth' in d:
+                source.set_bandwidth(int(d['bandwidth']), 0)
+            #source.set_freq_corr($corr0, 0)
+            #source.set_dc_offset_mode($dc_offset_mode0, 0)
+            #source.set_iq_balance_mode($iq_balance_mode0, 0)
+            #source.set_gain_mode($gain_mode0, 0)
+            #source.set_antenna($ant0, 0)
+
+            converter = None
+        else:
             if sample_format == "rtl":
-                self._struct_elem = numpy.uint8
+                converter = iridium_toolkit.iuchar_to_complex()
+                itemsize = gr.sizeof_char
             elif sample_format == "hackrf":
-                self._converter = blocks.interleaved_char_to_complex()
+                converter = blocks.interleaved_char_to_complex()
                 itemsize = gr.sizeof_char
             elif sample_format == "sc16":
-                self._converter = blocks.interleaved_short_to_complex()
+                converter = blocks.interleaved_short_to_complex()
                 itemsize = gr.sizeof_short
             elif sample_format == "float":
-                self._converter = None
+                converter = None
                 itemsize = gr.sizeof_gr_complex
             else:
                 raise RuntimeError("Unknown sample format for offline mode given")
             source = blocks.file_source(itemsize=itemsize, filename=filename, repeat=False)
-        else:
-            source = osmosdr.source()
-            self._converter = None
 
-        tb = gr.top_block ()
+        tb = gr.top_block()
 
         fft_burst_tagger = iridium_toolkit.fft_burst_tagger(fft_size=self._fft_size,
                                 burst_pre_len=self._burst_pre_len, burst_post_len=self._burst_post_len,
                                 burst_width=self._burst_width, debug=self._verbose)
 
         sink = burst_sink_c(self._new_burst)
+        sink2 = blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename='/home/schneider/data/log.cfile')
+        tb.connect(source, sink2)
 
-        if self._converter:
-            tb.connect(source, self._converter, fft_burst_tagger, sink)
+        if converter:
+            tb.connect(source, converter, fft_burst_tagger, sink)
         else:
             tb.connect(source, fft_burst_tagger, sink)
 
