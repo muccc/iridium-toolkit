@@ -173,7 +173,7 @@ if __name__ == "__main__":
         file_name = remainder[0]
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
-    det = detector.Detector(sample_rate=sample_rate, threshold=threshold, sample_format=fmt, verbose=verbose, signal_width=search_window)
+    det = detector.Detector(sample_rate=sample_rate, threshold=threshold, verbose=verbose, signal_width=search_window)
     cad = cut_and_downmix.CutAndDownmix(center=center, input_sample_rate=sample_rate, search_depth=search_depth, verbose=verbose, search_window=search_window)
     dem = demod.Demod(sample_rate=cad.output_sample_rate, verbose=verbose)
 
@@ -218,7 +218,7 @@ if __name__ == "__main__":
 
     workers = multiprocessing.Pool(processes=jobs, initializer=init_worker)
     try:
-        det.process(wrap_process, file_name)
+        det.process(wrap_process, file_name, sample_format=fmt)
     except KeyboardInterrupt:
         print "Going to DIE"
         out_queue.join()

@@ -10,7 +10,7 @@ import time
 from functools import partial
 
 class Detector(object):
-    def __init__(self, sample_rate, threshold=7.0, sample_format=None, search_size=1, verbose=False, signal_width=40e3, burst_size=6):
+    def __init__(self, sample_rate, threshold=7.0, search_size=1, verbose=False, signal_width=40e3, burst_size=6):
         self._sample_rate = sample_rate
         self._fft_size=int(math.pow(2, 1+int(math.log(self._sample_rate/1000,2)))) # fft is approx 1ms long
         self._bin_size = float(self._fft_size)/self._sample_rate * 1000 # How many ms is one fft now?
@@ -18,21 +18,6 @@ class Detector(object):
         self._search_size = search_size
         self._threshold = pow(10,threshold/10.)
         self._burst_size = burst_size
-
-        if sample_format == "rtl":
-            self._struct_elem = numpy.uint8
-            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
-        elif sample_format == "hackrf":
-            self._struct_elem = numpy.int8
-            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
-        elif sample_format == "sc16":
-            self._struct_elem = numpy.int16
-            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
-        elif sample_format == "float":
-            self._struct_elem = numpy.complex64
-            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size
-        else:
-            raise Exception("No sample format given")
 
         self._window = numpy.blackman(self._fft_size)
         self._fft_histlen=512 # How many items to keep for moving average. 5 times our signal length
@@ -48,7 +33,7 @@ class Detector(object):
             print "require %.1f dB"%(10*math.log(self._threshold,10))
             print "signal_width: %d (= %.1f Hz)"%(self._signal_width,self._signal_width*self._sample_rate/self._fft_size)
 
-    def process(self, data_collector, file_name):
+    def process(self, data_collector, file_name, sample_format):
         data_hist = []
         fft_avg = [0.0]*self._fft_size
         fft_hist = []
@@ -59,6 +44,21 @@ class Detector(object):
         signals=0
 
         peaks=[] # idx, postlen, file
+
+        if sample_format == "rtl":
+            self._struct_elem = numpy.uint8
+            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
+        elif sample_format == "hackrf":
+            self._struct_elem = numpy.int8
+            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
+        elif sample_format == "sc16":
+            self._struct_elem = numpy.int16
+            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size *2
+        elif sample_format == "float":
+            self._struct_elem = numpy.complex64
+            self._struct_len = numpy.dtype(self._struct_elem).itemsize * self._fft_size
+        else:
+            raise Exception("No sample format given")
 
         def remove_signal(peaks,idx): # clear "area" around a peak
             w=int(self._signal_width-1)/2
@@ -223,6 +223,6 @@ if __name__ == "__main__":
         file_name = remainder[0]
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
-    d = Detector(sample_rate, threshold=threshold, sample_format=fmt, verbose=verbose)
-    d.process(partial(file_collector, basename), file_name)
+    d = Detector(sample_rate, threshold=threshold, verbose=verbose)
+    d.process(partial(file_collector, basename), file_name, fmt)
 
