@@ -120,8 +120,6 @@ class Detector(object):
                                 burst_width=self._burst_width, debug=self._verbose)
 
         sink = burst_sink_c(self._new_burst)
-        sink2 = blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename='/home/schneider/data/log.cfile')
-        tb.connect(source, sink2)
 
         if converter:
             tb.connect(source, converter, fft_burst_tagger, sink)
