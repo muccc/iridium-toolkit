@@ -184,7 +184,7 @@ if __name__ == "__main__":
             try:
                 mix_signal, mix_freq, mix_direction, mix_start_sample = cad.cut_and_downmix(signal=signal, search_offset=freq, direction=direction, timestamp=time_stamp)
                 dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(signal=mix_signal, direction=mix_direction, start_sample=mix_start_sample, timestamp=time_stamp)
-                msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
+                msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp * 1000,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
             except cut_and_downmix.DownmixError:
                 pass
             out_queue.put(msg)

@@ -131,7 +131,7 @@ class Detector(object):
                             if burst_signals==self._burst_size:
                                 break
 
-                            time_stamp = index*self._bin_size
+                            time_stamp = index*self._bin_size/1000.
                             signal_strength = 10*math.log(peak,10)
                             freq = self._fft_freq[peakidx]*self._sample_rate
                             info = (time_stamp, signal_strength, freq)
