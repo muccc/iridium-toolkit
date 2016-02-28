@@ -116,6 +116,7 @@ class Detector(object):
         tb = gr.top_block()
 
         fft_burst_tagger = iridium_toolkit.fft_burst_tagger(fft_size=self._fft_size, threshold=self._threshold,
+                                sample_rate=self._sample_rate,
                                 burst_pre_len=self._burst_pre_len, burst_post_len=self._burst_post_len,
                                 burst_width=self._burst_width, debug=self._verbose)
 

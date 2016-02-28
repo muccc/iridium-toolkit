@@ -4,13 +4,26 @@
   <key>iridium_toolkit_fft_burst_tagger</key>
   <category>iridium_toolkit</category>
   <import>import iridium_toolkit</import>
-  <make>iridium_toolkit.fft_burst_tagger($fft_size, $burst_pre_len, $burst_post_len,
-                            $burst_width, $threshold, $history_size, $debug)
+  <make>iridium_toolkit.fft_burst_tagger($fft_size, $sample_rate, $burst_pre_len, $burst_post_len,
+                            $burst_width, $max_bursts, $threshold, $history_size, $debug)
   </make>
   <param>
     <name>FFT Size</name>
     <key>fft_size</key>
 	<value>1024</value>
+    <type>int</type>
+  </param>
+
+  <param>
+    <name>Sample Rate</name>
+    <key>sample_rate</key>
+    <type>int</type>
+  </param>
+
+  <param>
+    <name>Max Bursts</name>
+    <key>max_bursts</key>
+    <value>0</value>
     <type>int</type>
   </param>
 

@@ -53,6 +53,8 @@ namespace gr {
       int d_burst_width;
       int d_history_index;
       int d_burst_post_len;
+      int d_max_bursts;
+      int d_sample_rate;
       uint64_t d_index;
 
       float * d_window_f;
@@ -87,8 +89,9 @@ namespace gr {
       void tag_gone_bursts(int noutput_items);
 
      public:
-      fft_burst_tagger_impl(int fft_size, int burst_pre_len, int burst_post_len,
-                            int burst_width, float threshold, int history_size, bool debug);
+      fft_burst_tagger_impl(int fft_size, int sample_rate,
+                            int burst_pre_len, int burst_post_len, int burst_width,
+                            int max_bursts, float threshold, int history_size, bool debug);
       ~fft_burst_tagger_impl();
 
       // Where all the action really happens

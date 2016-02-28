@@ -36,7 +36,7 @@ class qa_fft_burst_tagger (gr_unittest.TestCase):
         # set up fg
         source = blocks.vector_source_c(data=[0+0j]*10000)
         #source = blocks.file_source(itemsize=gr.sizeof_gr_complex, filename='/tmp/cut-7000.f32', repeat=False)
-        fft_burst_tagger = iridium_toolkit.fft_burst_tagger(fft_size=4096, burst_pre_len=4096,
+        fft_burst_tagger = iridium_toolkit.fft_burst_tagger(fft_size=4096, sample_rate=1000000, burst_pre_len=4096,
                                 burst_post_len=8*4096, burst_width=40)
         vector_sink = blocks.vector_sink_c()
         self.tb.connect(source, fft_burst_tagger, vector_sink)

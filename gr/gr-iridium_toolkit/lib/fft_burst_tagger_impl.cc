@@ -37,19 +37,22 @@ namespace gr {
 
     
     fft_burst_tagger::sptr
-    fft_burst_tagger::make(int fft_size, int burst_pre_len, int burst_post_len,
-                            int burst_width, float threshold, int history_size, bool debug)
+    fft_burst_tagger::make(int fft_size, int sample_rate,
+                            int burst_pre_len, int burst_post_len, int burst_width,
+                            int max_bursts, float threshold, int history_size, bool debug)
     {
       return gnuradio::get_initial_sptr
-        (new fft_burst_tagger_impl(fft_size, burst_pre_len, burst_post_len,
-                burst_width, threshold, history_size, debug));
+        (new fft_burst_tagger_impl(fft_size, sample_rate,
+                burst_pre_len, burst_post_len, burst_width,
+                max_bursts, threshold, history_size, debug));
     }
 
     /*
      * The private constructor
      */
-    fft_burst_tagger_impl::fft_burst_tagger_impl(int fft_size, int burst_pre_len,
-                        int burst_post_len, int burst_width, float threshold, int history_size, bool debug)
+    fft_burst_tagger_impl::fft_burst_tagger_impl(int fft_size, int sample_rate,
+                        int burst_pre_len, int burst_post_len, int burst_width,
+                        int max_bursts, float threshold, int history_size, bool debug)
       : gr::sync_block("fft_burst_tagger",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
               gr::io_signature::make(1, 1, sizeof(gr_complex))),
@@ -90,9 +93,22 @@ namespace gr {
         }
 
         d_threshold = pow(10, threshold/10) / d_history_size;
+        if(d_debug) {
+          fprintf(stderr, "threshold=%f, d_threshold=%f (%f/%d)\n",
+              threshold, d_threshold, d_threshold * d_history_size, d_history_size);
+        }
 
         d_peaks.reserve(d_fft_size);
         
+        if(max_bursts){
+          d_max_bursts = max_bursts;
+        } else {
+          d_max_bursts = (sample_rate / d_burst_width) / 2;
+        }
+        if(d_debug) {
+          fprintf(stderr, "d_max_bursts=%d\n", d_max_bursts);
+        }
+
         if(d_debug) {
           d_burst_debug_file = fopen("/tmp/fft_burst_tagger-bursts.log", "w");
         }
@@ -199,6 +215,17 @@ namespace gr {
             //fprintf(d_burst_debug_file, "%f,%f,x\n", b.start/4e6, f_rel * 4e6 + 1624800000);
           }
         }
+      }
+      if(d_max_bursts > 0 && d_bursts.size() > d_max_bursts) {
+        fprintf(stderr, "Detector in burst squelch at %f\n", d_index / float(d_sample_rate));
+        d_new_bursts.clear();
+        for(burst b : d_bursts) {
+          if(b.start != d_index - d_burst_pre_len) {
+            b.stop = d_index;
+            d_gone_bursts.push_back(b);
+          }
+        }
+        d_bursts.clear();
       }
     }
 
