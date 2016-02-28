@@ -10,11 +10,14 @@ import time
 from functools import partial
 from gnuradio import gr
 from gnuradio import blocks
+import gnuradio.filter
 import iridium_toolkit
 import osmosdr
+import threading
+import iq
 
 class burst_sink_c(gr.sync_block):
-    def __init__(self, callback):
+    def __init__(self, callback, relative_center, relative_bw):
         gr.sync_block.__init__(self,
             name="burst_sink_c",
             in_sig=[numpy.complex64],
@@ -22,6 +25,11 @@ class burst_sink_c(gr.sync_block):
 
         self._bursts = {}
         self._callback = callback
+        self._relative_center = relative_center
+        self._relative_bw = relative_bw
+        self._lower_border = relative_center - relative_bw / 2
+        self._upper_border = relative_center + relative_bw / 2
+        print self._relative_center, self._relative_bw
 
     def work(self, input_items, output_items):
         input = input_items[0]
@@ -29,23 +37,25 @@ class burst_sink_c(gr.sync_block):
         tags = self.get_tags_in_window(0, 0, n)
         for tag in tags:
             if str(tag.key) == 'new_burst':
-                id = gr.pmt.to_uint64(gr.pmt.vector_ref(tag.value, 0))
                 rel_freq = gr.pmt.to_float(gr.pmt.vector_ref(tag.value, 1))
-                mag = gr.pmt.to_float(gr.pmt.vector_ref(tag.value, 2))
-                self._bursts[id] = [self.nitems_read(0), mag, rel_freq, numpy.array((), dtype=numpy.complex64)]
-                #print "new burst:", id, rel_freq
+                if self._lower_border < rel_freq <= self._upper_border:
+                    id = gr.pmt.to_uint64(gr.pmt.vector_ref(tag.value, 0))
+                    mag = gr.pmt.to_float(gr.pmt.vector_ref(tag.value, 2))
+                    self._bursts[id] = [self.nitems_read(0), mag, rel_freq - self._relative_center, numpy.array((), dtype=numpy.complex64)]
+                    print "new burst:", self._relative_center, id, rel_freq
             elif str(tag.key) == 'gone_burst':
                 id = gr.pmt.to_uint64(tag.value)
-                #print "gone burst", id
-                self._callback(self._bursts[id])
-                del self._bursts[id]
+                if id in self._bursts:
+                    #print "gone burst", id
+                    self._callback(self._bursts[id])
+                    del self._bursts[id]
 
         for burst in self._bursts:
             self._bursts[burst][3] = numpy.append(self._bursts[burst][3], input)
 
         return n
 
-    
+
 class Detector(object):
     def __init__(self, sample_rate, threshold=7.0, verbose=False, signal_width=40e3):
         self._sample_rate = sample_rate
@@ -57,11 +67,27 @@ class Detector(object):
         self._burst_pre_len = self._fft_size
         self._burst_post_len = 8 * self._fft_size
         self._burst_width= int(signal_width / (self._sample_rate / self._fft_size)) # Area to ignore around an already found signal in FFT bins
-        
+
+        self._channels = 5
+        self._pfb_over_sample_ratio = self._channels / (self._channels - 1.)
+        self._pfb_output_sample_rate = int(self._sample_rate / self._channels * self._pfb_over_sample_ratio)
+
+        self._fir_bw = (self._sample_rate / self._channels + signal_width) / 2
+        self._fir_tw = (self._pfb_output_sample_rate / 2 - self._fir_bw) * 2
+
+        self._pfb_fir_filter = gnuradio.filter.firdes.low_pass_2(1, self._sample_rate, self._fir_bw, self._fir_tw, 60)
+
+        print "self._channels", self._channels
+        print "self._pfb_over_sample_ratio", self._pfb_over_sample_ratio
+        print "self._pfb_output_sample_rate", self._pfb_output_sample_rate
+        print "self._fir_bw", self._fir_bw
+        print "self._fir_tw", self._fir_tw
+
         if self._verbose:
             print "fft_size=%d (=> %f ms)" % (self._fft_size,self._bin_size)
             print "require %.1f dB" % self._threshold
             print "signal_width: %d (= %.1f Hz)" % (self._signal_width,self._signal_width*self._sample_rate/self._fft_size)
+        self._lock = threading.Lock()
 
     def process(self, data_collector, filename=None, sample_format=None):
         self._data_collector = data_collector
@@ -120,19 +146,35 @@ class Detector(object):
                                 burst_pre_len=self._burst_pre_len, burst_post_len=self._burst_post_len,
                                 burst_width=self._burst_width, debug=self._verbose)
 
-        sink = burst_sink_c(self._new_burst)
+        sinks = []
+        for channel in range(self._channels):
+            center = channel if channel <= self._channels / 2 else (channel - self._channels)
+
+            sinks.append(burst_sink_c(self._new_burst, center / float(self._channels), 1. / self._channels))
+
+        sinks2 = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
+
+        pfb = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._pfb_over_sample_ratio)
 
         if converter:
-            tb.connect(source, converter, fft_burst_tagger, sink)
+            tb.connect(source, converter, fft_burst_tagger, pfb)
         else:
-            tb.connect(source, fft_burst_tagger, sink)
+            tb.connect(source, fft_burst_tagger, pfb)
 
+        for i in range(self._channels):
+            tb.connect((pfb, i), sinks[i])
+            tb.connect((pfb, i), sinks2[i])
+
+        self._si = 0
         tb.run()
 
     def _new_burst(self, burst):
-        #print "new burst at", burst[0] / float(self._sample_rate)
-        #print "len:", len(burst[3])
-        self._data_collector(burst[0] / float(self._sample_rate), burst[1], burst[2] * self._sample_rate, burst[3])
+        with self._lock:
+            print "new burst at t=", burst[0] / float(self._pfb_output_sample_rate), "f=", burst[2] * self._sample_rate
+            #print "len:", len(burst[3])
+            iq.write("/tmp/signals/signal-%d.f32" % self._si, burst[3])
+            self._si += 1
+            self._data_collector(burst[0] / float(self._pfb_output_sample_rate), burst[1], burst[2] * self._sample_rate, burst[3])
         pass
 
 def file_collector(basename, time_stamp, signal_strength, bin_index, freq, signal):
@@ -141,8 +183,8 @@ def file_collector(basename, time_stamp, signal_strength, bin_index, freq, signa
 
 if __name__ == "__main__":
     options, remainder = getopt.getopt(sys.argv[1:], 'r:d:vf:p:', [
-                                                            'rate=', 
-                                                            'db=', 
+                                                            'rate=',
+                                                            'db=',
                                                             'verbose',
                                                             'format=',
                                                             'pipe',
