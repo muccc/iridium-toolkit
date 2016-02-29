@@ -51,6 +51,7 @@ class Detector(object):
         self._sample_rate = sample_rate
         self._verbose = verbose
         self._threshold = threshold
+        self._signal_width=signal_width
 
         self._fft_size=int(math.pow(2, 1+int(math.log(self._sample_rate/1000,2)))) # fft is approx 1ms long
         self._bin_size = float(self._fft_size)/self._sample_rate * 1000 # How many ms is one fft now?
