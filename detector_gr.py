@@ -62,7 +62,7 @@ class burst_sink_c(gr.sync_block):
 
 
 class Detector(object):
-    def __init__(self, sample_rate, threshold=7.0, verbose=False, signal_width=40e3):
+    def __init__(self, sample_rate, decimation, threshold=7.0, verbose=False, signal_width=40e3):
         self._sample_rate = sample_rate
         self._verbose = verbose
         self._threshold = threshold
@@ -73,7 +73,7 @@ class Detector(object):
         self._burst_post_len = 8 * self._fft_size
         self._burst_width= int(signal_width / (self._sample_rate / self._fft_size)) # Area to ignore around an already found signal in FFT bins
 
-        self._channels = 5
+        self._channels = decimation + 1
         self._pfb_over_sample_ratio = self._channels / (self._channels - 1.)
         self._pfb_output_sample_rate = int(self._sample_rate / self._channels * self._pfb_over_sample_ratio)
 

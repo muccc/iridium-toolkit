@@ -174,8 +174,9 @@ if __name__ == "__main__":
         file_name = remainder[0]
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
-    det = detector_gr.Detector(sample_rate=sample_rate, threshold=threshold, verbose=verbose, signal_width=search_window)
-    cad = cut_and_downmix.CutAndDownmix(input_sample_rate=sample_rate/4, search_depth=search_depth, verbose=verbose, search_window=search_window)
+    decimation = 4
+    det = detector_gr.Detector(sample_rate=sample_rate, decimation=decimation, threshold=threshold, verbose=verbose, signal_width=search_window)
+    cad = cut_and_downmix.CutAndDownmix(input_sample_rate=sample_rate/decimation, search_depth=search_depth, verbose=verbose, search_window=search_window)
     dem = demod.Demod(sample_rate=cad.output_sample_rate, verbose=verbose)
 
     def process_one(basename, time_stamp, signal_strength, freq, center, signal):
