@@ -175,14 +175,14 @@ if __name__ == "__main__":
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
     det = detector_gr.Detector(sample_rate=sample_rate, threshold=threshold, verbose=verbose, signal_width=search_window)
-    cad = cut_and_downmix.CutAndDownmix(center=center, input_sample_rate=sample_rate/4, search_depth=search_depth, verbose=verbose, search_window=search_window)
+    cad = cut_and_downmix.CutAndDownmix(input_sample_rate=sample_rate/4, search_depth=search_depth, verbose=verbose, search_window=search_window)
     dem = demod.Demod(sample_rate=cad.output_sample_rate, verbose=verbose)
 
-    def process_one(basename, time_stamp, signal_strength, freq, signal):
+    def process_one(basename, time_stamp, signal_strength, freq, center, signal):
         try:
             msg = None
             try:
-                mix_signal, mix_freq, mix_direction, mix_start_sample = cad.cut_and_downmix(signal=signal, search_offset=freq, direction=direction, timestamp=time_stamp)
+                mix_signal, mix_freq, mix_direction, mix_start_sample = cad.cut_and_downmix(signal=signal, center=center, search_offset=freq, direction=direction, timestamp=time_stamp)
                 dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(signal=mix_signal, direction=mix_direction, start_sample=mix_start_sample, timestamp=time_stamp)
                 msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp * 1000,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
             except cut_and_downmix.DownmixError:
@@ -192,7 +192,7 @@ if __name__ == "__main__":
             import traceback
             traceback.print_exc()
 
-    def wrap_process(time_stamp, signal_strength, freq, signal):
+    def wrap_process(time_stamp, signal_strength, freq, rel_center, signal):
         global queue_len, queue_blocked, in_count, drop_count
         if offline:
             if queue_len > max_queue_len:
@@ -208,7 +208,7 @@ if __name__ == "__main__":
                 return
         queue_len += 1
         in_count += 1
-        workers.apply_async(process_one,(basename, time_stamp, signal_strength, freq, signal))
+        workers.apply_async(process_one,(basename, time_stamp, signal_strength, freq, rel_center + center, signal))
 
     def init_worker():
         signal.signal(signal.SIGINT, signal.SIG_IGN)

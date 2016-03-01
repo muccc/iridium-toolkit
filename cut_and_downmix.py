@@ -57,10 +57,9 @@ class source_c(gnuradio.gr.sync_block):
         return n
 
 class CutAndDownmix(object):
-    def __init__(self, center, input_sample_rate, search_depth=7e-3, search_window=50e3,
+    def __init__(self, input_sample_rate, search_depth=7e-3, search_window=50e3,
                     symbols_per_second=25000, verbose=False):
 
-        self._center = center
         self._input_sample_rate = int(input_sample_rate)
         #self._output_sample_rate = 500000
         self._output_sample_rate = 250000
@@ -193,7 +192,7 @@ class CutAndDownmix(object):
         #plt.show()
         return start
 
-    def cut_and_downmix(self, signal, search_offset, direction=None, frequency_offset=0, phase_offset=0, timestamp=None):
+    def cut_and_downmix(self, signal, center, search_offset, direction=None, frequency_offset=0, phase_offset=0, timestamp=None):
         if self._verbose:
             iq.write("/tmp/signal.cfile", signal)
 
@@ -225,12 +224,12 @@ class CutAndDownmix(object):
         self._timing_finish_step("get_data")
 
         self._timing_start_step()
-        signal_center = self._center + search_offset
+        center = center + search_offset
         if self._verbose:
             iq.write("/tmp/signal-filtered-deci.cfile", signal)
 
 
-        if signal_center > 1626000000:
+        if center > 1626000000:
             direction = iridium.DOWNLINK
             max_frame_length = iridium.MAX_FRAME_LENGTH_SIMPLEX
         else:
@@ -308,6 +307,8 @@ class CutAndDownmix(object):
 
         # Multiply the two signals, effectively shifting signal by offset_freq
         signal = signal*shift_signal
+        center += offset_freq
+
         self._timing_finish_step("shift_fft")
 
         if self._verbose:
@@ -340,7 +341,7 @@ class CutAndDownmix(object):
             self._timing_start_step()
             shift_signal = numpy.exp(complex(0,-1)*numpy.arange(len(signal))*2*numpy.pi*offset/float(self._output_sample_rate))
             signal = signal*shift_signal
-            offset_freq += offset
+            center += offset
             self._timing_finish_step("shift_css")
 
         if self._verbose:
@@ -379,7 +380,7 @@ class CutAndDownmix(object):
         #plt.show()
 
         self._timing_finish(input_length)
-        return (signal, signal_center+offset_freq, direction, uw_start)
+        return (signal, center, direction, uw_start)
 
 if __name__ == "__main__":
 
@@ -443,12 +444,12 @@ if __name__ == "__main__":
 
     signal = iq.read(file_name)
 
-    cad = CutAndDownmix(center=center, input_sample_rate=sample_rate, symbols_per_second=symbols_per_second,
+    cad = CutAndDownmix(input_sample_rate=sample_rate, symbols_per_second=symbols_per_second,
                             search_depth=search_depth, verbose=verbose, search_window=search_window)
     #for i in range(100):
     #    cad.cut_and_downmix(signal=signal[:], search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
-    signal, freq, _, _ = cad.cut_and_downmix(signal=signal, search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
+    signal, freq, _, _ = cad.cut_and_downmix(signal=signal, center=center, search_offset=search_offset, direction=direction, frequency_offset=frequency_offset, phase_offset=phase_offset)
 
     iq.write("%s-f%010d.cut" % (os.path.basename(basename), freq), signal)
     print "output=","%s-f%10d.cut" % (os.path.basename(basename), freq)

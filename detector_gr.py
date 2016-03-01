@@ -35,6 +35,19 @@ class burst_sink_c(gr.sync_block):
         input = input_items[0]
         n = len(input)
         tags = self.get_tags_in_window(0, 0, n)
+
+        for tag in tags:
+            if str(tag.key) == 'gone_burst':
+                id = gr.pmt.to_uint64(tag.value)
+                if id in self._bursts:
+                    self._bursts[id][3] = numpy.append(self._bursts[id][3], input[:tag.offset+1-self.nitems_read(0)])
+                    #print "gone burst", id
+                    self._callback(self._bursts[id], self._relative_center)
+                    del self._bursts[id]
+
+        for burst in self._bursts:
+            self._bursts[burst][3] = numpy.append(self._bursts[burst][3], input)
+
         for tag in tags:
             if str(tag.key) == 'new_burst':
                 rel_freq = gr.pmt.to_float(gr.pmt.vector_ref(tag.value, 1))
@@ -42,16 +55,8 @@ class burst_sink_c(gr.sync_block):
                     id = gr.pmt.to_uint64(gr.pmt.vector_ref(tag.value, 0))
                     mag = gr.pmt.to_float(gr.pmt.vector_ref(tag.value, 2))
                     self._bursts[id] = [self.nitems_read(0), mag, rel_freq - self._relative_center, numpy.array((), dtype=numpy.complex64)]
-                    print "new burst:", self._relative_center, id, rel_freq
-            elif str(tag.key) == 'gone_burst':
-                id = gr.pmt.to_uint64(tag.value)
-                if id in self._bursts:
-                    #print "gone burst", id
-                    self._callback(self._bursts[id])
-                    del self._bursts[id]
-
-        for burst in self._bursts:
-            self._bursts[burst][3] = numpy.append(self._bursts[burst][3], input)
+                    #print "new burst:", self._relative_center, id, rel_freq
+                    self._bursts[id][3] = numpy.append(self._bursts[id][3], input[tag.offset - self.nitems_read(0):])
 
         return n
 
@@ -168,13 +173,13 @@ class Detector(object):
         self._si = 0
         tb.run()
 
-    def _new_burst(self, burst):
+    def _new_burst(self, burst, relative_center):
         with self._lock:
-            print "new burst at t=", burst[0] / float(self._pfb_output_sample_rate), "f=", burst[2] * self._sample_rate
+            #print "new burst at t=", burst[0] / float(self._pfb_output_sample_rate), "f=", burst[2] * self._sample_rate
             #print "len:", len(burst[3])
-            iq.write("/tmp/signals/signal-%d.f32" % self._si, burst[3])
+            #iq.write("/tmp/signals/signal-%d.f32" % self._si, burst[3])
             self._si += 1
-            self._data_collector(burst[0] / float(self._pfb_output_sample_rate), burst[1], burst[2] * self._sample_rate, burst[3])
+            self._data_collector(burst[0] / float(self._pfb_output_sample_rate), burst[1], burst[2] * self._sample_rate, relative_center * self._sample_rate, burst[3])
         pass
 
 def file_collector(basename, time_stamp, signal_strength, bin_index, freq, signal):
