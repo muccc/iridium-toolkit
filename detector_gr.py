@@ -29,7 +29,7 @@ class burst_sink_c(gr.sync_block):
         self._relative_bw = relative_bw
         self._lower_border = relative_center - relative_bw / 2
         self._upper_border = relative_center + relative_bw / 2
-        print self._relative_center, self._relative_bw
+        #print self._relative_center, self._relative_bw
 
     def work(self, input_items, output_items):
         input = input_items[0]
@@ -157,7 +157,7 @@ class Detector(object):
 
             sinks.append(burst_sink_c(self._new_burst, center / float(self._channels), 1. / self._channels))
 
-        sinks2 = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
+        #sinks2 = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
 
         pfb = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._pfb_over_sample_ratio)
 
@@ -168,7 +168,7 @@ class Detector(object):
 
         for i in range(self._channels):
             tb.connect((pfb, i), sinks[i])
-            tb.connect((pfb, i), sinks2[i])
+            #tb.connect((pfb, i), sinks2[i])
 
         self._si = 0
         tb.run()
