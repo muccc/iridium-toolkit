@@ -186,7 +186,7 @@ class Message(object):
 
 class IridiumMessage(Message):
     def __init__(self,msg):
-        self.__dict__=copy.deepcopy(msg.__dict__)
+        self.__dict__=msg.__dict__
         if (self.uplink):
             data=self.bitstream_raw[len(uplink_access):]
         else:
@@ -403,7 +403,7 @@ class IridiumMessage(Message):
 
 class IridiumSYMessage(IridiumMessage):
     def __init__(self,imsg):
-        self.__dict__=copy.deepcopy(imsg.__dict__)
+        self.__dict__=imsg.__dict__
     def upgrade(self):
         return self
     def _pretty_header(self):
@@ -425,7 +425,7 @@ class IridiumSYMessage(IridiumMessage):
 
 class IridiumVOMessage(IridiumMessage):
     def __init__(self,imsg):
-        self.__dict__=copy.deepcopy(imsg.__dict__)
+        self.__dict__=imsg.__dict__
         # Decode stuff from self.bitstream_bch
     def upgrade(self):
         return self
@@ -441,7 +441,7 @@ class IridiumVOMessage(IridiumMessage):
 
 class IridiumIPMessage(IridiumMessage):
     def __init__(self,imsg):
-        self.__dict__=copy.deepcopy(imsg.__dict__)
+        self.__dict__=imsg.__dict__
         self.ip_hdr=self.descrambled[0]
         self.ip_ctr1=int(self.descrambled[1],2)
         self.ip_uk1=self.descrambled[2]
@@ -492,7 +492,7 @@ class IridiumIPMessage(IridiumMessage):
 
 class IridiumECCMessage(IridiumMessage):
     def __init__(self,imsg):
-        self.__dict__=copy.deepcopy(imsg.__dict__)
+        self.__dict__=imsg.__dict__
         if self.msgtype == "MS":
             self.poly=messaging_bch_poly
         elif self.msgtype == "RA":
@@ -573,7 +573,7 @@ class IridiumECCMessage(IridiumMessage):
 
 class IridiumDAMessage(IridiumECCMessage):
     def __init__(self,imsg):
-        self.__dict__=copy.deepcopy(imsg.__dict__)
+        self.__dict__=imsg.__dict__
         # Decode stuff from self.bitstream_bch
         self.flags1=self.bitstream_bch[:4]
         self.flag1b=self.bitstream_bch[4:5]
@@ -669,7 +669,7 @@ class IridiumDAMessage(IridiumECCMessage):
 
 class IridiumBCMessage(IridiumECCMessage):
     def __init__(self,imsg):
-        self.__dict__=copy.deepcopy(imsg.__dict__)
+        self.__dict__=imsg.__dict__
         blocks, _ =slice_extra(self.bitstream_bch,21)
 
         self.readable = ''
@@ -757,7 +757,7 @@ class IridiumBCMessage(IridiumECCMessage):
 
 class IridiumRAMessage(IridiumECCMessage):
     def __init__(self,imsg):
-        self.__dict__=copy.deepcopy(imsg.__dict__)
+        self.__dict__=imsg.__dict__
         # Decode stuff from self.bitstream_bch
         if len(self.bitstream_bch)<64:
             raise ParserError("RA content too short")
@@ -831,7 +831,7 @@ class IridiumRAMessage(IridiumECCMessage):
 
 class IridiumMSMessage(IridiumECCMessage):
     def __init__(self,imsg):
-        self.__dict__=copy.deepcopy(imsg.__dict__)
+        self.__dict__=imsg.__dict__
         rest=self.bitstream_messaging
 
         if len(rest) < 32:
@@ -928,7 +928,7 @@ class IridiumMSMessage(IridiumECCMessage):
 
 class IridiumMessagingAscii(IridiumMSMessage):
     def __init__(self,immsg):
-        self.__dict__=copy.deepcopy(immsg.__dict__)
+        self.__dict__=immsg.__dict__
         rest=self.msg_data
         self.msg_seq=int(rest[0:6],2) # 0-61 (62/63 seem unused)
         self.msg_zero1=int(rest[6:10],2)
@@ -990,7 +990,7 @@ class IridiumMessagingAscii(IridiumMSMessage):
 
 class IridiumMessagingUnknown(IridiumMSMessage):
     def __init__(self,immsg):
-        self.__dict__=copy.deepcopy(immsg.__dict__)
+        self.__dict__=immsg.__dict__
         rest=self.msg_data
         self.msg_seq=int(rest[0:6],2)
         self.msg_zero1=int(rest[6:10],2)
