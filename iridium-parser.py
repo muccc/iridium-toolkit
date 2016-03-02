@@ -163,7 +163,7 @@ class Message(object):
         if not self.error_msg or self.error_msg[-1] != msg:
             self.error_msg.append(msg)
     def _pretty_header(self):
-        return "%s %09d %010d %3d%% %.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
+        return "%s %09d %010d %3d%% %7.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
     def _pretty_trailer(self):
         return ""
     def pretty(self):
@@ -314,7 +314,7 @@ class IridiumMessage(Message):
                     ty="rsrvd"
                     code="<>"
                 self.header="LCW(%d,T:%s,C:%s(%s),%s E%d)"%(self.ft,ty,code,int(self.lcw2,2),int(self.lcw3,2),e1+e2+e3)
-                self.header="%-80s "%self.header
+                self.header="%-110s "%self.header
             self.descrambled=[]
             data=data[lcwlen:]
 
