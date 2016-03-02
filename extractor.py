@@ -15,6 +15,7 @@ import signal
 import iridium
 import os
 
+work_queue = multiprocessing.JoinableQueue()
 out_queue = multiprocessing.JoinableQueue()
 
 queue_len = 0
@@ -88,6 +89,43 @@ def printer(out_queue):
             last_print = time.time()
 
         out_queue.task_done()
+
+class Worker(object):
+    def __init__(self, work_queue, out_queue, center, sample_rate, search_depth, search_window, verbose):
+        self._work_queue = work_queue
+        self._out_queue = out_queue
+        self._center = center
+        self._sample_rate = sample_rate
+        self._search_depth = search_depth
+        self._search_window = search_window
+        self._verbose = verbose
+
+    def run(self):
+        import signal
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+        cad = cut_and_downmix.CutAndDownmix(input_sample_rate=self._sample_rate,
+                                            search_depth=self._search_depth, verbose=self._verbose,
+                                            search_window=self._search_window)
+
+        dem = demod.Demod(sample_rate=cad.output_sample_rate, verbose=self._verbose)
+
+        while True:
+            basename, time_stamp, signal_strength, freq, center, signal = self._work_queue.get()
+            try:
+                msg = None
+                try:
+                    mix_signal, mix_freq, mix_direction, mix_start_sample = cad.cut_and_downmix(signal=signal, center=center, search_offset=freq, direction=direction, timestamp=time_stamp)
+                    dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(signal=mix_signal, direction=mix_direction, start_sample=mix_start_sample, timestamp=time_stamp)
+                    msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp * 1000,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
+                except cut_and_downmix.DownmixError:
+                    pass
+                self._out_queue.put(msg)
+            except:
+                import traceback
+                traceback.print_exc()
+            self._work_queue.task_done()
+
 
 if __name__ == "__main__":
     options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:p:j:oq:b:', ['offset=',
@@ -176,22 +214,10 @@ if __name__ == "__main__":
 
     decimation = 4
     det = detector_gr.Detector(sample_rate=sample_rate, decimation=decimation, threshold=threshold, verbose=verbose, signal_width=search_window)
-    cad = cut_and_downmix.CutAndDownmix(input_sample_rate=sample_rate/decimation, search_depth=search_depth, verbose=verbose, search_window=search_window)
-    dem = demod.Demod(sample_rate=cad.output_sample_rate, verbose=verbose)
 
     def process_one(basename, time_stamp, signal_strength, freq, center, signal):
-        try:
-            msg = None
-            try:
-                mix_signal, mix_freq, mix_direction, mix_start_sample = cad.cut_and_downmix(signal=signal, center=center, search_offset=freq, direction=direction, timestamp=time_stamp)
-                dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = dem.demod(signal=mix_signal, direction=mix_direction, start_sample=mix_start_sample, timestamp=time_stamp)
-                msg = "RAW: %s %09d %010d A:%s L:%s %3d%% %.3f %3d %s"%(basename,time_stamp * 1000,mix_freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-12),data)
-            except cut_and_downmix.DownmixError:
-                pass
-            out_queue.put(msg)
-        except:
-            import traceback
-            traceback.print_exc()
+        work_queue.put((basename, time_stamp, signal_strength, freq, center, signal))
+        #time.sleep(1)
 
     def wrap_process(time_stamp, signal_strength, freq, rel_center, signal):
         global queue_len, queue_blocked, in_count, drop_count
@@ -209,24 +235,29 @@ if __name__ == "__main__":
                 return
         queue_len += 1
         in_count += 1
-        workers.apply_async(process_one,(basename, time_stamp, signal_strength, freq, rel_center + center, signal))
+        process_one(basename, time_stamp, signal_strength, freq, rel_center + center, signal)
 
-    def init_worker():
-        signal.signal(signal.SIGINT, signal.SIG_IGN)
+    workers = []
+    for i in range(jobs):
+        w = Worker(work_queue, out_queue, center=center,
+                sample_rate=sample_rate/decimation, search_depth=search_depth,
+                search_window=search_window, verbose=verbose)
+        p = multiprocessing.Process(target=w.run)
+        p.daemon = True
+        p.start()
+        workers.append((w, p))
+
 
     out_thread = threading.Thread(target=printer, args = (out_queue,))
     out_thread.daemon = True
     out_thread.start()
 
-    workers = multiprocessing.Pool(processes=jobs, initializer=init_worker)
     try:
         det.process(wrap_process, file_name, sample_format=fmt)
     except KeyboardInterrupt:
-        print "Going to DIE"
+        print >> sys.stderr, "Going to DIE"
         out_queue.join()
         raise
 
-    workers.close()
-    workers.join()
-    out_queue.join()
-    print "Done."
+    work_queue.join()
+    print >> sys.stderr, "Done."
