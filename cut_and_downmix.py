@@ -77,7 +77,7 @@ class CutAndDownmix(object):
         #self._verbose = True
 
         #self._input_low_pass = scipy.signal.firwin(401, float(search_window)/self._input_sample_rate)
-        self._input_low_pass = gnuradio.filter.firdes.low_pass_2(1, self._input_sample_rate, float(search_window), float(search_window), 40)
+        self._input_low_pass = gnuradio.filter.firdes.low_pass_2(1, self._input_sample_rate, float(search_window)/2, float(search_window)/2, 40)
         self._low_pass2 = scipy.signal.firwin(401, 10e3/self._output_sample_rate)
         self._rrc = filters.rrcosfilter(51, 0.4, 1./self._symbols_per_second, self._output_sample_rate)[1]
 
@@ -113,8 +113,9 @@ class CutAndDownmix(object):
         self._input_lengths = 0
 
         if self._verbose:
-            print 'input sample_rate', self._input_sample_rate
-            print 'output sample_rate', self._output_sample_rate
+            print >> sys.stderr, 'Input sample rate:', self._input_sample_rate
+            print >> sys.stderr, 'Input filter length:', len(self._input_low_pass)
+            print >> sys.stderr, 'Output sample rate:', self._output_sample_rate
 
     def _timing_start(self):
         if not self._timing_debug: return
