@@ -18,7 +18,6 @@ import os
 work_queue = multiprocessing.JoinableQueue()
 out_queue = multiprocessing.JoinableQueue()
 
-queue_len = 0
 queue_len_max = 0
 
 out_count = 0
@@ -37,12 +36,12 @@ t0 = time.time()
 queue_blocked = False
 
 def printer(out_queue):
-    global queue_len, last_print, queue_len_max, out_count, in_count
+    global last_print, queue_len_max, out_count, in_count
     global drop_count, drop_count_total, ok_count
     global ok_count_total, out_count_total, in_count_total, t0
     while True:
         msg = out_queue.get()
-        queue_len -= 1
+        queue_len = work_queue.qsize()
         out_count += 1
 
         if msg:
@@ -220,20 +219,19 @@ if __name__ == "__main__":
         #time.sleep(1)
 
     def wrap_process(time_stamp, signal_strength, freq, rel_center, signal):
-        global queue_len, queue_blocked, in_count, drop_count
+        global queue_blocked, in_count, drop_count
         if offline:
-            if queue_len > max_queue_len:
-                while queue_len > max_queue_len/2:
+            if work_queue.qsize() > max_queue_len:
+                while work_queue.qsize() > max_queue_len/2:
                     time.sleep(1)
         else:
-            if queue_len > max_queue_len:
+            if work_queue.qsize() > max_queue_len:
                 queue_blocked = True
-            if queue_blocked and queue_len < (max_queue_len / 10):
+            if queue_blocked and work_queue.qsize() < (max_queue_len / 10):
                 queue_blocked = False
             if queue_blocked:
                 drop_count += 1
                 return
-        queue_len += 1
         in_count += 1
         process_one(basename, time_stamp, signal_strength, freq, rel_center + center, signal)
 
