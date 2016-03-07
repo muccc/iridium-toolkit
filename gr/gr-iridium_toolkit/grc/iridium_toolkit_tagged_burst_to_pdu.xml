@@ -25,4 +25,9 @@
     <type>complex</type>
   </sink>
 
+  <source>
+    <name>cpdus</name>
+    <type>message</type>
+  </source>
+
 </block>

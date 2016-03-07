@@ -42,7 +42,9 @@ namespace gr {
       : gr::sync_block("tagged_burst_to_pdu",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
               gr::io_signature::make(0, 0, 0))
-    {}
+    {
+      message_port_register_out(pmt::mp("cpdus"));
+    }
 
     /*
      * Our virtual destructor.
