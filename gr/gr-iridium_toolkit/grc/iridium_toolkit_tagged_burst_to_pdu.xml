@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<block>
+  <name>tagged_burst_to_pdu</name>
+  <key>iridium_toolkit_tagged_burst_to_pdu</key>
+  <category>iridium_toolkit</category>
+  <import>import iridium_toolkit</import>
+  <make>iridium_toolkit.tagged_burst_to_pdu($relative_center_frequency, $relative_span)</make>
+
+  <param>
+    <name>Relative Center Frequency</name>
+    <key>relative_center_frequency</key>
+    <value>0.0</value>
+    <type>float</type>
+  </param>
+
+  <param>
+    <name>Relative Span</name>
+    <key>relative_span</key>
+    <value>1.0</value>
+    <type>float</type>
+  </param>
+
+  <sink>
+    <name>in</name>
+    <type>complex</type>
+  </sink>
+
+</block>
