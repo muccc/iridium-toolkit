@@ -76,7 +76,7 @@ class Detector(object):
 
             self._channels = decimation + 1
             self._pfb_over_sample_ratio = self._channels / (self._channels - 1.)
-            self.output_sample_rate = int(round(self._input_sample_rate / self._channels * self._pfb_over_sample_ratio))
+            self.output_sample_rate = int(round(float(self._input_sample_rate) / self._channels * self._pfb_over_sample_ratio))
             assert self.output_sample_rate == self._input_sample_rate / decimation
 
             self._fir_bw = (self._input_sample_rate / self._channels + signal_width) / 2
