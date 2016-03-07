@@ -26,13 +26,34 @@
 namespace gr {
   namespace iridium_toolkit {
 
+    struct burst_data {
+        uint64_t offset;
+        float magnitude;
+        float relative_center_frequency;
+        int index;
+        gr_complex * data;
+    };
+
     class tagged_burst_to_pdu_impl : public tagged_burst_to_pdu
     {
      private:
-      // Nothing to declare in this block.
+       float d_lower_border;
+       float d_upper_border;
+       float d_relative_center_frequency;
+       float d_relative_span;
+       int d_max_burst_size;
 
+       std::map<uint64_t, burst_data> d_bursts;
+
+       void append_to_burst(burst_data &burst, const gr_complex * data, size_t n);
+       void publish_burst(burst_data &burst);
+
+       void create_new_bursts(int noutput_items,
+                const gr_complex * in);
+       void publish_and_remove_old_bursts(int noutput_items, const gr_complex * in);
+       void update_current_bursts(int noutput_items, const gr_complex * in);
      public:
-      tagged_burst_to_pdu_impl(float relative_center_frequency, float relative_span);
+      tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span);
       ~tagged_burst_to_pdu_impl();
 
       // Where all the action really happens

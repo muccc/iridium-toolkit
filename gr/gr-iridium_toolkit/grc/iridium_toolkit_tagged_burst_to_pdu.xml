@@ -4,7 +4,14 @@
   <key>iridium_toolkit_tagged_burst_to_pdu</key>
   <category>iridium_toolkit</category>
   <import>import iridium_toolkit</import>
-  <make>iridium_toolkit.tagged_burst_to_pdu($relative_center_frequency, $relative_span)</make>
+  <make>iridium_toolkit.tagged_burst_to_pdu($max_burst_size, $relative_center_frequency, $relative_span)</make>
+
+  <param>
+    <name>Max Burst Size</name>
+    <key>max_burst_size</key>
+    <value>100000</value>
+    <type>int</type>
+  </param>
 
   <param>
     <name>Relative Center Frequency</name>
