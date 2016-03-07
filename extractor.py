@@ -127,7 +127,7 @@ class Worker(object):
 
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:p:j:oq:b:', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:p:j:oq:b:D:', ['offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
@@ -141,7 +141,8 @@ if __name__ == "__main__":
                                                             'queuelen=',
                                                             'burstsize=',
                                                             'uplink',
-                                                            'downlink'
+                                                            'downlink',
+                                                            'decimation'
                                                             ])
 
     center = None # 1626270833
@@ -158,6 +159,7 @@ if __name__ == "__main__":
     max_queue_len = 1000
     burst_size = 20
     direction = None
+    decimation = 1
 
     for opt, arg in options:
         if opt in ('-w', '--search-window'):
@@ -188,7 +190,8 @@ if __name__ == "__main__":
             direction = iridium.UPLINK
         elif opt == '--downlink':
             direction = iridium.DOWNLINK
-
+        elif opt in ('-D', '--decimation'):
+            decimation = int(arg)
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
@@ -198,6 +201,12 @@ if __name__ == "__main__":
         exit(1)
     if fmt == None:
         print >> sys.stderr, "Need to specify sample format (one of rtl, hackrf, sc16, float)!"
+        exit(1)
+    if decimation < 1:
+        print >> sys.stderr, "Decimation must be > 0"
+        exit(1)
+    if decimation > 1 and decimation % 2:
+        print >> sys.stderr, "Decimations > 1 must be even"
         exit(1)
 
     basename=None
@@ -211,7 +220,6 @@ if __name__ == "__main__":
         file_name = remainder[0]
         basename= filename= re.sub('\.[^.]*$','',file_name)
 
-    decimation = 4
     det = detector_gr.Detector(sample_rate=sample_rate, decimation=decimation, threshold=threshold, verbose=verbose, signal_width=search_window)
 
     def process_one(basename, time_stamp, signal_strength, freq, center, signal):
@@ -238,7 +246,7 @@ if __name__ == "__main__":
     workers = []
     for i in range(jobs):
         w = Worker(work_queue, out_queue, center=center,
-                sample_rate=sample_rate/decimation, search_depth=search_depth,
+                sample_rate=det.output_sample_rate, search_depth=search_depth,
                 search_window=search_window, verbose=verbose)
         p = multiprocessing.Process(target=w.run)
         p.daemon = True

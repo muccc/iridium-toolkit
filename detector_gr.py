@@ -63,36 +63,42 @@ class burst_sink_c(gr.sync_block):
 
 class Detector(object):
     def __init__(self, sample_rate, decimation, threshold=7.0, verbose=False, signal_width=40e3):
-        self._sample_rate = sample_rate
+        self._input_sample_rate = sample_rate
         self._verbose = verbose
         self._threshold = threshold
-        self._signal_width=signal_width
 
-        self._fft_size=int(math.pow(2, 1+int(math.log(self._sample_rate/1000,2)))) # fft is approx 1ms long
-        self._bin_size = float(self._fft_size)/self._sample_rate * 1000 # How many ms is one fft now?
+        self._fft_size = int(math.pow(2, 1 + int(math.log(self._input_sample_rate / 1000, 2)))) # fft is approx 1ms long
         self._burst_pre_len = self._fft_size
         self._burst_post_len = 8 * self._fft_size
-        self._burst_width= int(signal_width / (self._sample_rate / self._fft_size)) # Area to ignore around an already found signal in FFT bins
+        self._burst_width= int(signal_width / (self._input_sample_rate / self._fft_size)) # Area to ignore around an already found signal in FFT bins
+        if decimation > 1:
+            assert decimation % 2 == 0
 
-        self._channels = decimation + 1
-        self._pfb_over_sample_ratio = self._channels / (self._channels - 1.)
-        self._pfb_output_sample_rate = int(self._sample_rate / self._channels * self._pfb_over_sample_ratio)
+            self._channels = decimation + 1
+            self._pfb_over_sample_ratio = self._channels / (self._channels - 1.)
+            self.output_sample_rate = int(round(self._input_sample_rate / self._channels * self._pfb_over_sample_ratio))
+            assert self.output_sample_rate == self._input_sample_rate / decimation
 
-        self._fir_bw = (self._sample_rate / self._channels + signal_width) / 2
-        self._fir_tw = (self._pfb_output_sample_rate / 2 - self._fir_bw) * 2
+            self._fir_bw = (self._input_sample_rate / self._channels + signal_width) / 2
+            self._fir_tw = (self.output_sample_rate / 2 - self._fir_bw) * 2
 
-        self._pfb_fir_filter = gnuradio.filter.firdes.low_pass_2(1, self._sample_rate, self._fir_bw, self._fir_tw, 60)
+            self._pfb_fir_filter = gnuradio.filter.firdes.low_pass_2(1, self._input_sample_rate, self._fir_bw, self._fir_tw, 60)
+            self._use_pfb = True
 
-        print "self._channels", self._channels
-        print "self._pfb_over_sample_ratio", self._pfb_over_sample_ratio
-        print "self._pfb_output_sample_rate", self._pfb_output_sample_rate
-        print "self._fir_bw", self._fir_bw
-        print "self._fir_tw", self._fir_tw
+            if self._verbose:
+                print >> sys.stderr, "self._channels", self._channels
+                print >> sys.stderr, "self._pfb_over_sample_ratio", self._pfb_over_sample_ratio
+                print >> sys.stderr, "self._fir_bw", self._fir_bw
+                print >> sys.stderr, "self._fir_tw", self._fir_tw
+        else:
+            self._use_pfb = False
+            self.output_sample_rate = self._input_sample_rate
 
         if self._verbose:
-            print "fft_size=%d (=> %f ms)" % (self._fft_size,self._bin_size)
-            print "require %.1f dB" % self._threshold
-            print "signal_width: %d (= %.1f Hz)" % (self._signal_width,self._signal_width*self._sample_rate/self._fft_size)
+            print >> sys.stderr, "require %.1f dB" % self._threshold
+            print >> sys.stderr, "burst_width: %d (= %.1f Hz)" % (self._burst_width, self._burst_width*self._input_sample_rate/self._fft_size)
+            print >> sys.stderr, "output sample rate: %d" % self.output_sample_rate
+
         self._lock = threading.Lock()
 
     def process(self, data_collector, filename=None, sample_format=None):
@@ -148,39 +154,48 @@ class Detector(object):
         tb = gr.top_block()
 
         fft_burst_tagger = iridium_toolkit.fft_burst_tagger(fft_size=self._fft_size, threshold=self._threshold,
-                                sample_rate=self._sample_rate,
+                                sample_rate=self._input_sample_rate,
                                 burst_pre_len=self._burst_pre_len, burst_post_len=self._burst_post_len,
                                 burst_width=self._burst_width, debug=self._verbose)
 
-        sinks = []
-        for channel in range(self._channels):
-            center = channel if channel <= self._channels / 2 else (channel - self._channels)
+        if self._use_pfb:
+            sinks = []
 
-            sinks.append(burst_sink_c(self._new_burst, center / float(self._channels), 1. / self._channels))
+            for channel in range(self._channels):
+                center = channel if channel <= self._channels / 2 else (channel - self._channels)
 
-        #sinks2 = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
+                sinks.append(burst_sink_c(self._new_burst, center / float(self._channels), 1. / self._channels))
 
-        pfb = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._pfb_over_sample_ratio)
+            #sinks2 = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
 
-        if converter:
-            tb.connect(source, converter, fft_burst_tagger, pfb)
+            pfb = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._pfb_over_sample_ratio)
+
+            if converter:
+                tb.connect(source, converter, fft_burst_tagger, pfb)
+            else:
+                tb.connect(source, fft_burst_tagger, pfb)
+
+            for i in range(self._channels):
+                tb.connect((pfb, i), sinks[i])
+                #tb.connect((pfb, i), sinks2[i])
         else:
-            tb.connect(source, fft_burst_tagger, pfb)
-
-        for i in range(self._channels):
-            tb.connect((pfb, i), sinks[i])
-            #tb.connect((pfb, i), sinks2[i])
+            sink = burst_sink_c(self._new_burst, 0., 1.)
+            if converter:
+                tb.connect(source, converter, fft_burst_tagger, sink)
+            else:
+                tb.connect(source, fft_burst_tagger, sink)
+           
 
         self._si = 0
         tb.run()
 
     def _new_burst(self, burst, relative_center):
         with self._lock:
-            #print "new burst at t=", burst[0] / float(self._pfb_output_sample_rate), "f=", burst[2] * self._sample_rate
+            #print "new burst at t=", burst[0] / float(self.output_sample_rate), "f=", burst[2] * self._input_sample_rate
             #print "len:", len(burst[3])
             #iq.write("/tmp/signals/signal-%d.f32" % self._si, burst[3])
             self._si += 1
-            self._data_collector(burst[0] / float(self._pfb_output_sample_rate), burst[1], burst[2] * self._sample_rate, relative_center * self._sample_rate, burst[3])
+            self._data_collector(burst[0] / float(self.output_sample_rate), burst[1], burst[2] * self._input_sample_rate, relative_center * self._input_sample_rate, burst[3])
         pass
 
 def file_collector(basename, time_stamp, signal_strength, bin_index, freq, signal):
