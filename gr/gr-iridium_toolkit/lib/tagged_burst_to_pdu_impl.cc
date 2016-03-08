@@ -63,7 +63,7 @@ namespace gr {
     {
         // If the burst really gets longer than this, we can just throw away the data
       if(burst.index + n <= d_max_burst_size) {
-        memcpy(burst.data + burst.index, data, n);
+        memcpy(burst.data + burst.index, data, n * sizeof(gr_complex));
         burst.index += n;
       }
     }
