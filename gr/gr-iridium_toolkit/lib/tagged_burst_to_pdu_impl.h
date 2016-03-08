@@ -29,7 +29,7 @@ namespace gr {
     struct burst_data {
         uint64_t offset;
         float magnitude;
-        float relative_center_frequency;
+        float relative_center;
         int index;
         gr_complex * data;
     };

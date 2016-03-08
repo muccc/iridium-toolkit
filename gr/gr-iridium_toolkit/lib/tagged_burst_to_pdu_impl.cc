@@ -76,7 +76,8 @@ namespace gr {
 
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("offset"), pmt::mp(burst.offset));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("magnitude"), pmt::mp(burst.magnitude));
-      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("relative_center"), pmt::mp(burst.relative_center_frequency));
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("burst_relative_center"), pmt::mp(burst.relative_center));
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("span_relative_center"), pmt::mp(d_relative_center_frequency));
 
       pmt::pmt_t msg = pmt::cons(d_pdu_meta,
           d_pdu_vector);
@@ -91,13 +92,13 @@ namespace gr {
       get_tags_in_window(new_bursts, 0, 0, noutput_items, pmt::mp("new_burst"));
 
       for(tag_t tag : new_bursts) {
-        float relative_center_frequency = pmt::to_float(pmt::vector_ref(tag.value, 1));
+        float relative_center = pmt::to_float(pmt::vector_ref(tag.value, 1));
 
-        if(d_lower_border < relative_center_frequency && relative_center_frequency <= d_upper_border) {
+        if(d_lower_border < relative_center && relative_center <= d_upper_border) {
           uint64_t id = pmt::to_uint64(pmt::vector_ref(tag.value, 0));
           float magnitude = pmt::to_float(pmt::vector_ref(tag.value, 2));
 
-          burst_data burst = {tag.offset, magnitude, relative_center_frequency, 0};
+          burst_data burst = {tag.offset, magnitude, relative_center - d_relative_center_frequency, 0};
           burst.data = (gr_complex *) malloc(sizeof(gr_complex) * d_max_burst_size);
 
           if(burst.data != NULL) {
@@ -105,7 +106,7 @@ namespace gr {
             int relative_offset = burst.offset - nitems_read(0);
             int to_copy = noutput_items - relative_offset;
             append_to_burst(d_bursts[id], &in[relative_offset], to_copy);
-            printf("New burst: %lu %lu %f %f\n", tag.offset, id, relative_center_frequency, magnitude);
+            printf("New burst: %lu %lu %f %f\n", tag.offset, id, relative_center, magnitude);
           } else {
             printf("Error, malloc failed\n");
           }
