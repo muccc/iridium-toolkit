@@ -61,6 +61,32 @@ class burst_sink_c(gr.sync_block):
         return n
 
 
+class cpdu_sink(gr.sync_block):
+    def __init__(self, callback):
+        gr.sync_block.__init__(self,
+            name="cpdu_sink",
+            in_sig=[],
+            out_sig=[])
+
+        self._callback = callback
+        self.message_port_register_in(gr.pmt.intern('cpdus'))
+        self.set_msg_handler(gr.pmt.intern('cpdus'), self.handle_msg)
+
+    def handle_msg(self, msg_pmt):
+        meta = gr.pmt.to_python(gr.pmt.car(msg_pmt))
+        msg = gr.pmt.cdr(msg_pmt)
+
+        if not gr.pmt.is_c32vector(msg):
+            return
+
+        data = gr.pmt.c32vector_elements(msg)
+
+        #{'relative_center': 0.12646484375, 'magnitude': 8.807437896728516, 'offset': 986113L}
+        print meta
+
+        self._callback(meta['offset'], meta['burst_relative_center'], 
+                meta['span_relative_center'], meta['magnitude'], data)
+
 class Detector(object):
     def __init__(self, sample_rate, decimation, threshold=7.0, verbose=False, signal_width=40e3):
         self._input_sample_rate = sample_rate
