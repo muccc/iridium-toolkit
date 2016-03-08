@@ -188,13 +188,15 @@ class Detector(object):
                                 burst_pre_len=self._burst_pre_len, burst_post_len=self._burst_post_len,
                                 burst_width=self._burst_width, debug=self._verbose)
 
+        pdu_collector = cpdu_sink(self._new_burst_cpdu)
         if self._use_pfb:
+            pdu_converters = []
             sinks = []
 
             for channel in range(self._channels):
                 center = channel if channel <= self._channels / 2 else (channel - self._channels)
 
-                sinks.append(burst_sink_c(self._new_burst, center / float(self._channels), 1. / self._channels))
+                pdu_converters.append(iridium_toolkit.tagged_burst_to_pdu(100000, center / float(self._channels), 1. / self._channels))
 
             #sinks2 = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
 
@@ -206,7 +208,8 @@ class Detector(object):
                 tb.connect(source, fft_burst_tagger, pfb)
 
             for i in range(self._channels):
-                tb.connect((pfb, i), sinks[i])
+                tb.connect((pfb, i), pdu_converters[i])
+                tb.msg_connect((pdu_converters[i], 'cpdus'), (pdu_collector, 'cpdus'))    
                 #tb.connect((pfb, i), sinks2[i])
         else:
             sink = burst_sink_c(self._new_burst, 0., 1.)
@@ -218,6 +221,11 @@ class Detector(object):
 
         self._si = 0
         tb.run()
+
+    def _new_burst_cpdu(self, offset, burst_relative_center, span_relative_center, magnitude, data):
+        self._data_collector(offset / float(self.output_sample_rate), magnitude,
+                burst_relative_center * self._input_sample_rate,
+                span_relative_center * self._input_sample_rate, data)
 
     def _new_burst(self, burst, relative_center):
         with self._lock:
