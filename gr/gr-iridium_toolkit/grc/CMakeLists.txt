@@ -19,5 +19,6 @@
 install(FILES
     iridium_toolkit_fft_burst_tagger.xml
     iridium_toolkit_iuchar_to_complex.xml
-    iridium_toolkit_tagged_burst_to_pdu.xml DESTINATION share/gnuradio/grc/blocks
+    iridium_toolkit_tagged_burst_to_pdu.xml
+    iridium_toolkit_burst_downmix.xml DESTINATION share/gnuradio/grc/blocks
 )

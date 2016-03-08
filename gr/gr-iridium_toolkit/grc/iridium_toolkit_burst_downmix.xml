@@ -1,0 +1,35 @@
+<?xml version="1.0"?>
+<block>
+  <name>burst_downmix</name>
+  <key>iridium_toolkit_burst_downmix</key>
+  <category>iridium_toolkit</category>
+  <import>import iridium_toolkit</import>
+  <make>iridium_toolkit.burst_downmix($sample_rate, $search_depth, $search_window)</make>
+  <param>
+    <name>Sample Rate</name>
+    <key>sample_rate</key>
+    <type>int</type>
+  </param>
+  <param>
+    <name>Search Depth</name>
+    <key>search_depth</key>
+    <type>int</type>
+  </param>
+  <param>
+    <name>Search Window</name>
+    <key>search_window</key>
+    <type>int</type>
+  </param>
+
+  <sink>
+    <name>cpdus</name>
+    <type>message</type>
+  </sink>
+
+  <source>
+    <name>cpdus</name>
+    <type>message</type>
+  </source>
+
+
+</block>

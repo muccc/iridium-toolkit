@@ -24,5 +24,6 @@ install(FILES
     api.h
     fft_burst_tagger.h
     iuchar_to_complex.h
-    tagged_burst_to_pdu.h DESTINATION include/iridium_toolkit
+    tagged_burst_to_pdu.h
+    burst_downmix.h DESTINATION include/iridium_toolkit
 )
