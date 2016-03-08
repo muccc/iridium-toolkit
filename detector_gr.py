@@ -82,6 +82,10 @@ class Detector(object):
             self._fir_bw = (self._input_sample_rate / self._channels + signal_width) / 2
             self._fir_tw = (self.output_sample_rate / 2 - self._fir_bw) * 2
 
+            if self._fir_tw < 0:
+                print >> sys.stderr, "PFB over sampling ratio not enough to create a working FIR filter"
+                sys.exit(1)
+
             self._pfb_fir_filter = gnuradio.filter.firdes.low_pass_2(1, self._input_sample_rate, self._fir_bw, self._fir_tw, 60)
             self._use_pfb = True
 
