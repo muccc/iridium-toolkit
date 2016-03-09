@@ -15,4 +15,8 @@ ambe: ram.h image.h tms320c54x.c
 	gcc -gdwarf-4 -g3 -Wall -Wno-unused-label -O3 -o ambe tms320c54x.c
 
 clean:
-	${RM} ambe image.h
+	${RM} ambe image.h ram.h image.asm
+
+realclean: clean
+	${RM} saram.bin daram.bin c54x-objdump
+	${RM} -r binutils-gdb
