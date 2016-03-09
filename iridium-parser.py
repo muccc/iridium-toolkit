@@ -1051,13 +1051,15 @@ def grouped(iterable, n):
     return izip(*[iter(iterable)]*n)
 
 def de_interleave(group):
-    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
+#    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
+    symbols = [group[z:z+2] for z in xrange(0,len(group),2)]
     even = ''.join([symbols[x] for x in range(len(symbols)-2,-1, -2)])
     odd  = ''.join([symbols[x] for x in range(len(symbols)-1,-1, -2)])
     return (odd,even)
 
 def de_interleave3(group):
-    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
+#    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
+    symbols = [group[z:z+2] for z in xrange(0,len(group),2)]
     third  = ''.join([symbols[x] for x in range(len(symbols)-3, -1, -3)])
     second = ''.join([symbols[x] for x in range(len(symbols)-2, -1, -3)])
     first  = ''.join([symbols[x] for x in range(len(symbols)-1, -1, -3)])
