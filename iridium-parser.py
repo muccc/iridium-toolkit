@@ -22,6 +22,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:ps', [
                                                          'input=',
                                                          'output=',
                                                          'perfect',
+                                                         'interesting',
                                                          'satclass',
                                                          'plot=',
                                                          'filter=',
@@ -40,6 +41,7 @@ hdr_poly=29
 
 verbose = False
 perfect = False
+interesting = False
 good = False
 dosatclass = False
 input= "raw"
@@ -58,6 +60,8 @@ for opt, arg in options:
     elif opt in ('--confidence'):
         good = True
         min_confidence=int(arg)
+    elif opt in ('--interesting'):
+        interesting = True
     elif opt in ('-p', '--perfect'):
         perfect = True
     elif opt in ('-s', '--satclass'):
@@ -455,7 +459,7 @@ class IridiumMessage(Message):
         return str
     def _pretty_trailer(self):
         str= super(IridiumMessage,self)._pretty_trailer()
-        if self.descramble_extra != "":
+        if("descramble_extra" in self.__dict__) and self.descramble_extra != "":
             str+= " descr_extra:"+re.sub(iridium_lead_out,"["+iridium_lead_out+"]",self.descramble_extra)
         return str
     def pretty(self):
@@ -1361,6 +1365,13 @@ def perline(q):
     if dosatclass == True:
         sat=satclass.classify(q.frequency,q.globaltime)
         q.satno=int(sat.name)
+    if interesting:
+        if type(q).__name__ == "IridiumMessage" or type(q).__name__ == "IridiumECCMessage" or type(q).__name__ == "IridiumBCMessage" or type(q).__name__ == "Message" or type(q).__name__ == "IridiumSYMessage" or type(q).__name__ == "IridiumMSMessage" or q.error:
+            return
+        del q.bitstream_raw
+        if("bitstream_messaging" in q.__dict__): del q.bitstream_messaging
+        if("descrambled" in q.__dict__): del q.descrambled
+        del q.descramble_extra
     if len(linefilter)>0:
         if linefilter[0]!="All" and type(q).__name__ != linefilter[0]:
             return
