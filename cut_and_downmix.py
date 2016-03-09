@@ -15,7 +15,7 @@ import complex_sync_search
 import time
 import iridium
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 def normalize(v):
     m = max(v)
