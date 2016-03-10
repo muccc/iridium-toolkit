@@ -30,7 +30,8 @@ namespace gr {
         uint64_t offset;
         float magnitude;
         float relative_frequency;
-        float absolute_frequency;
+        float center_frequency;
+        float sample_rate;
         size_t len;
         gr_complex * data;
     };

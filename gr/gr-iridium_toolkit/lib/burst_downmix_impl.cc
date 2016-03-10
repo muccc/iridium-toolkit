@@ -47,7 +47,6 @@ namespace gr {
               gr::io_signature::make(0, 0, 0)),
               d_max_burst_size(0), d_input(NULL),
               d_tmp_a(NULL), d_tmp_b(NULL),
-              d_input_decimation(sample_rate / 250000),
               d_input_fir(0, input_taps)
     {
       message_port_register_in(pmt::mp("cpdus"));
@@ -102,20 +101,25 @@ namespace gr {
 
       pmt::pmt_t meta = pmt::car(msg);
       float relative_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("relative_frequency"), pmt::PMT_NIL));
-      float absolute_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("absolute_frequency"), pmt::PMT_NIL));
-      printf("relative_frequency=%f\n", relative_frequency);
+      float center_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
+      float sample_rate = pmt::to_float(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
 
+      //float absolute_frequency = center_frequency + relative_frequency * sample_rate;
       float phase_inc = 2 * M_PI * -relative_frequency;
       d_r.set_phase_incr(exp(gr_complex(0, phase_inc)));
       d_r.rotateN(d_tmp_a, burst, burst_size);
+      center_frequency += relative_frequency * sample_rate;
+      relative_frequency = 0;
 
-      int output_samples = (burst_size - d_input_fir.ntaps() + 1) / d_input_decimation;
-      d_input_fir.filterNdec(d_tmp_b, d_tmp_a, output_samples, d_input_decimation);
+      int decimation = std::lround(sample_rate) / 250000;
+      int output_samples = (burst_size - d_input_fir.ntaps() + 1) / decimation;
+      d_input_fir.filterNdec(d_tmp_b, d_tmp_a, output_samples, decimation);
+      sample_rate /= decimation;
 
       pmt::pmt_t pdu_meta = pmt::make_dict();
       pmt::pmt_t pdu_vector = pmt::init_c32vector(output_samples, d_tmp_b);
 
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("sample_rate"), pmt::mp(250000));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("sample_rate"), pmt::mp(sample_rate));
 
       pmt::pmt_t out_msg = pmt::cons(pdu_meta,
           pdu_vector);

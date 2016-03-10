@@ -301,8 +301,9 @@ namespace gr {
         pmt::pmt_t value = pmt::make_dict();
         value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b.id));
         value = pmt::dict_add(value, pmt::mp("relative_frequency"), pmt::from_float(relative_frequency));
-        value = pmt::dict_add(value, pmt::mp("absolute_frequency"), pmt::from_float(d_center_frequency + relative_frequency * d_sample_rate));
-        value = pmt::dict_add(value, pmt::mp("magnitude"), pmt::from_float(relative_frequency));
+        value = pmt::dict_add(value, pmt::mp("center_frequency"), pmt::from_float(d_center_frequency));
+        value = pmt::dict_add(value, pmt::mp("magnitude"), pmt::from_float(b.magnitude));
+        value = pmt::dict_add(value, pmt::mp("sample_rate"), pmt::from_float(d_sample_rate));
 
         // Our output is lagging by d_burst_pre_len samples.
         // Compensate by moving the tag into the past

@@ -77,7 +77,8 @@ namespace gr {
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("offset"), pmt::mp(burst.offset));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("magnitude"), pmt::mp(burst.magnitude));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("relative_frequency"), pmt::mp(burst.relative_frequency));
-      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("absolute_frequency"), pmt::mp(burst.absolute_frequency));
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("center_frequency"), pmt::mp(burst.center_frequency));
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("sample_rate"), pmt::mp(burst.sample_rate));
 
       pmt::pmt_t msg = pmt::cons(d_pdu_meta,
           d_pdu_vector);
@@ -97,9 +98,18 @@ namespace gr {
         if(d_lower_border < relative_frequency && relative_frequency <= d_upper_border) {
           uint64_t id = pmt::to_uint64(pmt::dict_ref(tag.value, pmt::mp("id"), pmt::PMT_NIL));
           float magnitude = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("magnitude"), pmt::PMT_NIL));
-          float absolute_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("absolute_frequency"), pmt::PMT_NIL));
+          float center_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("center_frequency"), pmt::PMT_NIL));
+          float sample_rate = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("sample_rate"), pmt::PMT_NIL));
+          float relative_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("relative_frequency"), pmt::PMT_NIL));
 
-          burst_data burst = {tag.offset, magnitude, relative_frequency - d_relative_center_frequency, absolute_frequency, 0};
+
+          // Adjust the values based on our position behind a potential filter bank
+          center_frequency += d_relative_center_frequency * sample_rate;
+          sample_rate = sample_rate * d_relative_span;
+          relative_frequency = relative_frequency - d_relative_center_frequency;
+
+          burst_data burst = {tag.offset, magnitude, relative_frequency,
+            center_frequency, sample_rate, 0};
           burst.data = (gr_complex *) malloc(sizeof(gr_complex) * d_max_burst_size);
 
           if(burst.data != NULL) {

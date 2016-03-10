@@ -34,8 +34,6 @@ namespace gr {
      private:
       size_t d_max_burst_size;
 
-      int d_input_decimation;
-
       gr_complex * d_input;
       gr_complex * d_tmp_a;
       gr_complex * d_tmp_b;
