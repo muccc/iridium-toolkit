@@ -21,6 +21,9 @@
 #ifndef INCLUDED_IRIDIUM_TOOLKIT_BURST_DOWNMIX_IMPL_H
 #define INCLUDED_IRIDIUM_TOOLKIT_BURST_DOWNMIX_IMPL_H
 
+#include <gnuradio/blocks/rotator.h>
+#include <gnuradio/filter/fir_filter.h>
+
 #include <iridium_toolkit/burst_downmix.h>
 
 namespace gr {
@@ -29,13 +32,26 @@ namespace gr {
     class burst_downmix_impl : public burst_downmix
     {
      private:
-      // Nothing to declare in this block.
+      size_t d_max_burst_size;
+
+      int d_input_decimation;
+
+      gr_complex * d_input;
+      gr_complex * d_tmp_a;
+      gr_complex * d_tmp_b;
+
+      std::vector<float> d_input_taps;
+
+      blocks::rotator d_r;
+      filter::kernel::fir_filter_ccf d_input_fir;
+
+      void handler(pmt::pmt_t msg);
+      void update_buffer_sizes(size_t burst_size);
 
      public:
-      burst_downmix_impl(int sample_rate, int search_depth, int search_window);
+      burst_downmix_impl(int sample_rate, int search_depth, const std::vector<float> &input_taps);
       ~burst_downmix_impl();
 
-      // Where all the action really happens
       int work(int noutput_items,
          gr_vector_const_void_star &input_items,
          gr_vector_void_star &output_items);
