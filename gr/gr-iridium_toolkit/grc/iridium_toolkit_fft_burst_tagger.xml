@@ -4,9 +4,17 @@
   <key>iridium_toolkit_fft_burst_tagger</key>
   <category>iridium_toolkit</category>
   <import>import iridium_toolkit</import>
-  <make>iridium_toolkit.fft_burst_tagger($fft_size, $sample_rate, $burst_pre_len, $burst_post_len,
+  <make>iridium_toolkit.fft_burst_tagger($center_frequency, $fft_size, $sample_rate, $burst_pre_len, $burst_post_len,
                             $burst_width, $max_bursts, $threshold, $history_size, $debug)
   </make>
+
+  <param>
+    <name>Center Frequency</name>
+    <key>center_frequency</key>
+	<value>1626000000</value>
+    <type>float</type>
+  </param>
+
   <param>
     <name>FFT Size</name>
     <key>fft_size</key>

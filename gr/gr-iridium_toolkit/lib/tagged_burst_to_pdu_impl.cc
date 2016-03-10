@@ -62,9 +62,9 @@ namespace gr {
     tagged_burst_to_pdu_impl::append_to_burst(burst_data &burst, const gr_complex * data, size_t n)
     {
         // If the burst really gets longer than this, we can just throw away the data
-      if(burst.index + n <= d_max_burst_size) {
-        memcpy(burst.data + burst.index, data, n * sizeof(gr_complex));
-        burst.index += n;
+      if(burst.len + n <= d_max_burst_size) {
+        memcpy(burst.data + burst.len, data, n * sizeof(gr_complex));
+        burst.len += n;
       }
     }
 
@@ -72,12 +72,12 @@ namespace gr {
     tagged_burst_to_pdu_impl::publish_burst(burst_data &burst)
     {
       pmt::pmt_t d_pdu_meta = pmt::make_dict();
-      pmt::pmt_t d_pdu_vector = pmt::init_c32vector(burst.index, burst.data);
+      pmt::pmt_t d_pdu_vector = pmt::init_c32vector(burst.len, burst.data);
 
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("offset"), pmt::mp(burst.offset));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("magnitude"), pmt::mp(burst.magnitude));
-      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("burst_relative_center"), pmt::mp(burst.relative_center));
-      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("span_relative_center"), pmt::mp(d_relative_center_frequency));
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("relative_frequency"), pmt::mp(burst.relative_frequency));
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("absolute_frequency"), pmt::mp(burst.absolute_frequency));
 
       pmt::pmt_t msg = pmt::cons(d_pdu_meta,
           d_pdu_vector);
@@ -92,13 +92,14 @@ namespace gr {
       get_tags_in_window(new_bursts, 0, 0, noutput_items, pmt::mp("new_burst"));
 
       for(tag_t tag : new_bursts) {
-        float relative_center = pmt::to_float(pmt::vector_ref(tag.value, 1));
+        float relative_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("relative_frequency"), pmt::PMT_NIL));
 
-        if(d_lower_border < relative_center && relative_center <= d_upper_border) {
-          uint64_t id = pmt::to_uint64(pmt::vector_ref(tag.value, 0));
-          float magnitude = pmt::to_float(pmt::vector_ref(tag.value, 2));
+        if(d_lower_border < relative_frequency && relative_frequency <= d_upper_border) {
+          uint64_t id = pmt::to_uint64(pmt::dict_ref(tag.value, pmt::mp("id"), pmt::PMT_NIL));
+          float magnitude = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("magnitude"), pmt::PMT_NIL));
+          float absolute_frequency = pmt::to_float(pmt::dict_ref(tag.value, pmt::mp("absolute_frequency"), pmt::PMT_NIL));
 
-          burst_data burst = {tag.offset, magnitude, relative_center - d_relative_center_frequency, 0};
+          burst_data burst = {tag.offset, magnitude, relative_frequency - d_relative_center_frequency, absolute_frequency, 0};
           burst.data = (gr_complex *) malloc(sizeof(gr_complex) * d_max_burst_size);
 
           if(burst.data != NULL) {
@@ -106,7 +107,7 @@ namespace gr {
             int relative_offset = burst.offset - nitems_read(0);
             int to_copy = noutput_items - relative_offset;
             append_to_burst(d_bursts[id], &in[relative_offset], to_copy);
-            printf("New burst: %lu %lu %f %f\n", tag.offset, id, relative_center, magnitude);
+            printf("New burst: %lu %lu %f %f\n", tag.offset, id, relative_frequency, magnitude);
           } else {
             printf("Error, malloc failed\n");
           }
@@ -121,13 +122,13 @@ namespace gr {
       get_tags_in_window(gone_bursts, 0, 0, noutput_items, pmt::mp("gone_burst"));
 
       for(tag_t tag : gone_bursts) {
-        uint64_t id = pmt::to_uint64(tag.value);
+        uint64_t id = pmt::to_uint64(pmt::dict_ref(tag.value, pmt::mp("id"), pmt::PMT_NIL));
 
         if(d_bursts.count(id)) {
           burst_data &burst = d_bursts[id];
           int relative_offset = tag.offset - nitems_read(0);
           append_to_burst(burst, in, relative_offset);  
-          printf("gone burst: %lu %d\n", id, burst.index);
+          printf("gone burst: %lu %ld\n", id, burst.len);
           publish_burst(burst);
           free(d_bursts[id].data);
           d_bursts.erase(id);

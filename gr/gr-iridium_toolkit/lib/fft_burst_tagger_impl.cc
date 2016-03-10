@@ -37,12 +37,12 @@ namespace gr {
 
     
     fft_burst_tagger::sptr
-    fft_burst_tagger::make(int fft_size, int sample_rate,
+    fft_burst_tagger::make(float center_frequency, int fft_size, int sample_rate,
                             int burst_pre_len, int burst_post_len, int burst_width,
                             int max_bursts, float threshold, int history_size, bool debug)
     {
       return gnuradio::get_initial_sptr
-        (new fft_burst_tagger_impl(fft_size, sample_rate,
+        (new fft_burst_tagger_impl(center_frequency, fft_size, sample_rate,
                 burst_pre_len, burst_post_len, burst_width,
                 max_bursts, threshold, history_size, debug));
     }
@@ -50,12 +50,13 @@ namespace gr {
     /*
      * The private constructor
      */
-    fft_burst_tagger_impl::fft_burst_tagger_impl(int fft_size, int sample_rate,
+    fft_burst_tagger_impl::fft_burst_tagger_impl(float center_frequency, int fft_size, int sample_rate,
                         int burst_pre_len, int burst_post_len, int burst_width,
                         int max_bursts, float threshold, int history_size, bool debug)
       : gr::sync_block("fft_burst_tagger",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
               gr::io_signature::make(1, 1, sizeof(gr_complex))),
+        d_center_frequency(center_frequency), d_sample_rate(sample_rate),
         d_fft_size(fft_size), d_burst_pre_len(burst_pre_len),
         d_fft(NULL), d_history_size(history_size), d_peaks(std::vector<peak>()),
         d_bursts(std::vector<burst>()), d_history_primed(false), d_history_index(0),
@@ -296,10 +297,12 @@ namespace gr {
         //printf("new burst %lu %lu %lu\n", nitems_read(0), b.start, nitems_read(0) - b.start);
         pmt::pmt_t key = pmt::string_to_symbol("new_burst");
         float relative_frequency = (b.center_bin - d_fft_size / 2) / float(d_fft_size);
-        pmt::pmt_t value = pmt::make_vector(3, pmt::PMT_NIL);
-        pmt::vector_set(value, 0, pmt::from_uint64(b.id));
-        pmt::vector_set(value, 1, pmt::from_float(relative_frequency));
-        pmt::vector_set(value, 2, pmt::from_float(b.magnitude));
+
+        pmt::pmt_t value = pmt::make_dict();
+        value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b.id));
+        value = pmt::dict_add(value, pmt::mp("relative_frequency"), pmt::from_float(relative_frequency));
+        value = pmt::dict_add(value, pmt::mp("absolute_frequency"), pmt::from_float(d_center_frequency + relative_frequency * d_sample_rate));
+        value = pmt::dict_add(value, pmt::mp("magnitude"), pmt::from_float(relative_frequency));
 
         // Our output is lagging by d_burst_pre_len samples.
         // Compensate by moving the tag into the past
@@ -319,7 +322,8 @@ namespace gr {
 
         if(nitems_read(0) <= output_index && output_index < nitems_read(0) + noutput_items) {
           pmt::pmt_t key = pmt::string_to_symbol("gone_burst");
-          pmt::pmt_t value = pmt::from_uint64(b->id);
+          pmt::pmt_t value = pmt::make_dict();
+          value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b->id));
           //printf("Tagging gone burst %lu on sample %lu (nitems_read(0)=%lu, noutput_items=%u)\n", b->id, output_index, nitems_read(0), noutput_items);
           add_item_tag(0, output_index, key, value);
 

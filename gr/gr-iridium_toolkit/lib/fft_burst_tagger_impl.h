@@ -66,6 +66,7 @@ namespace gr {
       float * d_burst_mask_f;
       float * d_ones_f;
       float d_threshold;
+      float d_center_frequency;
 
       FILE * d_burst_debug_file;
 
@@ -89,7 +90,7 @@ namespace gr {
       void tag_gone_bursts(int noutput_items);
 
      public:
-      fft_burst_tagger_impl(int fft_size, int sample_rate,
+      fft_burst_tagger_impl(float center_frequency, int fft_size, int sample_rate,
                             int burst_pre_len, int burst_post_len, int burst_width,
                             int max_bursts, float threshold, int history_size, bool debug);
       ~fft_burst_tagger_impl();
