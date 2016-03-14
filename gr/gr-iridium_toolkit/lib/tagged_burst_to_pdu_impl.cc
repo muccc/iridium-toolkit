@@ -74,6 +74,7 @@ namespace gr {
       pmt::pmt_t d_pdu_meta = pmt::make_dict();
       pmt::pmt_t d_pdu_vector = pmt::init_c32vector(burst.len, burst.data);
 
+      d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("id"), pmt::mp(burst.id));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("offset"), pmt::mp(burst.offset));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("magnitude"), pmt::mp(burst.magnitude));
       d_pdu_meta = pmt::dict_add(d_pdu_meta, pmt::mp("relative_frequency"), pmt::mp(burst.relative_frequency));
@@ -108,7 +109,7 @@ namespace gr {
           sample_rate = sample_rate * d_relative_span;
           relative_frequency = relative_frequency - d_relative_center_frequency;
 
-          burst_data burst = {tag.offset, magnitude, relative_frequency,
+          burst_data burst = {id, tag.offset, magnitude, relative_frequency,
             center_frequency, sample_rate, 0};
           burst.data = (gr_complex *) malloc(sizeof(gr_complex) * d_max_burst_size);
 

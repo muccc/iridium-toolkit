@@ -27,6 +27,7 @@ namespace gr {
   namespace iridium_toolkit {
 
     struct burst_data {
+        uint64_t id;
         uint64_t offset;
         float magnitude;
         float relative_frequency;
