@@ -76,8 +76,8 @@ The easier option is to use tnt's AMBE decoder. You can use the extracted decode
 Make sure that the main folder of the toolkit is in your `PATH` variable: `export PATH=$PATH:<this diectory>`
 
 Steps to decode voice:
- - Decode your captured and demodulated bits using `iridium-parser` and put the result into a file: `pypy iridium-parser.py output.bits output.parsed`
- - Use `voc-stats.py` to see streams of captured voice frames: `./voc-stats.py > output.parsed`
+ - Decode your captured and demodulated bits using `iridium-parser` and put the result into a file: `pypy iridium-parser.py output.bits > output.parsed`
+ - Use `voc-stats.py` to see streams of captured voice frames: `./voc-stats.py  output.parsed`
  - Click once left and once right to select an area. `voc-stats.py` will try do decode and play the selected samples using the `play-iridium-ambe` script.
 
 
