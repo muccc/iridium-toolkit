@@ -1223,12 +1223,15 @@ class IridiumMessagingAscii(IridiumMSMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingAscii,self)._pretty_header()
-        return str+ " seq:%02d %10s %1d/%1d"%(self.msg_seq,self.msg_unknown1,self.msg_ctr,self.msg_ctr_max)
+        str+= " seq:%02d %10s %1d/%1d"%(self.msg_seq,self.msg_unknown1,self.msg_ctr,self.msg_ctr_max)
+        (full,rest)=slice_extra(self.msg_msgdata,8)
+        msgx="".join(["%02x"%int(x,2) for x in full])
+        return str+ " csum:%02x msg:%s.%s"%(self.msg_checksum,msgx,rest)
     def _pretty_trailer(self):
         return super(IridiumMessagingAscii,self)._pretty_trailer()
     def pretty(self):
        str= "MSG: "+self._pretty_header()
-       str+= " %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
+       str+= " TXT: %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
        str+= self._pretty_trailer()
        return str
 
