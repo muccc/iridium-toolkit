@@ -77,7 +77,7 @@ namespace gr {
         set_history(d_burst_pre_len + 1);
 
         d_window_f = (float *)volk_malloc(sizeof(float) * d_fft_size, volk_get_alignment());
-        std::vector<float> window = fft::window::build(fft::window::WIN_HAMMING, d_fft_size, 0);
+        std::vector<float> window = fft::window::build(fft::window::WIN_BLACKMAN, d_fft_size, 0);
         memcpy(d_window_f, &window[0], sizeof(float) * d_fft_size);
 
         d_baseline_history_f = (float *)volk_malloc(sizeof(float) * d_fft_size * d_history_size, volk_get_alignment());
