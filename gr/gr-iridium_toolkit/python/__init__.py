@@ -31,4 +31,5 @@ except ImportError:
 	pass
 
 # import any pure python here
+from iridium_qpsk_demod import iridium_qpsk_demod
 #

@@ -31,7 +31,9 @@ endif()
 GR_PYTHON_INSTALL(
     FILES
     __init__.py
-    DESTINATION ${GR_PYTHON_DIR}/iridium_toolkit
+    iridium_qpsk_demod.py
+    gr_iridium.py
+    gr_iridium_demod.py DESTINATION ${GR_PYTHON_DIR}/iridium_toolkit
 )
 
 ########################################################################
@@ -45,3 +47,4 @@ GR_ADD_TEST(qa_fft_burst_tagger ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}
 GR_ADD_TEST(qa_iuchar_to_complex ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_iuchar_to_complex.py)
 GR_ADD_TEST(qa_tagged_burst_to_pdu ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_tagged_burst_to_pdu.py)
 GR_ADD_TEST(qa_burst_downmix ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_burst_downmix.py)
+GR_ADD_TEST(qa_iridium_qpsk_demod ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_iridium_qpsk_demod.py)
