@@ -32,22 +32,49 @@ namespace gr {
     class burst_downmix_impl : public burst_downmix
     {
      private:
+      float d_output_sample_rate;
+      int d_output_samples_per_symbol;
       size_t d_max_burst_size;
+      int d_search_depth;
+      int d_pre_start_samples;
+      int d_cfo_est_fft_size;
+      int d_fft_over_size_facor;
+      int d_corr_fft_size;
+      int d_sync_search_len;
+      bool d_debug;
 
       gr_complex * d_input;
       gr_complex * d_tmp_a;
       gr_complex * d_tmp_b;
+      gr_complex * d_dl_preamble_reversed_conj_fft;
+      gr_complex * d_ul_preamble_reversed_conj_fft;
 
-      std::vector<float> d_input_taps;
+      float * d_magnitude_f;
+      float * d_magnitude_filtered_f;
+      float * d_cfo_est_window_f;
+
+      gr::fft::fft_complex * d_corr_fft;
+      gr::fft::fft_complex * d_corr_ifft;
+
+      filter::kernel::fir_filter_ccf d_input_fir;
+      filter::kernel::fir_filter_fff d_start_finder_fir;
+      filter::kernel::fir_filter_ccf d_rrc_fir;
+
+      std::vector<gr_complex> d_dl_preamble_reversed_conj;
+      std::vector<gr_complex> d_ul_preamble_reversed_conj;
 
       blocks::rotator d_r;
-      filter::kernel::fir_filter_ccf d_input_fir;
+      gr::fft::fft_complex d_cfo_est_fft;
 
       void handler(pmt::pmt_t msg);
       void update_buffer_sizes(size_t burst_size);
+      void initialize_cfo_est_fft(void);
+      void initialize_correlation_filter(void);
+      std::vector<gr_complex> generate_sync_word(iridium::direction direction);
 
      public:
-      burst_downmix_impl(int sample_rate, int search_depth, const std::vector<float> &input_taps);
+      burst_downmix_impl(int sample_rate, int search_depth,
+            const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps);
       ~burst_downmix_impl();
 
       int work(int noutput_items,
