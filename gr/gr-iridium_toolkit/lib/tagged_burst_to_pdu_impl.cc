@@ -42,9 +42,10 @@ namespace gr {
       : gr::sync_block("tagged_burst_to_pdu",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
               gr::io_signature::make(0, 0, 0)),
-              d_max_burst_size(max_burst_size),
+              d_debug(false),
               d_relative_center_frequency(relative_center_frequency),
-              d_relative_span(relative_span)
+              d_relative_span(relative_span),
+              d_max_burst_size(max_burst_size)
     {
       d_lower_border = relative_center_frequency - relative_span / 2;
       d_upper_border = relative_center_frequency + relative_span / 2;
@@ -118,7 +119,9 @@ namespace gr {
             int relative_offset = burst.offset - nitems_read(0);
             int to_copy = noutput_items - relative_offset;
             append_to_burst(d_bursts[id], &in[relative_offset], to_copy);
-            printf("New burst: %lu %lu %f %f\n", tag.offset, id, relative_frequency, magnitude);
+            if(d_debug) {
+              printf("New burst: %lu %lu %f %f\n", tag.offset, id, relative_frequency, magnitude);
+            }
           } else {
             printf("Error, malloc failed\n");
           }
@@ -139,7 +142,9 @@ namespace gr {
           burst_data &burst = d_bursts[id];
           int relative_offset = tag.offset - nitems_read(0);
           append_to_burst(burst, in, relative_offset);  
-          printf("gone burst: %lu %ld\n", id, burst.len);
+          if(d_debug) {
+            printf("gone burst: %lu %ld\n", id, burst.len);
+          }
           publish_burst(burst);
           free(d_bursts[id].data);
           d_bursts.erase(id);

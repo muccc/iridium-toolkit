@@ -40,11 +40,13 @@ namespace gr {
     class tagged_burst_to_pdu_impl : public tagged_burst_to_pdu
     {
      private:
-       float d_lower_border;
-       float d_upper_border;
+       bool d_debug;
        float d_relative_center_frequency;
        float d_relative_span;
        int d_max_burst_size;
+
+       float d_lower_border;
+       float d_upper_border;
 
        std::map<uint64_t, burst_data> d_bursts;
 
