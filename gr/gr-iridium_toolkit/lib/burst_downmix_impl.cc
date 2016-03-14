@@ -80,7 +80,7 @@ namespace gr {
 
               d_fft_over_size_facor(16),
               d_sync_search_len((iridium::PREAMBLE_LENGTH_LONG + iridium::UW_LENGTH + 2) * d_output_samples_per_symbol),
-              d_debug(true),
+              d_debug(false),
 
               d_input(NULL),
               d_tmp_a(NULL),
@@ -325,6 +325,7 @@ namespace gr {
       float center_frequency = pmt::to_float(pmt::dict_ref(meta, pmt::mp("center_frequency"), pmt::PMT_NIL));
       float sample_rate = pmt::to_float(pmt::dict_ref(meta, pmt::mp("sample_rate"), pmt::PMT_NIL));
       uint64_t id = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("id"), pmt::PMT_NIL));
+      uint64_t offset = pmt::to_uint64(pmt::dict_ref(meta, pmt::mp("offset"), pmt::PMT_NIL));
 
       if(d_debug) {
         printf("---------------> id:%lu len:%ld\n", id, burst_size);
@@ -354,6 +355,7 @@ namespace gr {
       int output_samples = (burst_size - d_input_fir.ntaps() + 1) / decimation;
       d_input_fir.filterNdec(d_tmp_b, d_tmp_a, output_samples, decimation);
       sample_rate /= decimation;
+      offset /= decimation;
 
       if(d_debug) {
         //write_data_c(d_tmp_b, output_samples, id + 1000);
@@ -458,21 +460,21 @@ namespace gr {
 
       // Normalize the result.
       // Divide by two to remove the effect of the squaring operation before.
-      float offset = interpolated_index / (d_cfo_est_fft_size * d_fft_over_size_facor) / 2;
+      float center_offset = interpolated_index / (d_cfo_est_fft_size * d_fft_over_size_facor) / 2;
 
       if(d_debug) {
-        printf("interpolated_index=%f offset=%f (%f)\n", interpolated_index, offset, offset * d_output_sample_rate);
+        printf("interpolated_index=%f center_offset=%f (%f)\n", interpolated_index, center_offset, center_offset * d_output_sample_rate);
       }
 
 
       /*
        * Shift the burst again using the result of the FFT.
        */
-      phase_inc = 2 * M_PI * -offset;
+      phase_inc = 2 * M_PI * -center_offset;
       d_r.set_phase_incr(exp(gr_complex(0, phase_inc)));
       d_r.set_phase(gr_complex(1, 0));
       d_r.rotateN(d_tmp_a, d_tmp_b + start, output_samples);
-      center_frequency += offset * sample_rate;
+      center_frequency += center_offset * sample_rate;
 
 
       /*
@@ -501,7 +503,7 @@ namespace gr {
       int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
       int uw_offset = preamble_offset + iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
 
-      // If ther UW offset is < 0, we will not be able to demodulate the signal
+      // If ther UW center_offset is < 0, we will not be able to demodulate the signal
       if(uw_offset < 0) {
         // TODO: Log an error?
         return;
@@ -552,6 +554,8 @@ namespace gr {
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("center_frequency"), pmt::mp(center_frequency));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)direction));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(uw_offset));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("offset"), pmt::mp(offset));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(id));
 
       if(d_debug) {
         printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_offset);
