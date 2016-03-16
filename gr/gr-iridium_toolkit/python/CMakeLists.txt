@@ -48,3 +48,4 @@ GR_ADD_TEST(qa_iuchar_to_complex ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR
 GR_ADD_TEST(qa_tagged_burst_to_pdu ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_tagged_burst_to_pdu.py)
 GR_ADD_TEST(qa_burst_downmix ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_burst_downmix.py)
 GR_ADD_TEST(qa_iridium_qpsk_demod ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_iridium_qpsk_demod.py)
+GR_ADD_TEST(qa_pdu_null_sink ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_pdu_null_sink.py)

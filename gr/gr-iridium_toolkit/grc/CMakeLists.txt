@@ -21,5 +21,6 @@ install(FILES
     iridium_toolkit_iuchar_to_complex.xml
     iridium_toolkit_tagged_burst_to_pdu.xml
     iridium_toolkit_burst_downmix.xml
-    iridium_toolkit_iridium-qpsk-demod.xml DESTINATION share/gnuradio/grc/blocks
+    iridium_toolkit_iridium-qpsk-demod.xml
+    iridium_toolkit_pdu_null_sink.xml DESTINATION share/gnuradio/grc/blocks
 )
