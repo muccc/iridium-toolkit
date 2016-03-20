@@ -19,7 +19,7 @@ import gnuradio.blocks
 import gnuradio.filter
 import collections
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 
 def normalize(v):
     m = max(v)

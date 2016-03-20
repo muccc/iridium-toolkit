@@ -13,3 +13,6 @@ image.h: image.asm asm2c.pl
 
 ambe: ram.h image.h tms320c54x.c
 	gcc -gdwarf-4 -g3 -Wall -Wno-unused-label -O3 -o ambe tms320c54x.c
+
+clean:
+	${RM} ambe image.h

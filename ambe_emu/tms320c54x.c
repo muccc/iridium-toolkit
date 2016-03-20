@@ -421,18 +421,20 @@ void decode (FILE*fin, FILE* fout){
 }
 
 int  main(int argc, char ** argv) {
-	int wav=0;
+	int wav=1;
 	int opt;
 	char *outfile;
 	FILE *fin, *fout;
 
-	while ((opt = getopt(argc, argv,"wh")) != -1) {
+	while ((opt = getopt(argc, argv,"wrh")) != -1) {
 		switch (opt) {
 			case 'w' : wav = 1;
 					   break;
+			case 'r' : wav = 0;
+					   break;
 			default: 
 					   fprintf(stderr, "Usage:\n");
-					   fprintf(stderr, "\t%s: [-w] input.dfs\n",argv[0]);
+					   fprintf(stderr, "\t%s: [-w] [-r] input.dfs\n",argv[0]);
 					   exit(EXIT_FAILURE);
 		}
 	}
@@ -445,6 +447,8 @@ int  main(int argc, char ** argv) {
 	/* create output file name */
 	outfile=calloc(1,strlen(argv[optind])+4);
 	strcpy(outfile, argv[optind]);
+	if (strrchr(outfile,'/')!=NULL)
+		outfile=1+strrchr(outfile,'/');
 	char * ext=strrchr(outfile, '.');
 	if(!ext)
 		ext=outfile+strlen(outfile);
@@ -453,8 +457,17 @@ int  main(int argc, char ** argv) {
 	else
 		strcpy(ext,".out");
 
-	fout = fopen(outfile, "wb");
 	fin = fopen(argv[optind], "rb");
+	if (!fin){
+		perror("input file");
+		exit(1);
+	};
+	fout = fopen(outfile, "wb");
+	if (!fout){
+		fprintf(stderr,"output file(\"%s\")",outfile);
+		perror("");
+		exit(1);
+	};
 
 	if (wav)
 		wavhdr(fout);

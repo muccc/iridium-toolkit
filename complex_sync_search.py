@@ -5,7 +5,7 @@ import numpy
 import os.path
 import cmath
 import filters
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import scipy.optimize
 import scipy.signal
 import iridium
