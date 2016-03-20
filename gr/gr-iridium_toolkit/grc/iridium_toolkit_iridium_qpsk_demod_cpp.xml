@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<block>
+  <name>iridium_qpsk_demod_cpp</name>
+  <key>iridium_toolkit_iridium_qpsk_demod_cpp</key>
+  <category>iridium_toolkit</category>
+  <import>import iridium_toolkit</import>
+  <make>iridium_toolkit.iridium_qpsk_demod_cpp()</make>
+
+  <sink>
+    <name>cpdus</name>
+    <type>message</type>
+  </sink>
+
+</block>

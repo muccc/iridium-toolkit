@@ -18,4 +18,7 @@ const int PREAMBLE_LENGTH_LONG = 64;
 const int MAX_FRAME_LENGTH_NORMAL = 191;
 const int MAX_FRAME_LENGTH_SIMPLEX = 444;
 
+const int UW_DL[] = {0, 2, 2, 2, 2, 0, 0, 0, 2, 0, 0, 2};
+const int UW_UL[] = {2, 2, 0, 0, 0, 2, 0, 0, 2, 0, 2, 2};
+
 }

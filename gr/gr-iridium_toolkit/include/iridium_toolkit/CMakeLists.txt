@@ -26,5 +26,6 @@ install(FILES
     iuchar_to_complex.h
     tagged_burst_to_pdu.h
     burst_downmix.h
-    pdu_null_sink.h DESTINATION include/iridium_toolkit
+    pdu_null_sink.h
+    iridium_qpsk_demod_cpp.h DESTINATION include/iridium_toolkit
 )
