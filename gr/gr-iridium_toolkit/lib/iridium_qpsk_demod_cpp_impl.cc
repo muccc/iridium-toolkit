@@ -323,7 +323,7 @@ namespace gr {
         printf("A:no ");
       }
 
-      printf("L:?? ");
+      printf("L:no ");
 
       printf("%3d%% %.3f %3d ", confidence, level, (int)n_symbols - iridium::UW_LENGTH);
 
