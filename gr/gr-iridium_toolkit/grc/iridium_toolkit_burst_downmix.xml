@@ -4,7 +4,7 @@
   <key>iridium_toolkit_burst_downmix</key>
   <category>iridium_toolkit</category>
   <import>import iridium_toolkit</import>
-  <make>iridium_toolkit.burst_downmix($sample_rate, $search_depth, $input_taps, $start_finder_taps)</make>
+  <make>iridium_toolkit.burst_downmix($sample_rate, $search_depth, $hard_max_queue_len, $input_taps, $start_finder_taps)</make>
 
   <param>
     <name>Sample Rate</name>
@@ -15,6 +15,12 @@
   <param>
     <name>Search Depth</name>
     <key>search_depth</key>
+    <type>int</type>
+  </param>
+
+  <param>
+    <name>Hard Max Queue Length</name>
+    <key>hard_max_queue_len</key>
     <type>int</type>
   </param>
 

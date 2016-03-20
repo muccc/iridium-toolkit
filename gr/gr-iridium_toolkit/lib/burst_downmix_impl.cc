@@ -53,17 +53,17 @@ namespace gr {
     }
 
     burst_downmix::sptr
-    burst_downmix::make(int sample_rate, int search_depth,
+    burst_downmix::make(int sample_rate, int search_depth, size_t hard_max_queue_len,
             const std::vector<float> &input_taps,  const std::vector<float> &start_finder_taps)
     {
       return gnuradio::get_initial_sptr
-        (new burst_downmix_impl(sample_rate, search_depth, input_taps, start_finder_taps));
+        (new burst_downmix_impl(sample_rate, search_depth, hard_max_queue_len, input_taps, start_finder_taps));
     }
 
     /*
      * The private constructor
      */
-    burst_downmix_impl::burst_downmix_impl(int sample_rate, int search_depth,
+    burst_downmix_impl::burst_downmix_impl(int sample_rate, int search_depth, size_t hard_max_queue_len,
             const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps)
       : gr::sync_block("burst_downmix",
               gr::io_signature::make(0, 0, 0),
@@ -80,6 +80,7 @@ namespace gr {
 
               d_fft_over_size_facor(16),
               d_sync_search_len((iridium::PREAMBLE_LENGTH_LONG + iridium::UW_LENGTH + 2) * d_output_samples_per_symbol),
+              d_hard_max_queue_len(hard_max_queue_len),
               d_debug(false),
 
               d_input(NULL),
@@ -331,6 +332,11 @@ namespace gr {
         printf("---------------> id:%lu len:%ld\n", id, burst_size);
         float absolute_frequency = center_frequency + relative_frequency * sample_rate;
         printf("relative_frequency=%f, absolute_frequency=%f\n", relative_frequency, absolute_frequency);
+      }
+
+      if(nmsgs(pmt::mp("cpdus")) >= d_hard_max_queue_len) {
+        std::cerr << "Warning: Dropping burst as hard queue length is reached!" << std::endl;
+        return;
       }
 
       // This burst might be larger than the one before.

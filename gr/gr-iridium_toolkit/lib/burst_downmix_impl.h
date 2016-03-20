@@ -41,6 +41,7 @@ namespace gr {
       int d_fft_over_size_facor;
       int d_corr_fft_size;
       int d_sync_search_len;
+      int d_hard_max_queue_len;
       bool d_debug;
 
       gr_complex * d_input;
@@ -73,7 +74,7 @@ namespace gr {
       std::vector<gr_complex> generate_sync_word(iridium::direction direction);
 
      public:
-      burst_downmix_impl(int sample_rate, int search_depth,
+      burst_downmix_impl(int sample_rate, int search_depth, size_t hard_max_queue_len,
             const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps);
       ~burst_downmix_impl();
 

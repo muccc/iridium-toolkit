@@ -46,7 +46,7 @@ namespace gr {
        * class. iridium_toolkit::burst_downmix::make is the public interface for
        * creating new instances.
        */
-      static sptr make(int sample_rate, int search_depth,
+      static sptr make(int sample_rate, int search_depth, size_t hard_max_queue_len,
             const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps);
     };
 
