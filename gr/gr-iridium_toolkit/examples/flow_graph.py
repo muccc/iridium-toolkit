@@ -83,6 +83,10 @@ class FlowGraph(gr.top_block):
             self._use_pfb = False
             self._burst_sample_rate = self._input_sample_rate
 
+        # After 90 ms there needs to be a pause in the frame sturcture.
+        # Let's make that the limit for a detected burst
+        self._max_burst_len = int(self._burst_sample_rate * 0.09)
+
         if self._verbose:
             print >> sys.stderr, "require %.1f dB" % self._threshold
             print >> sys.stderr, "burst_width: %d (= %.1f Hz)" % (self._burst_width, self._burst_width*self._input_sample_rate/self._fft_size)
@@ -168,9 +172,8 @@ class FlowGraph(gr.top_block):
             for channel in range(self._channels):
                 center = channel if channel <= self._channels / 2 else (channel - self._channels)
 
-                # TODO: First paramter is max burst size. Make it dynamic (about 100 ms).
                 # Second and third parameters tell the block where after the PFB it sits.
-                pdu_converters.append(iridium_toolkit.tagged_burst_to_pdu(100000, center / float(self._channels), 1. / self._channels))
+                pdu_converters.append(iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, center / float(self._channels), 1. / self._channels))
 
             #pfb_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
             pfb_debug_sinks = None
@@ -189,7 +192,7 @@ class FlowGraph(gr.top_block):
 
                 tb.msg_connect((pdu_converters[i], 'cpdus'), (burst_downmix, 'cpdus'))    
         else:
-            burst_to_pdu = iridium_toolkit.tagged_burst_to_pdu(100000, 0.0, 1.0)
+            burst_to_pdu = iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0)
 
             if converter:
                 tb.connect(source, converter, fft_burst_tagger, burst_to_pdu)
