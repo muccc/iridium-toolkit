@@ -24,7 +24,7 @@ class FlowGraph(gr.top_block):
         self._filename = filename
 
         self._fft_size = int(math.pow(2, 1 + int(math.log(self._input_sample_rate / 1000, 2)))) # fft is approx 1ms long
-        self._burst_pre_len = self._fft_size
+        self._burst_pre_len = 2 * self._fft_size
         self._burst_post_len = 8 * self._fft_size
         self._burst_width= int(self._signal_width / (self._input_sample_rate / self._fft_size)) # Area to ignore around an already found signal in FFT bins
         if decimation > 1:
@@ -157,11 +157,14 @@ class FlowGraph(gr.top_block):
 
         # Initial filter to filter the detected bursts. Runs at burst_sample_rate. Used to decimate the signal.
         # TODO: Should probably be set to self._signal_width
-        input_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 50e3/2, 50e3/2/2, 60)
+        input_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 40e3/2, 40e3, 40)
+        #input_filter = gnuradio.filter.firdes.low_pass_2(1, self._burst_sample_rate, 42e3/2, 24e3, 40)
+        #print len(input_filter)
 
         # Filter to find the start of the signal. Should be fairly narrow.
         # TODO: 250000 appears as magic number here
-        start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, 250000, 10e3, 10e3, 60)
+        start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, 250000, 5e3/2, 10e3/2, 60)
+        #print len(start_finder_filter)
 
         burst_downmix = iridium_toolkit.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 1000, (input_filter), (start_finder_filter))
 
