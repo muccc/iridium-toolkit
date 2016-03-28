@@ -191,7 +191,7 @@ namespace gr {
           n_ok++;
         }
 
-        if(d_magnitude_f[index] < 0.1 * max) {
+        if(d_magnitude_f[index] < max / 8.) {
           low_count++;
           if(low_count > 2) {
             break;
