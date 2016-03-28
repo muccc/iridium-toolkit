@@ -56,6 +56,8 @@ namespace gr {
       int d_max_bursts;
       int d_sample_rate;
       uint64_t d_index;
+      uint64_t d_burst_id;
+      uint64_t d_n_tagged_bursts;
 
       float * d_window_f;
       float * d_magnitude_f;

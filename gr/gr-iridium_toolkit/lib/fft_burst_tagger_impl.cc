@@ -58,6 +58,8 @@ namespace gr {
               gr::io_signature::make(1, 1, sizeof(gr_complex))),
         d_center_frequency(center_frequency), d_sample_rate(sample_rate),
         d_fft_size(fft_size), d_burst_pre_len(burst_pre_len),
+        d_burst_id(0),
+        d_n_tagged_bursts(0),
         d_fft(NULL), d_history_size(history_size), d_peaks(std::vector<peak>()),
         d_bursts(std::vector<burst>()), d_history_primed(false), d_history_index(0),
         d_burst_post_len(burst_post_len), d_burst_width(burst_width), d_debug(debug), d_burst_debug_file(NULL)
@@ -120,6 +122,7 @@ namespace gr {
      */
     fft_burst_tagger_impl::~fft_burst_tagger_impl()
     {
+      fprintf(stderr, "Tagged %ld bursts\n", d_n_tagged_bursts);
       delete d_fft;
       volk_free(d_window_f);
       volk_free(d_baseline_history_f);
@@ -193,11 +196,10 @@ namespace gr {
     void
     fft_burst_tagger_impl::create_new_bursts(void)
     {
-      static uint64_t burst_id;
       for(peak p : d_peaks) {
         if(d_burst_mask_f[p.bin]) {
           burst b;
-          b.id = burst_id++;
+          b.id = d_burst_id++;
           b.center_bin = p.bin;
 
           // Normalize the relative magnitude
@@ -327,6 +329,7 @@ namespace gr {
           value = pmt::dict_add(value, pmt::mp("id"), pmt::from_uint64(b->id));
           //printf("Tagging gone burst %lu on sample %lu (nitems_read(0)=%lu, noutput_items=%u)\n", b->id, output_index, nitems_read(0), noutput_items);
           add_item_tag(0, output_index, key, value);
+          d_n_tagged_bursts++;
 
           b = d_gone_bursts.erase(b);
         } else {
