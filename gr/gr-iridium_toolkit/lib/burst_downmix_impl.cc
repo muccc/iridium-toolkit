@@ -38,18 +38,22 @@ namespace gr {
   namespace iridium_toolkit {
 
 
-    void write_data_c(const gr_complex * data, size_t len, int num)
+    void write_data_c(const gr_complex * data, size_t len, char *name, int num)
     {
         char filename[256];
-        sprintf(filename, "/tmp/signals/signal-%d.cfile", num);
+        sprintf(filename, "/tmp/signals/%s-%d.cfile", name, num);
         FILE * fp = fopen(filename, "wb");
         fwrite(data, sizeof(gr_complex), len, fp);
         fclose(fp);
+    }
 
-        //fp = fopen("/tmp/last.cfile", "wb");
-        //fwrite(data, sizeof(gr_complex), len, fp);
-        //fclose(fp);
-
+    void write_data_f(const float * data, size_t len, char *name, int num)
+    {
+        char filename[256];
+        sprintf(filename, "/tmp/signals/%s-%d.f32", name, num);
+        FILE * fp = fopen(filename, "wb");
+        fwrite(data, sizeof(float), len, fp);
+        fclose(fp);
     }
 
     burst_downmix::sptr
@@ -192,10 +196,10 @@ namespace gr {
       sync_word_padded.erase(std::end(sync_word_padded) - d_output_samples_per_symbol + 1, std::end(sync_word_padded));
 
 
-      int half_fir_size = (d_rrc_fir.ntaps() - 1) / 2;
+      int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
       std::vector<gr_complex> tmp(sync_word_padded);
 
-      for(i = 0; i < half_fir_size; i++) {
+      for(i = 0; i < half_rrc_size; i++) {
         tmp.push_back(0);
         tmp.insert(tmp.begin(), 0);
       }
@@ -341,7 +345,11 @@ namespace gr {
 
       // This burst might be larger than the one before.
       // Update he buffer sizes if needed.
-      update_buffer_sizes(burst_size);
+      update_buffer_sizes(burst_size + 10000);
+
+      if(d_debug) {
+        write_data_c(burst, burst_size, (char *)"signal", id);
+      }
 
 
       /*
@@ -358,15 +366,28 @@ namespace gr {
        * Apply the initial low pass filter and decimate the burst.
        */
       int decimation = std::lround(sample_rate) / d_output_sample_rate;
+
+#if 0
+      // Option for additional padding. Probably not needed.
+      //int input_fir_pad_size = (d_input_fir.ntaps() - 1) / 2;
+      int input_fir_pad_size = d_input_fir.ntaps();
+      memmove(d_tmp_a + input_fir_pad_size, d_tmp_a, sizeof(gr_complex) * burst_size);
+      memset(d_tmp_a, 0, sizeof(gr_complex) * input_fir_pad_size);
+      memset(d_tmp_a + input_fir_pad_size + burst_size, 0, sizeof(gr_complex) * input_fir_pad_size);
+
+      int output_samples = burst_size / decimation;
+#else
       int output_samples = (burst_size - d_input_fir.ntaps() + 1) / decimation;
+#endif
+
       d_input_fir.filterNdec(d_tmp_b, d_tmp_a, output_samples, decimation);
+
       sample_rate /= decimation;
       offset /= decimation;
 
       if(d_debug) {
-        //write_data_c(d_tmp_b, output_samples, id + 1000);
+        write_data_c(d_tmp_b, output_samples, (char *)"signal-filtered-deci", id);
       }
-
 
       /*
        * Use the center frequency to make some assumptions about the burst.
@@ -377,7 +398,7 @@ namespace gr {
       // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
       // We ignore that and cut away the extra 48 symbols.
       if(center_frequency > iridium::SIMPLEX_FREQUENCY_MIN) {
-        // Frames above this frequency must be downlink and simplex framse
+        // Frames above this frequency must be downlink and simplex frames.
         // XXX: If the SDR is not configured well, there might be aliasing from low
         // frequencies in this region.
         direction = iridium::direction::DOWNLINK;
@@ -392,15 +413,39 @@ namespace gr {
        * Look at most d_search_depth far.
        */
 
+      int half_fir_size = (d_start_finder_fir.ntaps() - 1) / 2;
+#if 1
       // The burst might be shorter than d_search_depth.
-      volk_32fc_magnitude_32f(d_magnitude_f, d_tmp_b, std::min(d_search_depth, output_samples));
+      int N = std::min(d_search_depth, output_samples);
 
+      // TODO: Maybe it safe and more efficient to add the offset
+      // to the call to volk.
+      volk_32fc_magnitude_32f(d_magnitude_f, d_tmp_b, N);
+      memmove(d_magnitude_f + half_fir_size, d_magnitude_f, sizeof(float) * N);
+
+      if(d_debug) {
+        write_data_f(d_magnitude_f + half_fir_size, N, (char *)"signal-mag", id);
+      }
+
+      memset(d_magnitude_f, 0, sizeof(float) * half_fir_size);
+      memset(d_magnitude_f + half_fir_size + N, 0, sizeof(float) * half_fir_size);
+#else
+      volk_32fc_magnitude_32f(d_magnitude_f, d_tmp_b, std::min(d_search_depth, output_samples));
       if(output_samples < d_search_depth) {
         memset(d_magnitude_f + output_samples, 0, sizeof(float) * (d_search_depth - output_samples));
       }
-
       int N = d_search_depth - d_start_finder_fir.ntaps() + 1;
+      if(d_debug) {
+        write_data_f(d_magnitude_f, N, (char *)"signal-mag", id);
+      }
+#endif
+
+
       d_start_finder_fir.filterN(d_magnitude_filtered_f, d_magnitude_f, N);
+
+      if(d_debug) {
+        write_data_f(d_magnitude_filtered_f, N, (char *)"signal-mag-filter", id);
+      }
 
       float * max = std::max_element(d_magnitude_filtered_f, d_magnitude_filtered_f + N);
       float threshold = *max * 0.5;
@@ -414,7 +459,13 @@ namespace gr {
             break;
         }
       }
+
+#if 1
       start = std::max(start - d_pre_start_samples, 0);
+#else
+      start = std::max(start - d_pre_start_samples + half_fir_size, 0);
+#endif
+
       if(d_debug) {
         std::cout << "Start:" << start << "\n";
       }
@@ -423,18 +474,23 @@ namespace gr {
       /*
        * Find the fine CFO estimate using an FFT over the preamble and the first symbols
        * of the unique word.
-       * The signal gets squared to remove the BPSK from the uniqe word.
+       * The signal gets squared to remove the BPSK modulation from the unique word.
        */
-      gr_complex * tmp = d_tmp_b + start;
-      if(output_samples - start < d_cfo_est_fft_size) {
+      output_samples -= start;
+
+      if(output_samples < d_cfo_est_fft_size) {
         // There are not enough samples available to run the FFT.
         // TODO: Log error.
         return;
       }
 
+      if(d_debug) {
+        write_data_c(d_tmp_b + start, output_samples, (char *)"signal-filtered-deci-cut-start", id);
+      }
+
       // TODO: Not sure which way to square is faster.
-      //volk_32fc_x2_multiply_32fc(d_tmp_a, tmp, tmp, d_cfo_est_fft_size);
-      volk_32fc_s32f_power_32fc(d_tmp_a, tmp, 2, d_cfo_est_fft_size);
+      //volk_32fc_x2_multiply_32fc(d_tmp_a, d_tmp_b + start, d_tmp_b + start, d_cfo_est_fft_size);
+      volk_32fc_s32f_power_32fc(d_tmp_a, d_tmp_b + start, 2, d_cfo_est_fft_size);
       volk_32fc_32f_multiply_32fc(d_cfo_est_fft.get_inbuf(), d_tmp_a, d_cfo_est_window_f, d_cfo_est_fft_size);
       d_cfo_est_fft.execute();
       volk_32fc_magnitude_32f(d_magnitude_f, d_cfo_est_fft.get_outbuf(), d_cfo_est_fft_size * d_fft_over_size_facor);
@@ -446,13 +502,14 @@ namespace gr {
 
       // Interpolate the result of the FFT to get a finer resolution.
       // see http://www.dsprelated.com/dspbooks/sasp/Quadratic_Interpolation_Spectral_Peaks.html
+      // TODO: The window should be Gaussian and the output should be put on a log scale
       float alpha = d_magnitude_f[(max_index - 1) % (d_cfo_est_fft_size * d_fft_over_size_facor)];
       float beta = d_magnitude_f[max_index];
       float gamma = d_magnitude_f[(max_index + 1) % (d_cfo_est_fft_size * d_fft_over_size_facor)];
       float correction = 0.5 * (alpha - gamma) / (alpha - 2*beta + gamma);
       float interpolated_index = max_index + correction;
 
-      // Prevent underflows
+      // Prevent underflows.
       if(interpolated_index < 0) {
         interpolated_index += d_cfo_est_fft_size * d_fft_over_size_facor;
       }
@@ -482,6 +539,10 @@ namespace gr {
       d_r.rotateN(d_tmp_a, d_tmp_b + start, output_samples);
       center_frequency += center_offset * sample_rate;
 
+      if(d_debug) {
+        write_data_c(d_tmp_a, output_samples, (char *)"signal-filtered-deci-cut-start-shift", id);
+      }
+
 
       /*
        * Use a correlation to find the start of the sync word.
@@ -507,10 +568,10 @@ namespace gr {
       // Careful: The correlation might have found the start of the sync word
       // before the first sample => preamble_offset might be negative
       int preamble_offset = corr_offset - d_dl_preamble_reversed_conj.size() + 1;
-      int uw_offset = preamble_offset + iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
+      int uw_start = preamble_offset + iridium::PREAMBLE_LENGTH_SHORT * d_output_samples_per_symbol;
 
-      // If ther UW center_offset is < 0, we will not be able to demodulate the signal
-      if(uw_offset < 0) {
+      // If ther UW starts at an offset < 0, we will not be able to demodulate the signal
+      if(uw_start < 0) {
         // TODO: Log an error?
         return;
       }
@@ -518,37 +579,45 @@ namespace gr {
       // Clamp preamble_offset to >= 0
       preamble_offset = std::max(0, preamble_offset);
 
-
-      /*
-       * Align the burst so the first sample of the burst is the first symbol
-       * of the 16 symbol preamble after the RRC filter.
-       *
-       */
-      output_samples -= preamble_offset;
-      output_samples = std::min(output_samples, max_frame_length);
-
-      // Make some room at the start and the end, so the RRC can run
-      int half_fir_size = (d_rrc_fir.ntaps() - 1) / 2;
-      memmove(d_tmp_a + half_fir_size, d_tmp_a + preamble_offset, output_samples * sizeof(gr_complex));
-      memset(d_tmp_a, 0, half_fir_size * sizeof(gr_complex));
-      memset(d_tmp_a + half_fir_size + output_samples, 0, half_fir_size * sizeof(gr_complex));
-      uw_offset -= preamble_offset;
-      preamble_offset = 0;
-
+      output_samples = std::min(output_samples, max_frame_length + preamble_offset);
 
       /*
        * Rotate the phase so the demodulation has a starting point.
        */
       d_r.set_phase_incr(exp(gr_complex(0, 0)));
       d_r.set_phase(std::conj(corr_result));
-      d_r.rotateN(d_tmp_b, d_tmp_a, output_samples + half_fir_size * 2);
+      d_r.rotateN(d_tmp_b, d_tmp_a, output_samples);
 
+      if(d_debug) {
+        write_data_c(d_tmp_b, output_samples, (char *)"signal-filtered-deci-cut-start-shift-rotate", id);
+      }
+
+      /*
+       * Align the burst so the first sample of the burst is the first symbol
+       * of the 16 symbol preamble after the RRC filter.
+       *
+       */
+
+      // Make some room at the start and the end, so the RRC can run
+      int half_rrc_size = (d_rrc_fir.ntaps() - 1) / 2;
+      memmove(d_tmp_b + half_rrc_size, d_tmp_b + preamble_offset, output_samples * sizeof(gr_complex));
+      memset(d_tmp_b, 0, half_rrc_size * sizeof(gr_complex));
+      memset(d_tmp_b + half_rrc_size + output_samples, 0, half_rrc_size * sizeof(gr_complex));
+
+
+      // Update the amount of available samples after filtering
+      uw_start -= preamble_offset;
+      output_samples = std::max(output_samples - preamble_offset, 0);
+      preamble_offset = 0;
 
       /*
        * Apply the RRC filter.
        */
       d_rrc_fir.filterN(d_tmp_a, d_tmp_b, output_samples);
 
+      if(d_debug) {
+        write_data_c(d_tmp_a, output_samples, (char *)"signal-filtered-deci-cut-start-shift-rotate-filter", id);
+      }
 
       /*
        * Done :)
@@ -559,13 +628,12 @@ namespace gr {
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("sample_rate"), pmt::mp(sample_rate));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("center_frequency"), pmt::mp(center_frequency));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("direction"), pmt::mp((int)direction));
-      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(uw_offset));
+      pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("uw_start"), pmt::mp(uw_start));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("offset"), pmt::mp(offset));
       pdu_meta = pmt::dict_add(pdu_meta, pmt::mp("id"), pmt::mp(id));
 
       if(d_debug) {
-        printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_offset);
-        write_data_c(d_tmp_a, output_samples, id);
+        printf("center_frequency=%f, uw_start=%u\n", center_frequency, uw_start);
       }
 
       pmt::pmt_t out_msg = pmt::cons(pdu_meta,
