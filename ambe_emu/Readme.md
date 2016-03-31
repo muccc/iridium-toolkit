@@ -1,6 +1,6 @@
 This builds an emulated C version of the iridium AMBE codec.
 
-Prereqisites are:
+Prerequisites are:
 
 - c54x-objdump
 
