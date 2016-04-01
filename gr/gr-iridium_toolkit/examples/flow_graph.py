@@ -3,6 +3,8 @@
 
 import iridium_toolkit
 
+import scipy.signal
+
 import osmosdr
 import gnuradio.filter
 
@@ -66,13 +68,13 @@ class FlowGraph(gr.top_block):
                 raise RuntimeError("PFB over sampling ratio not enough to create a working FIR filter")
 
             self._pfb_fir_filter = gnuradio.filter.firdes.low_pass_2(1, self._input_sample_rate, self._fir_bw, self._fir_tw, 60)
-            
+
             # If the transition width approaches 0, the filter size goes up significantly.
             if len(self._pfb_fir_filter) > 200:
                 print >> sys.stderr, "Warning: The PFB FIR filter has an abnormal large number of taps:", len(self._pfb_fir_filter)
                 print >> sys.stderr, "Consider reducing the decimation factor or increase the over sampling ratio"
 
-            
+
             self._burst_sample_rate = pfb_output_sample_rate
             if self._verbose:
                 print >> sys.stderr, "self._channels", self._channels
@@ -144,7 +146,7 @@ class FlowGraph(gr.top_block):
         #fft_burst_tagger::make(float center_frequency, int fft_size, int sample_rate,
         #                    int burst_pre_len, int burst_post_len, int burst_width,
         #                    int max_bursts, float threshold, int history_size, bool debug)
- 
+
         fft_burst_tagger = iridium_toolkit.fft_burst_tagger(center_frequency=self._center_frequency,
                                 fft_size=self._fft_size,
                                 sample_rate=self._input_sample_rate,
@@ -166,10 +168,12 @@ class FlowGraph(gr.top_block):
         start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, 250000, 5e3/2, 10e3/2, 60)
         #print len(start_finder_filter)
 
-        burst_downmix = iridium_toolkit.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 1000, (input_filter), (start_finder_filter))
+        iridium_qpsk_demod = iridium_toolkit.iridium_qpsk_demod_cpp()
+        #iridium_qpsk_demod = iridium_toolkit.iridium_qpsk_demod(250000)
 
         if self._use_pfb:
             pdu_converters = []
+            burst_downmixers = []
             sinks = []
 
             for channel in range(self._channels):
@@ -177,6 +181,7 @@ class FlowGraph(gr.top_block):
 
                 # Second and third parameters tell the block where after the PFB it sits.
                 pdu_converters.append(iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, center / float(self._channels), 1. / self._channels))
+                burst_downmixers.append(iridium_toolkit.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 1000, (input_filter), (start_finder_filter)))
 
             #pfb_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
             pfb_debug_sinks = None
@@ -193,20 +198,26 @@ class FlowGraph(gr.top_block):
                 if pfb_debug_sinks:
                     tb.connect((pfb, i), pfb_debug_sinks[i])
 
-                tb.msg_connect((pdu_converters[i], 'cpdus'), (burst_downmix, 'cpdus'))    
+                tb.msg_connect((pdu_converters[i], 'cpdus'), (burst_downmixers[i], 'cpdus'))
+                tb.msg_connect((burst_downmixers[i], 'burst_handled'), (pdu_converters[i], 'burst_handled'))
+
+                tb.msg_connect((burst_downmixers[i], 'cpdus'), (iridium_qpsk_demod, 'cpdus'))
         else:
+            burst_downmix = iridium_toolkit.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 1000, (input_filter), (start_finder_filter))
             burst_to_pdu = iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0)
 
             if converter:
+                #multi = blocks.multiply_const_cc(1/128.)
+                #tb.connect(source, converter, multi, fft_burst_tagger, burst_to_pdu)
                 tb.connect(source, converter, fft_burst_tagger, burst_to_pdu)
             else:
                 tb.connect(source, fft_burst_tagger, burst_to_pdu)
 
 
-            tb.msg_connect((burst_to_pdu, 'cpdus'), (burst_downmix, 'cpdus'))    
+            tb.msg_connect((burst_to_pdu, 'cpdus'), (burst_downmix, 'cpdus'))
+            tb.msg_connect((burst_downmix, 'burst_handled'), (burst_to_pdu, 'burst_handled'))
 
-        iridium_qpsk_demod_cpp = iridium_toolkit.iridium_qpsk_demod_cpp()   
+            # Final connection to the demodulator. It prints the output to stdout
+            tb.msg_connect((burst_downmix, 'cpdus'), (iridium_qpsk_demod, 'cpdus'))
 
-        # Final connection to the demodulator. It prints the output to stdout
-        tb.msg_connect((burst_downmix, 'cpdus'), (iridium_qpsk_demod_cpp, 'cpdus'))    
 

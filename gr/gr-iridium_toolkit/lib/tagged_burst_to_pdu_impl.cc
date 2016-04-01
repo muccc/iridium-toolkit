@@ -24,6 +24,7 @@
 
 #include <gnuradio/io_signature.h>
 #include "tagged_burst_to_pdu_impl.h"
+#include <unistd.h>
 
 namespace gr {
   namespace iridium_toolkit {
@@ -45,11 +46,18 @@ namespace gr {
               d_debug(false),
               d_relative_center_frequency(relative_center_frequency),
               d_relative_span(relative_span),
-              d_max_burst_size(max_burst_size)
+              d_max_burst_size(max_burst_size),
+              d_outstanding(0),
+              d_max_outstanding(500),
+              d_drop_overflow(false),
+              d_blocked(false)
     {
       d_lower_border = relative_center_frequency - relative_span / 2;
       d_upper_border = relative_center_frequency + relative_span / 2;
       message_port_register_out(pmt::mp("cpdus"));
+
+      message_port_register_in(pmt::mp("burst_handled"));
+      set_msg_handler(pmt::mp("burst_handled"), boost::bind(&tagged_burst_to_pdu_impl::burst_handled, this, _1));
     }
 
     /*
@@ -57,6 +65,12 @@ namespace gr {
      */
     tagged_burst_to_pdu_impl::~tagged_burst_to_pdu_impl()
     {
+    }
+
+    void
+    tagged_burst_to_pdu_impl::burst_handled(pmt::pmt_t msg)
+    {
+      d_outstanding--;
     }
 
     void
@@ -84,6 +98,12 @@ namespace gr {
 
       pmt::pmt_t msg = pmt::cons(d_pdu_meta,
           d_pdu_vector);
+
+      d_outstanding++;
+      if(d_outstanding >= d_max_outstanding) {
+        d_blocked = true;
+      }
+
       message_port_pub(pmt::mp("cpdus"), msg);
     }
 
@@ -166,6 +186,21 @@ namespace gr {
         gr_vector_void_star &output_items)
     {
       const gr_complex *in = (const gr_complex *) input_items[0];
+
+      if(d_max_outstanding && d_blocked && d_outstanding > d_max_outstanding / 2) {
+        if(d_drop_overflow) {
+          fprintf(stderr, "tagged_burst_to_pdu: Queue full, dropping samples\n");
+          return noutput_items;
+        } else {
+          // Sleep a bit until our bursts have been processed
+          usleep(100000);
+
+          // Tell the scheduler that we have not consumed any input
+          return 0;
+        }
+      }
+
+      d_blocked = false;
 
       publish_and_remove_old_bursts(noutput_items, in);
       update_current_bursts(noutput_items, in);

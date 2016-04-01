@@ -115,6 +115,8 @@ namespace gr {
 
       message_port_register_in(pmt::mp("cpdus"));
       message_port_register_out(pmt::mp("cpdus"));
+      message_port_register_out(pmt::mp("burst_handled"));
+
       set_msg_handler(pmt::mp("cpdus"), boost::bind(&burst_downmix_impl::handler, this, _1));
 
       if(d_debug) {
@@ -639,6 +641,7 @@ namespace gr {
       pmt::pmt_t out_msg = pmt::cons(pdu_meta,
           pdu_vector);
       message_port_pub(pmt::mp("cpdus"), out_msg);
+      message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
     }
 
     int

@@ -44,6 +44,10 @@ namespace gr {
        float d_relative_center_frequency;
        float d_relative_span;
        int d_max_burst_size;
+       int d_outstanding;
+       int d_max_outstanding;
+       bool d_drop_overflow;
+       bool d_blocked;
 
        float d_lower_border;
        float d_upper_border;
@@ -57,6 +61,8 @@ namespace gr {
                 const gr_complex * in);
        void publish_and_remove_old_bursts(int noutput_items, const gr_complex * in);
        void update_current_bursts(int noutput_items, const gr_complex * in);
+
+       void burst_handled(pmt::pmt_t msg);
      public:
       tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span);
       ~tagged_burst_to_pdu_impl();
