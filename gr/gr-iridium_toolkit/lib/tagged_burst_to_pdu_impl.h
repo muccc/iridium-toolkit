@@ -64,7 +64,8 @@ namespace gr {
 
        void burst_handled(pmt::pmt_t msg);
      public:
-      tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span);
+      tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span,
+                                int max_outstanding, bool drop_overflow);
       ~tagged_burst_to_pdu_impl();
 
       // Where all the action really happens

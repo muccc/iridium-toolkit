@@ -30,16 +30,19 @@ namespace gr {
   namespace iridium_toolkit {
 
     tagged_burst_to_pdu::sptr
-    tagged_burst_to_pdu::make(int max_burst_size, float relative_center_frequency, float relative_span)
+    tagged_burst_to_pdu::make(int max_burst_size, float relative_center_frequency, float relative_span,
+                                int max_outstanding, bool drop_overflow)
     {
       return gnuradio::get_initial_sptr
-        (new tagged_burst_to_pdu_impl(max_burst_size, relative_center_frequency, relative_span));
+        (new tagged_burst_to_pdu_impl(max_burst_size, relative_center_frequency, relative_span,
+            max_outstanding, drop_overflow));
     }
 
     /*
      * The private constructor
      */
-    tagged_burst_to_pdu_impl::tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span)
+    tagged_burst_to_pdu_impl::tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span,
+                                                        int max_outstanding, bool drop_overflow)
       : gr::sync_block("tagged_burst_to_pdu",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
               gr::io_signature::make(0, 0, 0)),
@@ -48,8 +51,8 @@ namespace gr {
               d_relative_span(relative_span),
               d_max_burst_size(max_burst_size),
               d_outstanding(0),
-              d_max_outstanding(500),
-              d_drop_overflow(false),
+              d_max_outstanding(max_outstanding),
+              d_drop_overflow(drop_overflow),
               d_blocked(false)
     {
       d_lower_border = relative_center_frequency - relative_span / 2;

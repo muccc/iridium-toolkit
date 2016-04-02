@@ -46,7 +46,8 @@ namespace gr {
        * class. iridium_toolkit::tagged_burst_to_pdu::make is the public interface for
        * creating new instances.
        */
-      static sptr make(int max_burst_size, float relative_center_frequency, float relative_span);
+      static sptr make(int max_burst_size, float relative_center_frequency, float relative_span,
+                        int max_outstanding, bool drop_overflow);
     };
 
   } // namespace iridium_toolkit

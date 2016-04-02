@@ -4,7 +4,7 @@
   <key>iridium_toolkit_tagged_burst_to_pdu</key>
   <category>iridium_toolkit</category>
   <import>import iridium_toolkit</import>
-  <make>iridium_toolkit.tagged_burst_to_pdu($max_burst_size, $relative_center_frequency, $relative_span)</make>
+  <make>iridium_toolkit.tagged_burst_to_pdu($max_burst_size, $relative_center_frequency, $relative_span, $max_outstanding, $drop_overflow)</make>
 
   <param>
     <name>Max Burst Size</name>
@@ -27,9 +27,29 @@
     <type>float</type>
   </param>
 
+  <param>
+    <name>Maximum Outstanding Bursts</name>
+    <key>max_outstanding</key>
+    <value>500</value>
+    <type>int</type>
+  </param>
+
+  <param>
+    <name>Drop Overflowing Bursts</name>
+    <key>drop_overflow</key>
+    <value>False</value>
+    <type>bool</type>
+  </param>
+
+
   <sink>
     <name>in</name>
     <type>complex</type>
+  </sink>
+
+  <sink>
+    <name>burst_handled</name>
+    <type>message</type>
   </sink>
 
   <source>

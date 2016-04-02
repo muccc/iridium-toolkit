@@ -46,4 +46,10 @@
     <name>cpdus</name>
     <type>message</type>
   </source>
+
+  <source>
+    <name>burst_handled</name>
+    <type>message</type>
+  </source>
+
 </block>

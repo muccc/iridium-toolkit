@@ -180,7 +180,7 @@ class FlowGraph(gr.top_block):
                 center = channel if channel <= self._channels / 2 else (channel - self._channels)
 
                 # Second and third parameters tell the block where after the PFB it sits.
-                pdu_converters.append(iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, center / float(self._channels), 1. / self._channels))
+                pdu_converters.append(iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, center / float(self._channels), 1. / self._channels), 500, False)
                 burst_downmixers.append(iridium_toolkit.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 1000, (input_filter), (start_finder_filter)))
 
             #pfb_debug_sinks = [blocks.file_sink(itemsize=gr.sizeof_gr_complex, filename="/tmp/channel-%d.f32"%i) for i in range(self._channels)]
@@ -204,7 +204,7 @@ class FlowGraph(gr.top_block):
                 tb.msg_connect((burst_downmixers[i], 'cpdus'), (iridium_qpsk_demod, 'cpdus'))
         else:
             burst_downmix = iridium_toolkit.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 1000, (input_filter), (start_finder_filter))
-            burst_to_pdu = iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0)
+            burst_to_pdu = iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 500, False)
 
             if converter:
                 #multi = blocks.multiply_const_cc(1/128.)
