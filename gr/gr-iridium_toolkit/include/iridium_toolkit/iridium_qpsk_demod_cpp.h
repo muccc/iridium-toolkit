@@ -47,6 +47,9 @@ namespace gr {
        * creating new instances.
        */
       static sptr make();
+
+      virtual uint64_t get_n_handled_bursts() = 0;
+      virtual uint64_t get_n_access_ok_bursts() = 0;
     };
 
   } // namespace iridium_toolkit

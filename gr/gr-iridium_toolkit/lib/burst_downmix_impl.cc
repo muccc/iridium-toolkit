@@ -318,6 +318,12 @@ namespace gr {
       }
     }
 
+    size_t
+    burst_downmix_impl::get_input_queue_size()
+    {
+      return nmsgs(pmt::mp("cpdus"));
+    }
+
     void burst_downmix_impl::handler(pmt::pmt_t msg)
 	{
       /*
@@ -340,7 +346,7 @@ namespace gr {
         printf("relative_frequency=%f, absolute_frequency=%f\n", relative_frequency, absolute_frequency);
       }
 
-      if(nmsgs(pmt::mp("cpdus")) >= d_hard_max_queue_len) {
+      if(get_input_queue_size() >= d_hard_max_queue_len) {
         std::cerr << "Warning: Dropping burst as hard queue length is reached!" << std::endl;
         return;
       }

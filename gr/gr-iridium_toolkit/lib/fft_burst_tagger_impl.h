@@ -97,7 +97,8 @@ namespace gr {
                             int max_bursts, float threshold, int history_size, bool debug);
       ~fft_burst_tagger_impl();
 
-      // Where all the action really happens
+      uint64_t get_n_tagged_bursts();
+
       int work(int noutput_items,
          gr_vector_const_void_star &input_items,
          gr_vector_void_star &output_items);

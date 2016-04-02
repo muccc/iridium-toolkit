@@ -38,6 +38,8 @@ namespace gr {
       int * d_demodulated_burst;
       int d_symbol_mapping[4];
       char d_file_info[128];
+      uint64_t d_n_handled_bursts;
+      uint64_t d_n_access_ok_bursts;
 
       std::vector<bool> d_bits;
 
@@ -53,7 +55,9 @@ namespace gr {
       iridium_qpsk_demod_cpp_impl();
       ~iridium_qpsk_demod_cpp_impl();
 
-      // Where all the action really happens
+      uint64_t get_n_handled_bursts();
+      uint64_t get_n_access_ok_bursts();
+
       int work(int noutput_items,
          gr_vector_const_void_star &input_items,
          gr_vector_void_star &output_items);

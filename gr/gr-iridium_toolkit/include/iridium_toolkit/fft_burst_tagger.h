@@ -50,6 +50,8 @@ namespace gr {
                             int burst_pre_len, int burst_post_len,
                             int burst_width, int max_bursts=0, float threshold=7,
                             int history_size=512, bool debug=false);
+
+      virtual uint64_t get_n_tagged_bursts() = 0;
     };
 
   } // namespace iridium_toolkit

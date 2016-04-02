@@ -338,6 +338,11 @@ namespace gr {
       }
     }
 
+    uint64_t
+    fft_burst_tagger_impl::get_n_tagged_bursts()
+    {
+      return d_n_tagged_bursts;
+    }
 
     int
     fft_burst_tagger_impl::work(int noutput_items,

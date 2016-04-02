@@ -3,13 +3,11 @@
 import time
 import getopt
 import sys
+import threading
+
 import multiprocessing
 #import iridium
 import flow_graph
-
-"""
-work_queue = multiprocessing.JoinableQueue()
-out_queue = multiprocessing.JoinableQueue()
 
 queue_len_max = 0
 
@@ -26,62 +24,60 @@ ok_count_total = 0
 last_print = 0
 t0 = time.time()
 
-queue_blocked = False
 
-def printer(out_queue):
+def print_stats(tb):
     global last_print, queue_len_max, out_count, in_count
     global drop_count, drop_count_total, ok_count
     global ok_count_total, out_count_total, in_count_total, t0
     while True:
-        msg = out_queue.get()
-        queue_len = work_queue.qsize()
-        out_count += 1
 
-        if msg:
-            if "A:OK" in msg:
-                ok_count += 1
-            print msg
+        queue_len = 0
+
+        in_count = tb.get_n_handled_bursts() - in_count_total
+        ok_count = tb.get_n_access_ok_bursts() - ok_count_total
+        out_count = in_count
+        drop_count = 0
 
         if queue_len > queue_len_max:
             queue_len_max = queue_len
 
-        if time.time() - last_print > 60:
-            dt = time.time() - last_print
-            in_rate = in_count / dt
-            in_count_total += in_count
-            in_rate_avg = in_count_total / (time.time() - t0)
-            out_rate = out_count/ dt
-            drop_rate = drop_count / dt
-            ok_ratio = ok_count / float(out_count)
-            ok_rate = ok_count / dt
-            drop_count_total += drop_count
-            ok_count_total += ok_count
-            out_count_total += out_count
-            ok_ratio_total = ok_count_total / float(out_count_total)
-            ok_rate_avg = ok_count_total / (time.time() - t0)
+        dt = time.time() - last_print
+        in_rate = in_count / dt
+        in_count_total += in_count
+        in_rate_avg = in_count_total / (time.time() - t0)
+        out_rate = out_count/ dt
+        drop_rate = drop_count / dt
+        ok_ratio = ok_count / float(out_count)
+        ok_rate = ok_count / dt
+        drop_count_total += drop_count
+        ok_count_total += ok_count
+        out_count_total += out_count
+        ok_ratio_total = ok_count_total / float(out_count_total)
+        ok_rate_avg = ok_count_total / (time.time() - t0)
 
-            stats = ""
-            stats += "%d" % time.time()
-            stats += " | i: %3d/s" % in_rate + " | i_avg: %3d/s" % in_rate_avg
-            stats += " | q: %4d" % queue_len + " | q_max: %4d" % queue_len_max
-            stats += " | o: %2d/s" % out_rate
-            stats += " | ok: %3d%%" % (ok_ratio * 100)
-            stats += " | ok: %2d/s" % ok_rate
-            stats += " | ok_avg: %3d%%" % (ok_ratio_total * 100)
-            stats += " | ok: %10d" % ok_count_total
-            stats += " | ok_avg: %3d/s" % ok_rate_avg
-            stats += " | d: %d" % drop_count_total
-            print >> sys.stderr, stats
+        stats = ""
+        stats += "%d" % time.time()
+        stats += " | i: %3d/s" % in_rate + " | i_avg: %3d/s" % in_rate_avg
+        stats += " | q: %4d" % queue_len + " | q_max: %4d" % queue_len_max
+        stats += " | o: %2d/s" % out_rate
+        stats += " | ok: %3d%%" % (ok_ratio * 100)
+        stats += " | ok: %2d/s" % ok_rate
+        stats += " | ok_avg: %3d%%" % (ok_ratio_total * 100)
+        stats += " | ok: %10d" % ok_count_total
+        stats += " | ok_avg: %3d/s" % ok_rate_avg
+        stats += " | d: %d" % drop_count_total
+        print >> sys.stderr, stats
 
-            queue_len_max = 0
-            in_count = 0
-            out_count = 0
-            drop_count = 0
-            ok_count = 0
-            last_print = time.time()
+        queue_len_max = 0
+        in_count = 0
+        out_count = 0
+        drop_count = 0
+        ok_count = 0
+        last_print = time.time()
 
-        out_queue.task_done()
-"""
+        time.sleep(60)
+
+
 
 if __name__ == "__main__":
     options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:p:j:oq:b:D:', ['offset=',
@@ -176,6 +172,10 @@ if __name__ == "__main__":
             filename=file_name, sample_format=fmt,
             threshold=threshold, signal_width=search_window,
             verbose=verbose)
+
+    statistics_thread = threading.Thread(target=print_stats, args=(tb,))
+    statistics_thread.setDaemon(True)
+    statistics_thread.start()
 
     tb.run()
 

@@ -53,6 +53,8 @@ namespace gr {
         d_burst_after_pll(NULL),
         d_decimated_burst(NULL),
         d_demodulated_burst(NULL),
+        d_n_handled_bursts(0),
+        d_n_access_ok_bursts(0),
         d_symbol_mapping{0, 1, 2, 3}
     {
       std::time_t t = std::time(0); 
@@ -274,6 +276,18 @@ namespace gr {
       return false;
     }
 
+    uint64_t
+    iridium_qpsk_demod_cpp_impl::get_n_handled_bursts()
+    {
+      return d_n_handled_bursts;
+    }
+
+    uint64_t
+    iridium_qpsk_demod_cpp_impl::get_n_access_ok_bursts()
+    {
+      return d_n_access_ok_bursts;
+    }
+
     void
     iridium_qpsk_demod_cpp_impl::handler(pmt::pmt_t msg)
     {
@@ -317,8 +331,11 @@ namespace gr {
       map_symbols_to_bits(d_demodulated_burst, n_symbols, d_bits);
 
       printf("RAW: %s %07d %010d ", d_file_info, timestamp, (int)center_frequency);
+      d_n_handled_bursts++;
+
       if(dl_uw_ok || ul_uw_ok) {
         printf("A:OK ");
+        d_n_access_ok_bursts++;
       } else {
         printf("A:no ");
       }

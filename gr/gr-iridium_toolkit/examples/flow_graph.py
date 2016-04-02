@@ -168,8 +168,8 @@ class FlowGraph(gr.top_block):
         start_finder_filter = gnuradio.filter.firdes.low_pass_2(1, 250000, 5e3/2, 10e3/2, 60)
         #print len(start_finder_filter)
 
-        iridium_qpsk_demod = iridium_toolkit.iridium_qpsk_demod_cpp()
-        #iridium_qpsk_demod = iridium_toolkit.iridium_qpsk_demod(250000)
+        self._iridium_qpsk_demod = iridium_toolkit.iridium_qpsk_demod_cpp()
+        #self._iridium_qpsk_demod = iridium_toolkit.iridium_qpsk_demod(250000)
 
         if self._use_pfb:
             pdu_converters = []
@@ -201,7 +201,7 @@ class FlowGraph(gr.top_block):
                 tb.msg_connect((pdu_converters[i], 'cpdus'), (burst_downmixers[i], 'cpdus'))
                 tb.msg_connect((burst_downmixers[i], 'burst_handled'), (pdu_converters[i], 'burst_handled'))
 
-                tb.msg_connect((burst_downmixers[i], 'cpdus'), (iridium_qpsk_demod, 'cpdus'))
+                tb.msg_connect((burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
         else:
             burst_downmix = iridium_toolkit.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 1000, (input_filter), (start_finder_filter))
             burst_to_pdu = iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 500, False)
@@ -218,6 +218,10 @@ class FlowGraph(gr.top_block):
             tb.msg_connect((burst_downmix, 'burst_handled'), (burst_to_pdu, 'burst_handled'))
 
             # Final connection to the demodulator. It prints the output to stdout
-            tb.msg_connect((burst_downmix, 'cpdus'), (iridium_qpsk_demod, 'cpdus'))
+            tb.msg_connect((burst_downmix, 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
 
+    def get_n_handled_bursts(self):
+        return self._iridium_qpsk_demod.get_n_handled_bursts()
 
+    def get_n_access_ok_bursts(self):
+        return self._iridium_qpsk_demod.get_n_access_ok_bursts()

@@ -48,6 +48,8 @@ namespace gr {
        */
       static sptr make(int sample_rate, int search_depth, size_t hard_max_queue_len,
             const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps);
+
+      virtual size_t get_input_queue_size() = 0;
     };
 
   } // namespace iridium_toolkit

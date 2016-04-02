@@ -78,6 +78,8 @@ namespace gr {
             const std::vector<float> &input_taps, const std::vector<float> &start_finder_taps);
       ~burst_downmix_impl();
 
+      size_t get_input_queue_size();
+
       int work(int noutput_items,
          gr_vector_const_void_star &input_items,
          gr_vector_void_star &output_items);
