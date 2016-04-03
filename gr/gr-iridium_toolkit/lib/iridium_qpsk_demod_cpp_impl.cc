@@ -201,8 +201,8 @@ namespace gr {
         }
       }
 
-      *level = sum / n_symbols;
-      *confidence = (int) (100. * n_ok / n_symbols);
+      *level = sum / index;
+      *confidence = (int) (100. * n_ok / index);
       return index;
     }
 
