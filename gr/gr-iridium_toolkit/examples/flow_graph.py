@@ -108,14 +108,30 @@ class FlowGraph(gr.top_block):
 
             source.set_sample_rate(int(d['sample_rate']))
             source.set_center_freq(int(d['center_freq']), 0)
+
             if 'gain' in d:
-                source.set_gain(int(d['gain']), 0)
+                gain = int(d['gain'])
+                source.set_gain(gain, 0)
+                print >> sys.stderr, "(RF) Gain:", source.get_gain(0), '(Requested %d)' % gain
+
             if 'if_gain' in d:
-                source.set_if_gain(int(d['if_gain']), 0)
+                if_gain = int(d['if_gain'])
+                source.set_if_gain(if_gain, 0)
+                print >> sys.stderr, "IF Gain:", source.get_gain("IF", 0), '(Requested %d)' % if_gain
+
             if 'bb_gain' in d:
-                source.set_bb_gain(int(d['bb_gain']), 0)
+                bb_gain = int(d['bb_gain'])
+                source.set_bb_gain(bb_gain, 0)
+                print >> sys.stderr, "BB Gain:", source.get_gain("BB", 0), '(Requested %d)' % bb_gain
+
             if 'bandwidth' in d:
-                source.set_bandwidth(int(d['bandwidth']), 0)
+                bandwidth = int(d['bandwidth'])
+                source.set_bandwidth(bandwidth, 0)
+                print >> sys.stderr, "Bandwidth:", source.get_bandwidth(0), '(Requested %d)' % bandwidth
+            else:
+                source.set_bandwidth(0, 0)
+                print >> sys.stderr, "Warning: Setting bandwidth to", source.get_bandwidth(0)
+
             #source.set_freq_corr($corr0, 0)
             #source.set_dc_offset_mode($dc_offset_mode0, 0)
             #source.set_iq_balance_mode($iq_balance_mode0, 0)
