@@ -31,10 +31,6 @@ def print_stats(tb):
     global ok_count_total, out_count_total, in_count_total, t0
     while True:
 
-        if tb.get_n_handled_bursts() == 0:
-            time.sleep(1)
-            continue
-
         queue_len = 0
 
         in_count = tb.get_n_handled_bursts() - in_count_total
@@ -44,6 +40,10 @@ def print_stats(tb):
 
         if queue_len > queue_len_max:
             queue_len_max = queue_len
+
+        if out_count == 0:
+            time.sleep(1)
+            continue
 
         dt = time.time() - last_print
         in_rate = in_count / dt
