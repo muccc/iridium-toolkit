@@ -348,6 +348,7 @@ namespace gr {
 
       if(get_input_queue_size() >= d_hard_max_queue_len) {
         std::cerr << "Warning: Dropping burst as hard queue length is reached!" << std::endl;
+        message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
         return;
       }
 
@@ -488,7 +489,8 @@ namespace gr {
 
       if(output_samples < d_cfo_est_fft_size) {
         // There are not enough samples available to run the FFT.
-        // TODO: Log error.
+        // TODO: Log a warning.
+        message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
         return;
       }
 
@@ -580,7 +582,8 @@ namespace gr {
 
       // If ther UW starts at an offset < 0, we will not be able to demodulate the signal
       if(uw_start < 0) {
-        // TODO: Log an error?
+        // TODO: Log a warning.
+        message_port_pub(pmt::mp("burst_handled"), pmt::mp(id));
         return;
       }
 
