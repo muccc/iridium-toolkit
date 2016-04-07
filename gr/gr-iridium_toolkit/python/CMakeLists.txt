@@ -50,3 +50,4 @@ GR_ADD_TEST(qa_burst_downmix ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa
 GR_ADD_TEST(qa_iridium_qpsk_demod ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_iridium_qpsk_demod.py)
 GR_ADD_TEST(qa_pdu_null_sink ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_pdu_null_sink.py)
 GR_ADD_TEST(qa_iridium_qpsk_demod_cpp ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_iridium_qpsk_demod_cpp.py)
+GR_ADD_TEST(qa_pdu_round_robin ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/qa_pdu_round_robin.py)

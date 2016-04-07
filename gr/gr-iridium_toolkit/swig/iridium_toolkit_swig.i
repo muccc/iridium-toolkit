@@ -14,6 +14,7 @@
 #include "iridium_toolkit/burst_downmix.h"
 #include "iridium_toolkit/pdu_null_sink.h"
 #include "iridium_toolkit/iridium_qpsk_demod_cpp.h"
+#include "iridium_toolkit/pdu_round_robin.h"
 %}
 
 %include "iridium_toolkit/fft_burst_tagger.h"
@@ -28,3 +29,5 @@ GR_SWIG_BLOCK_MAGIC2(iridium_toolkit, burst_downmix);
 GR_SWIG_BLOCK_MAGIC2(iridium_toolkit, pdu_null_sink);
 %include "iridium_toolkit/iridium_qpsk_demod_cpp.h"
 GR_SWIG_BLOCK_MAGIC2(iridium_toolkit, iridium_qpsk_demod_cpp);
+%include "iridium_toolkit/pdu_round_robin.h"
+GR_SWIG_BLOCK_MAGIC2(iridium_toolkit, pdu_round_robin);

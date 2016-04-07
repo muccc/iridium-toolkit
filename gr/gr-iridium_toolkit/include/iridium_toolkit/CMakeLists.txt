@@ -27,5 +27,6 @@ install(FILES
     tagged_burst_to_pdu.h
     burst_downmix.h
     pdu_null_sink.h
-    iridium_qpsk_demod_cpp.h DESTINATION include/iridium_toolkit
+    iridium_qpsk_demod_cpp.h
+    pdu_round_robin.h DESTINATION include/iridium_toolkit
 )

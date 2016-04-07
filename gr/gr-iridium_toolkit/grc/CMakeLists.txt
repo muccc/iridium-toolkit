@@ -23,5 +23,6 @@ install(FILES
     iridium_toolkit_burst_downmix.xml
     iridium_toolkit_iridium-qpsk-demod.xml
     iridium_toolkit_pdu_null_sink.xml
-    iridium_toolkit_iridium_qpsk_demod_cpp.xml DESTINATION share/gnuradio/grc/blocks
+    iridium_toolkit_iridium_qpsk_demod_cpp.xml
+    iridium_toolkit_pdu_round_robin.xml DESTINATION share/gnuradio/grc/blocks
 )
