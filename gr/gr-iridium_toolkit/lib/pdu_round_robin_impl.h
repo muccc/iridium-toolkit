@@ -29,7 +29,8 @@ namespace gr {
     class pdu_round_robin_impl : public pdu_round_robin
     {
      private:
-      // Nothing to declare in this block.
+      int d_next_port;
+      void handler(pmt::pmt_t msg);
 
      public:
       pdu_round_robin_impl(int output_count);

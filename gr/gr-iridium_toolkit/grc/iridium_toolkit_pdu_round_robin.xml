@@ -14,7 +14,7 @@
   </param>
 
   <sink>
-    <name>cpdus</name>
+    <name>in</name>
     <type>message</type>
   </sink>
 

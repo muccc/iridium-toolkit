@@ -41,14 +41,32 @@ namespace gr {
     pdu_round_robin_impl::pdu_round_robin_impl(int output_count)
       : gr::sync_block("pdu_round_robin",
               gr::io_signature::make(0, 0, 0),
-              gr::io_signature::make(0, 0, 0))
-    {}
+              gr::io_signature::make(0, 0, 0)),
+        d_next_port(0)
+    {
+      message_port_register_in(pmt::mp("in"));
+      message_port_register_out(pmt::mp("out_0"));
+      message_port_register_out(pmt::mp("out_1"));
+
+      set_msg_handler(pmt::mp("in"), boost::bind(&pdu_round_robin_impl::handler, this, _1));
+    }
 
     /*
      * Our virtual destructor.
      */
     pdu_round_robin_impl::~pdu_round_robin_impl()
     {
+    }
+
+    void pdu_round_robin_impl::handler(pmt::pmt_t msg)
+    {
+      if(d_next_port == 0) {
+        d_next_port = 1;
+        message_port_pub(pmt::mp("out_0"), msg);
+      } else {
+        d_next_port = 0;
+        message_port_pub(pmt::mp("out_1"), msg);
+      }
     }
 
     int
