@@ -46,6 +46,8 @@ namespace gr {
        int d_max_burst_size;
        int d_outstanding;
        int d_max_outstanding;
+       int d_outstanding_limit;
+       uint64_t d_n_dropped_bursts;
        bool d_drop_overflow;
        bool d_blocked;
 
@@ -62,11 +64,15 @@ namespace gr {
        void publish_and_remove_old_bursts(int noutput_items, const gr_complex * in);
        void update_current_bursts(int noutput_items, const gr_complex * in);
 
+       int get_output_queue_size();
+       int get_output_max_queue_size();
        void burst_handled(pmt::pmt_t msg);
      public:
       tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span,
-                                int max_outstanding, bool drop_overflow);
+                                int outstanding_limit, bool drop_overflow);
       ~tagged_burst_to_pdu_impl();
+
+      uint64_t get_n_dropped_bursts();
 
       // Where all the action really happens
       int work(int noutput_items,

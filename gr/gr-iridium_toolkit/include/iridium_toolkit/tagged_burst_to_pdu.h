@@ -47,7 +47,12 @@ namespace gr {
        * creating new instances.
        */
       static sptr make(int max_burst_size, float relative_center_frequency, float relative_span,
-                        int max_outstanding, bool drop_overflow);
+                        int outstanding_limit, bool drop_overflow);
+
+      virtual uint64_t get_n_dropped_bursts() = 0;
+      virtual int get_output_queue_size() = 0;
+      virtual int get_output_max_queue_size() = 0;
+
     };
 
   } // namespace iridium_toolkit

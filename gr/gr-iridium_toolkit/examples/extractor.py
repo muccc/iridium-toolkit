@@ -31,15 +31,13 @@ def print_stats(tb):
     global ok_count_total, out_count_total, in_count_total, t0
     while True:
 
-        queue_len = 0
+        queue_len = tb.get_queue_size()
+        queue_len_max = tb.get_max_queue_size()
 
         in_count = tb.get_n_handled_bursts() - in_count_total
         ok_count = tb.get_n_access_ok_bursts() - ok_count_total
         out_count = in_count
         drop_count = 0
-
-        if queue_len > queue_len_max:
-            queue_len_max = queue_len
 
         if out_count == 0:
             time.sleep(1)

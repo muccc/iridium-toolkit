@@ -31,18 +31,18 @@ namespace gr {
 
     tagged_burst_to_pdu::sptr
     tagged_burst_to_pdu::make(int max_burst_size, float relative_center_frequency, float relative_span,
-                                int max_outstanding, bool drop_overflow)
+                                int outstanding_limit, bool drop_overflow)
     {
       return gnuradio::get_initial_sptr
         (new tagged_burst_to_pdu_impl(max_burst_size, relative_center_frequency, relative_span,
-            max_outstanding, drop_overflow));
+            outstanding_limit, drop_overflow));
     }
 
     /*
      * The private constructor
      */
     tagged_burst_to_pdu_impl::tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span,
-                                                        int max_outstanding, bool drop_overflow)
+                                                        int outstanding_limit, bool drop_overflow)
       : gr::sync_block("tagged_burst_to_pdu",
               gr::io_signature::make(1, 1, sizeof(gr_complex)),
               gr::io_signature::make(0, 0, 0)),
@@ -51,7 +51,9 @@ namespace gr {
               d_relative_span(relative_span),
               d_max_burst_size(max_burst_size),
               d_outstanding(0),
-              d_max_outstanding(max_outstanding),
+              d_max_outstanding(0),
+              d_outstanding_limit(outstanding_limit),
+              d_n_dropped_bursts(0),
               d_drop_overflow(drop_overflow),
               d_blocked(false)
     {
@@ -103,8 +105,12 @@ namespace gr {
           d_pdu_vector);
 
       d_outstanding++;
-      if(d_outstanding >= d_max_outstanding) {
+      if(d_outstanding >= d_outstanding_limit) {
         d_blocked = true;
+      }
+
+      if(d_outstanding > d_max_outstanding) {
+        d_max_outstanding = d_outstanding;
       }
 
       message_port_pub(pmt::mp("cpdus"), msg);
@@ -183,6 +189,26 @@ namespace gr {
       }
     }
 
+    uint64_t
+    tagged_burst_to_pdu_impl::get_n_dropped_bursts()
+    {
+      return d_n_dropped_bursts;
+    }
+
+    int
+    tagged_burst_to_pdu_impl::get_output_queue_size()
+    {
+        return d_outstanding;
+    }
+
+    int
+    tagged_burst_to_pdu_impl::get_output_max_queue_size()
+    {
+        int tmp = d_max_outstanding;
+        d_max_outstanding = 0;
+        return tmp;
+    }
+
     int
     tagged_burst_to_pdu_impl::work(int noutput_items,
         gr_vector_const_void_star &input_items,
@@ -190,9 +216,27 @@ namespace gr {
     {
       const gr_complex *in = (const gr_complex *) input_items[0];
 
-      if(d_max_outstanding && d_blocked && d_outstanding > d_max_outstanding / 2) {
+      if(d_outstanding_limit && d_blocked && d_outstanding > d_outstanding_limit / 2) {
         if(d_drop_overflow) {
-          fprintf(stderr, "tagged_burst_to_pdu: Queue full, dropping samples\n");
+          uint64_t n_dropped_bursts = 0;
+
+          auto b = std::begin(d_bursts);
+
+          while (b != std::end(d_bursts)) {
+            n_dropped_bursts++;
+            free(b->second.data);
+            b = d_bursts.erase(b);
+          }
+
+          std::vector<tag_t> new_bursts;
+          get_tags_in_window(new_bursts, 0, 0, noutput_items, pmt::mp("new_burst"));
+          n_dropped_bursts += new_bursts.size();
+
+          //fprintf(stderr, "tagged_burst_to_pdu: Queue full. Dropped %d samples. Dropped %lu bursts.\n", noutput_items, n_dropped_bursts);
+          if(n_dropped_bursts) {
+            fprintf(stderr, "tagged_burst_to_pdu: Queue full. Dropped %lu bursts.\n", n_dropped_bursts);
+          }
+          d_n_dropped_bursts += n_dropped_bursts;
           return noutput_items;
         } else {
           // Sleep a bit until our bursts have been processed
