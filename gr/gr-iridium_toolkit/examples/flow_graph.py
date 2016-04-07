@@ -163,7 +163,7 @@ class FlowGraph(gr.top_block):
         #                    int burst_pre_len, int burst_post_len, int burst_width,
         #                    int max_bursts, float threshold, int history_size, bool debug)
 
-        fft_burst_tagger = iridium_toolkit.fft_burst_tagger(center_frequency=self._center_frequency,
+        self._fft_burst_tagger = iridium_toolkit.fft_burst_tagger(center_frequency=self._center_frequency,
                                 fft_size=self._fft_size,
                                 sample_rate=self._input_sample_rate,
                                 burst_pre_len=self._burst_pre_len, burst_post_len=self._burst_post_len,
@@ -210,9 +210,9 @@ class FlowGraph(gr.top_block):
             pfb = gnuradio.filter.pfb.channelizer_ccf(numchans=self._channels, taps=self._pfb_fir_filter, oversample_rate=self._pfb_over_sample_ratio)
 
             if converter:
-                tb.connect(source, converter, fft_burst_tagger, pfb)
+                tb.connect(source, converter, self._fft_burst_tagger, pfb)
             else:
-                tb.connect(source, fft_burst_tagger, pfb)
+                tb.connect(source, self._fft_burst_tagger, pfb)
 
             for i in range(self._channels):
                 tb.connect((pfb, i), self._burst_to_pdu_converters[i])
@@ -229,10 +229,10 @@ class FlowGraph(gr.top_block):
 
             if converter:
                 #multi = blocks.multiply_const_cc(1/128.)
-                #tb.connect(source, converter, multi, fft_burst_tagger, burst_to_pdu)
-                tb.connect(source, converter, fft_burst_tagger, burst_to_pdu)
+                #tb.connect(source, converter, multi, self._fft_burst_tagger, burst_to_pdu)
+                tb.connect(source, converter, self._fft_burst_tagger, burst_to_pdu)
             else:
-                tb.connect(source, fft_burst_tagger, burst_to_pdu)
+                tb.connect(source, self._fft_burst_tagger, burst_to_pdu)
 
 
             tb.msg_connect((burst_to_pdu, 'cpdus'), (burst_downmix, 'cpdus'))
@@ -243,6 +243,9 @@ class FlowGraph(gr.top_block):
 
             self._burst_downmixers = [burst_downmix]
             self._burst_to_pdu_converters = [burst_to_pdu]
+
+    def get_n_detected_bursts(self):
+        return self._fft_burst_tagger.get_n_tagged_bursts()
 
     def get_n_handled_bursts(self):
         return self._iridium_qpsk_demod.get_n_handled_bursts()
