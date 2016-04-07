@@ -34,14 +34,10 @@ def print_stats(tb):
         queue_len = tb.get_queue_size()
         queue_len_max = tb.get_max_queue_size()
 
-        in_count = tb.get_n_handled_bursts() - in_count_total
+        in_count = tb.get_n_detected_bursts() - in_count_total
+        out_count = tb.get_n_handled_bursts() - out_count_total
         ok_count = tb.get_n_access_ok_bursts() - ok_count_total
-        out_count = in_count
         drop_count = 0
-
-        if out_count == 0:
-            time.sleep(1)
-            continue
 
         dt = time.time() - last_print
         in_rate = in_count / dt
@@ -49,21 +45,31 @@ def print_stats(tb):
         in_rate_avg = in_count_total / (time.time() - t0)
         out_rate = out_count/ dt
         drop_rate = drop_count / dt
-        ok_ratio = ok_count / float(out_count)
+
+        if out_count != 0:
+            ok_ratio = ok_count / float(out_count)
+        else:
+            ok_ratio = 0
+
         ok_rate = ok_count / dt
         drop_count_total += drop_count
         ok_count_total += ok_count
         out_count_total += out_count
-        ok_ratio_total = ok_count_total / float(out_count_total)
+
+        if out_count_total != 0:
+            ok_ratio_total = ok_count_total / float(out_count_total)
+        else:
+            ok_ratio_total = 0
+
         ok_rate_avg = ok_count_total / (time.time() - t0)
 
         stats = ""
         stats += "%d" % time.time()
         stats += " | i: %3d/s" % in_rate + " | i_avg: %3d/s" % in_rate_avg
         stats += " | q: %4d" % queue_len + " | q_max: %4d" % queue_len_max
-        stats += " | o: %2d/s" % out_rate
+        stats += " | o: %3d/s" % out_rate
         stats += " | ok: %3d%%" % (ok_ratio * 100)
-        stats += " | ok: %2d/s" % ok_rate
+        stats += " | ok: %3d/s" % ok_rate
         stats += " | ok_avg: %3d%%" % (ok_ratio_total * 100)
         stats += " | ok: %10d" % ok_count_total
         stats += " | ok_avg: %3d/s" % ok_rate_avg
