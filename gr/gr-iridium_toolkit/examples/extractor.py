@@ -88,7 +88,7 @@ def print_stats(tb):
 
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:p:j:oq:b:D:', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:j:oq:b:D:', ['offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
@@ -96,7 +96,6 @@ if __name__ == "__main__":
                                                             'verbose',
                                                             'db=',
                                                             'format=',
-                                                            'pipe=',
                                                             'jobs=',
                                                             'offline',
                                                             'queuelen=',
@@ -114,7 +113,6 @@ if __name__ == "__main__":
     sample_rate = None
     threshold = 8.5 # about 8.5 dB over noise
     fmt = None
-    pipe = None
     jobs = 4
     offline = False
     max_queue_len = 1000
@@ -139,8 +137,6 @@ if __name__ == "__main__":
             fmt = arg
         elif opt in ('-j', '--jobs'):
             jobs = int(arg)
-        elif opt in ('-p', '--pipe'):
-            pipe = arg
         elif opt in ('-o', '--offline'):
             offline = True
         elif opt in ('-q', '--queuelen'):
@@ -171,7 +167,7 @@ if __name__ == "__main__":
         exit(1)
 
 
-    if len(remainder)==0 or pipe !=None:
+    if len(remainder)==0 or remainder[0] == '-':
         file_name = "/dev/stdin"
     else:
         file_name = remainder[0]
