@@ -186,6 +186,7 @@ if __name__ == "__main__":
     tb = flow_graph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
             filename=filename, sample_format=fmt,
             threshold=threshold, signal_width=search_window,
+            offline=offline,
             verbose=verbose)
 
     statistics_thread = threading.Thread(target=print_stats, args=(tb,))
