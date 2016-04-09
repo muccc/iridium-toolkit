@@ -105,11 +105,10 @@ if __name__ == "__main__":
                                                             'decimation'
                                                             ])
 
-    center = None # 1626270833
+    center = None
     search_window = 40000
     search_depth = 0.007
     verbose = False
-    search_size=1 # Only calulate every (search_size)'th fft
     sample_rate = None
     threshold = 8.5 # about 8.5 dB over noise
     fmt = None
@@ -119,6 +118,23 @@ if __name__ == "__main__":
     burst_size = 20
     direction = None
     decimation = 1
+
+    if len(remainder) == 0 or remainder[0] == '-':
+        filename = "/dev/stdin"
+    else:
+        filename = remainder[0]
+
+    if filename.endswith(".conf"):
+        import ConfigParser
+        config = ConfigParser.ConfigParser()
+        config.read(filename)
+        items = config.items("osmosdr-source")
+        d = {key: value for key, value in items}
+
+        sample_rate = int(d['sample_rate'])
+        center = int(d['center_freq'])
+
+        fmt = 'float'
 
     for opt, arg in options:
         if opt in ('-w', '--search-window'):
@@ -167,13 +183,8 @@ if __name__ == "__main__":
         exit(1)
 
 
-    if len(remainder)==0 or remainder[0] == '-':
-        file_name = "/dev/stdin"
-    else:
-        file_name = remainder[0]
-
     tb = flow_graph.FlowGraph(center_frequency=center, sample_rate=sample_rate, decimation=decimation, 
-            filename=file_name, sample_format=fmt,
+            filename=filename, sample_format=fmt,
             threshold=threshold, signal_width=search_window,
             verbose=verbose)
 
