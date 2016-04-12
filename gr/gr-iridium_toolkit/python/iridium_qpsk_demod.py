@@ -41,6 +41,8 @@ class iridium_qpsk_demod(gr.sync_block):
         if self._file_info == None:
             self._file_info = "i-%.1f-t1" % time.time()
 
+        self._n_handled_bursts = 0
+        self._n_access_ok_bursts = 0
         self.message_port_register_in(gr.pmt.intern('cpdus'))
         self.set_msg_handler(gr.pmt.intern('cpdus'), self.handle_msg)
 
@@ -59,13 +61,21 @@ class iridium_qpsk_demod(gr.sync_block):
         # 'uw_start': 160L}
         #print meta
 
+        self._n_handled_bursts += 1
         dataarray, data, access_ok, lead_out_ok, confidence, level, nsymbols = self._demod.demod(signal, start_sample=meta['uw_start'])
         rawfile = self._file_info
         timestamp = meta['offset'] / meta['sample_rate'] * 1000
         freq = meta['center_frequency']
         print "RAW: %s %07d %010d A:%s L:%s %3d%% %.3f %3d %s"%(rawfile,timestamp,freq,("no","OK")[access_ok],("no","OK")[lead_out_ok],confidence,level,(nsymbols-iridium.UW_LENGTH),data)
+        if access_ok:
+            self._n_access_ok_bursts += 1
 
 
     def work(self, input_items, output_items):
         return len(input_items[0])
 
+    def get_n_handled_bursts(self):
+        return self._n_handled_bursts
+
+    def get_n_access_ok_bursts(self):
+        return self._n_access_ok_bursts
