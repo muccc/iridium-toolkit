@@ -43,6 +43,7 @@ namespace gr {
        bool d_debug;
        float d_relative_center_frequency;
        float d_relative_span;
+       float d_relative_sample_rate;
        int d_max_burst_size;
        int d_outstanding;
        int d_max_outstanding;
@@ -69,7 +70,7 @@ namespace gr {
        void burst_handled(pmt::pmt_t msg);
      public:
       tagged_burst_to_pdu_impl(int max_burst_size, float relative_center_frequency, float relative_span,
-                                int outstanding_limit, bool drop_overflow);
+                                float d_relative_sample_rate, int outstanding_limit, bool drop_overflow);
       ~tagged_burst_to_pdu_impl();
 
       uint64_t get_n_dropped_bursts();

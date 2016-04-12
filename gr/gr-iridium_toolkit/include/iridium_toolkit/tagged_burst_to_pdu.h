@@ -47,7 +47,7 @@ namespace gr {
        * creating new instances.
        */
       static sptr make(int max_burst_size, float relative_center_frequency, float relative_span,
-                        int outstanding_limit, bool drop_overflow);
+                        float d_relative_sample_rate, int outstanding_limit, bool drop_overflow);
 
       virtual uint64_t get_n_dropped_bursts() = 0;
       virtual int get_output_queue_size() = 0;

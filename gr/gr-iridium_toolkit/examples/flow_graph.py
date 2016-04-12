@@ -79,9 +79,11 @@ class FlowGraph(gr.top_block):
             self._burst_sample_rate = pfb_output_sample_rate
             if self._verbose:
                 print >> sys.stderr, "self._channels", self._channels
+                print >> sys.stderr, "len(self._pfb_fir_filter)", len(self._pfb_fir_filter)
                 print >> sys.stderr, "self._pfb_over_sample_ratio", self._pfb_over_sample_ratio
                 print >> sys.stderr, "self._fir_bw", self._fir_bw
                 print >> sys.stderr, "self._fir_tw", self._fir_tw
+                print >> sys.stderr, "self._burst_sample_rate", self._burst_sample_rate
         else:
             self._use_pfb = False
             self._burst_sample_rate = self._input_sample_rate
@@ -197,8 +199,11 @@ class FlowGraph(gr.top_block):
                 center = channel if channel <= self._channels / 2 else (channel - self._channels)
 
                 # Second and third parameters tell the block where after the PFB it sits.
-                burst_to_pdu_converter = iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, center / float(self._channels),
-                                            1. / self._channels, 500, not self._offline)
+                relative_center = center / float(self._channels)
+                relative_span = 1. / self._channels
+                relative_sample_rate = relative_span * self._pfb_over_sample_ratio
+                burst_to_pdu_converter = iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, relative_center,
+                                            relative_span, relative_sample_rate, 500, not self._offline)
                 burst_downmixer = iridium_toolkit.burst_downmix(self._burst_sample_rate,
                                     int(0.007 * 250000), 1000, (input_filter), (start_finder_filter))
 
@@ -226,7 +231,7 @@ class FlowGraph(gr.top_block):
                 tb.msg_connect((self._burst_downmixers[i], 'cpdus'), (self._iridium_qpsk_demod, 'cpdus'))
         else:
             burst_downmix = iridium_toolkit.burst_downmix(self._burst_sample_rate, int(0.007 * 250000), 1000, (input_filter), (start_finder_filter))
-            burst_to_pdu = iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 500, not self._offline)
+            burst_to_pdu = iridium_toolkit.tagged_burst_to_pdu(self._max_burst_len, 0.0, 1.0, 1.0, 500, not self._offline)
 
             if converter:
                 #multi = blocks.multiply_const_cc(1/128.)
