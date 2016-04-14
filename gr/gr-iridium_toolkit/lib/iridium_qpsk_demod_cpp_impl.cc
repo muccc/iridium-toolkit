@@ -268,7 +268,7 @@ namespace gr {
       }
 
       if(direction == iridium::direction::UPLINK) {
-        if(memcmp(demodulated_burst, iridium::UW_DL, sizeof(iridium::UW_UL)) == 0) {
+        if(memcmp(demodulated_burst, iridium::UW_UL, sizeof(iridium::UW_UL)) == 0) {
           return true;
         }
       }
