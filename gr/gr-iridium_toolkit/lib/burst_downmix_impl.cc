@@ -98,7 +98,8 @@ namespace gr {
               d_cfo_est_window_f(NULL),
 
               d_corr_fft(NULL),
-              d_corr_ifft(NULL),
+              d_corr_dl_ifft(NULL),
+              d_corr_ul_ifft(NULL),
 
               d_input_fir(0, input_taps),
               d_start_finder_fir(0, start_finder_taps),
@@ -156,8 +157,11 @@ namespace gr {
         if(d_corr_fft) {
           delete d_corr_fft;
         }
-        if(d_corr_ifft) {
-          delete d_corr_ifft;
+        if(d_corr_dl_ifft) {
+          delete d_corr_dl_ifft;
+        }
+        if(d_corr_ul_ifft) {
+          delete d_corr_ul_ifft;
         }
     }
 
@@ -281,7 +285,8 @@ namespace gr {
       // Update the size of the work FFTs
       // TODO: This could be moved to the initialization list
       d_corr_fft = new fft::fft_complex(d_corr_fft_size, true, 1);
-      d_corr_ifft = new fft::fft_complex(d_corr_fft_size, false, 1);
+      d_corr_dl_ifft = new fft::fft_complex(d_corr_fft_size, false, 1);
+      d_corr_ul_ifft = new fft::fft_complex(d_corr_fft_size, false, 1);
 
       // The inputs need to zero, as we might not use it completely
       memset(d_corr_fft->get_inbuf(), 0, sizeof(gr_complex) * d_corr_fft_size);
@@ -344,6 +349,8 @@ namespace gr {
         printf("---------------> id:%lu len:%ld\n", id, burst_size);
         float absolute_frequency = center_frequency + relative_frequency * sample_rate;
         printf("relative_frequency=%f, absolute_frequency=%f\n", relative_frequency, absolute_frequency);
+        printf("offset=%lu\n", offset);
+        printf("sample_rate=%f\n", sample_rate);
       }
 
       if(get_input_queue_size() >= d_hard_max_queue_len) {
@@ -401,7 +408,6 @@ namespace gr {
       /*
        * Use the center frequency to make some assumptions about the burst.
        */
-      iridium::direction direction = iridium::direction::UNDEF;
       int max_frame_length = 0;
 
       // Simplex transmissions and broadcast frames might have a 64 symbol preamble.
@@ -410,7 +416,6 @@ namespace gr {
         // Frames above this frequency must be downlink and simplex frames.
         // XXX: If the SDR is not configured well, there might be aliasing from low
         // frequencies in this region.
-        direction = iridium::direction::DOWNLINK;
         max_frame_length = (iridium::PREAMBLE_LENGTH_SHORT + iridium::MAX_FRAME_LENGTH_SIMPLEX) * d_output_samples_per_symbol;
       } else {
         max_frame_length = (iridium::PREAMBLE_LENGTH_SHORT + iridium::MAX_FRAME_LENGTH_NORMAL) * d_output_samples_per_symbol;
@@ -558,18 +563,38 @@ namespace gr {
        * Use a correlation to find the start of the sync word.
        * Uses an FFT to perform the correlation.
        */
+
       memcpy(d_corr_fft->get_inbuf(), d_tmp_a, sizeof(gr_complex) * d_sync_search_len);
       d_corr_fft->execute();
-      volk_32fc_x2_multiply_32fc(d_corr_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_dl_preamble_reversed_conj_fft[0], d_corr_fft_size);
-      d_corr_ifft->execute();
 
-      // Find the peak of the correlation
-      volk_32fc_magnitude_32f(d_magnitude_f, d_corr_ifft->get_outbuf(), d_corr_fft_size);
-      max = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      // We use the initial FFT for both correlations (DL and UL)
+      volk_32fc_x2_multiply_32fc(d_corr_dl_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_dl_preamble_reversed_conj_fft[0], d_corr_fft_size);
+      volk_32fc_x2_multiply_32fc(d_corr_ul_ifft->get_inbuf(), d_corr_fft->get_outbuf(), &d_ul_preamble_reversed_conj_fft[0], d_corr_fft_size);
+      d_corr_dl_ifft->execute();
+      d_corr_ul_ifft->execute();
 
-      int corr_offset = max - d_magnitude_f;
-      gr_complex corr_result = d_corr_ifft->get_outbuf()[corr_offset];
-      corr_result /= abs(corr_result);
+      // Find the peaks of the correlations
+      volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_dl_ifft->get_outbuf(), d_corr_fft_size);
+      float * max_dl_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      float max_dl = *max_dl_p;
+      volk_32fc_magnitude_squared_32f(d_magnitude_f, d_corr_ul_ifft->get_outbuf(), d_corr_fft_size);
+      float * max_ul_p = std::max_element(d_magnitude_f, d_magnitude_f + d_corr_fft_size);
+      float max_ul = *max_ul_p;
+
+      gr_complex corr_result;
+      int corr_offset;
+      iridium::direction direction;
+
+      if(max_dl > max_ul) {
+        direction = iridium::direction::DOWNLINK;
+        corr_offset = max_dl_p - d_magnitude_f;
+        corr_result = d_corr_dl_ifft->get_outbuf()[corr_offset];
+      } else {
+        direction = iridium::direction::UPLINK;
+        corr_offset = max_ul_p - d_magnitude_f;
+        corr_result = d_corr_ul_ifft->get_outbuf()[corr_offset];
+      }
+
 
       if(d_debug) {
         printf("Conv max index = %d\n", corr_offset);
@@ -596,7 +621,7 @@ namespace gr {
        * Rotate the phase so the demodulation has a starting point.
        */
       d_r.set_phase_incr(exp(gr_complex(0, 0)));
-      d_r.set_phase(std::conj(corr_result));
+      d_r.set_phase(std::conj(corr_result / abs(corr_result)));
       d_r.rotateN(d_tmp_b, d_tmp_a, output_samples);
 
       if(d_debug) {

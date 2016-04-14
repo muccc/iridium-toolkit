@@ -55,7 +55,8 @@ namespace gr {
       float * d_cfo_est_window_f;
 
       gr::fft::fft_complex * d_corr_fft;
-      gr::fft::fft_complex * d_corr_ifft;
+      gr::fft::fft_complex * d_corr_dl_ifft;
+      gr::fft::fft_complex * d_corr_ul_ifft;
 
       filter::kernel::fir_filter_ccf d_input_fir;
       filter::kernel::fir_filter_fff d_start_finder_fir;
