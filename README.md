@@ -4,6 +4,7 @@
 
  * Python (2.7)
  * NumPy (scipy)
+ * Requests
 
 ### License
 

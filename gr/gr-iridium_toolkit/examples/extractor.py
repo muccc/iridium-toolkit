@@ -8,6 +8,7 @@ import threading
 import multiprocessing
 #import iridium
 import flow_graph
+import requests
 
 queue_len_max = 0
 
@@ -24,11 +25,28 @@ ok_count_total = 0
 last_print = 0
 t0 = time.time()
 
+def sendData(timestamp, in_rate, in_rate_avg, queue_len, queue_len_max, out_rate, ok_ratio, ok_rate, ok_ratio_total, ok_count_total, ok_rate_avg, drop_count_total):
+    payload = {'timestamp': timestamp, 'in_rate': in_rate, 'in_rate_avg': in_rate_avg, 'queue_len': queue_len, 'queue_len_max': queue_len_max, 'out_rate': out_rate, 'ok_ratio': ok_ratio, 'ok_rate': ok_rate, 'ok_ratio_total': ok_ratio_total, 'ok_count_total': ok_count_total, 'ok_rate_avg': ok_rate_avg, 'drop_count_total': drop_count_total }
+    global host, port
+    
+    try:
+        r = requests.get('http://' + host + ':' + str(port) + '/post', params=payload)
+        print >> sys.stderr, "Dashboard Response: " + str(r.status_code)
+    except requests.exceptions.Timeout as e:
+        print >> sys.stderr, "Dashboard: Request Timeout"
+    except requests.exceptions.TooManyRedirects as e:
+        print >> sys.stderr, "Dashboard: Too many redirects"
+    except requests.exceptions.RequestException as e:
+        print >> sys.stderr, "Dashboard: Request exception"
+    except requests.exceptions.ConnectionError as e:
+        print >> sys.stderr, "Dashboard: Connection error"
 
 def print_stats(tb):
     global last_print, queue_len_max, out_count, in_count
     global drop_count, drop_count_total, ok_count
     global ok_count_total, out_count_total, in_count_total, t0
+    global dashboard
+    
     while True:
 
         queue_len = tb.get_queue_size()
@@ -63,8 +81,10 @@ def print_stats(tb):
 
         ok_rate_avg = ok_count_total / (time.time() - t0)
 
+        timestamp = time.time()
+        
         stats = ""
-        stats += "%d" % time.time()
+        stats += "%d" % timestamp
         stats += " | i: %3d/s" % in_rate + " | i_avg: %3d/s" % in_rate_avg
         stats += " | q: %4d" % queue_len + " | q_max: %4d" % queue_len_max
         stats += " | o: %3d/s" % out_rate
@@ -75,6 +95,9 @@ def print_stats(tb):
         stats += " | ok_avg: %3d/s" % ok_rate_avg
         stats += " | d: %d" % drop_count_total
         print >> sys.stderr, stats
+
+        if dashboard == True:
+            sendData(timestamp, in_rate, in_rate_avg, queue_len, queue_len_max, out_rate, (ok_ratio * 100), ok_rate, (ok_ratio_total * 100), ok_count_total, ok_rate_avg, drop_count_total)
 
         queue_len_max = 0
         in_count = 0
@@ -88,7 +111,7 @@ def print_stats(tb):
 
 
 if __name__ == "__main__":
-    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:j:oq:b:D:', ['offset=',
+    options, remainder = getopt.getopt(sys.argv[1:], 'w:c:r:vd:f:j:oq:b:D:x:y:z:', ['offset=',
                                                             'window=',
                                                             'center=',
                                                             'rate=',
@@ -102,7 +125,10 @@ if __name__ == "__main__":
                                                             'burstsize=',
                                                             'uplink',
                                                             'downlink',
-                                                            'decimation'
+                                                            'decimation',
+                                                            'dashboard',
+                                                            'host',
+                                                            'port'
                                                             ])
 
     center = None
@@ -118,6 +144,9 @@ if __name__ == "__main__":
     burst_size = 20
     direction = None
     decimation = 1
+    dashboard = False
+    host = "localhost"
+    port = 5000
 
     if len(remainder) == 0 or remainder[0] == '-':
         filename = "/dev/stdin"
@@ -165,6 +194,12 @@ if __name__ == "__main__":
         #    direction = iridium.DOWNLINK
         elif opt in ('-D', '--decimation'):
             decimation = int(arg)
+        elif opt in ('-x', '--dashboard'):
+            dashboard = True
+        elif opt in ('-y', '--host'):
+            host = arg
+        elif opt in ('-z', '--port'):
+            port = int(arg)
 
     if sample_rate == None:
         print >> sys.stderr, "Sample rate missing!"
