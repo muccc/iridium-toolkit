@@ -28,8 +28,18 @@ t0 = time.time()
 def sendData(timestamp, in_rate, in_rate_avg, queue_len, queue_len_max, out_rate, ok_ratio, ok_rate, ok_ratio_total, ok_count_total, ok_rate_avg, drop_count_total):
     payload = {'timestamp': timestamp, 'in_rate': in_rate, 'in_rate_avg': in_rate_avg, 'queue_len': queue_len, 'queue_len_max': queue_len_max, 'out_rate': out_rate, 'ok_ratio': ok_ratio, 'ok_rate': ok_rate, 'ok_ratio_total': ok_ratio_total, 'ok_count_total': ok_count_total, 'ok_rate_avg': ok_rate_avg, 'drop_count_total': drop_count_total }
     global host, port
-    r = requests.get('http://' + host + ':' + str(port) + '/post', params=payload)
-    print >> sys.stderr, "Dashboard Response: " + str(r.status_code)
+    
+    try:
+        r = requests.get('http://' + host + ':' + str(port) + '/post', params=payload)
+        print >> sys.stderr, "Dashboard Response: " + str(r.status_code)
+    except requests.exceptions.Timeout as e:
+        print >> sys.stderr, "Dashboard: Request Timeout"
+    except requests.exceptions.TooManyRedirects as e:
+        print >> sys.stderr, "Dashboard: Too many redirects"
+    except requests.exceptions.RequestException as e:
+        print >> sys.stderr, "Dashboard: Request exception"
+    except requests.exceptions.ConnectionError as e:
+        print >> sys.stderr, "Dashboard: Connection error"
 
 def print_stats(tb):
     global last_print, queue_len_max, out_count, in_count
