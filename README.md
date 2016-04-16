@@ -31,7 +31,7 @@ if you want to speed up that step you can install `pypy` and instead run
     pypy iridium-parser.py output.bits
 
 ### Frame extraction
-See the python-extractor [README](python-extractor/README.md)
+See the extractor-python [README](extractor-python/README.md)
 
 ### Voice Decoding
 To listen to voice calls, you will need an AMBE decoder. There are two option:
