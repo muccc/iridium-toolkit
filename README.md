@@ -16,11 +16,11 @@ and licensed under the 2-Clause BSD License
 
 Note: The rad1o has to be in hackrf-mode
 
-    hackrf_transfer -f 1625800000 -a 1 -l 40 -g 20 -s 2000000 -r /dev/fd3 3>&1 1>&2 | python2 extractor.py -c 1625800000 -r 2000000 -f hackrf --jobs 2 | fgrep "A:OK" >> output.bits
+    hackrf_transfer -f 1625800000 -a 1 -l 40 -g 20 -s 2000000 -r /dev/fd3 3>&1 1>&2 | python2 extractor-python/extractor.py -c 1625800000 -r 2000000 -f hackrf --jobs 2 | fgrep "A:OK" >> output.bits
 
 If you built/installed the rad1o branch of the hackrf tools, add `-S 26214400` to the commandline like this:
 
-    hackrf_transfer -f 1625800000 -a 1 -l 40 -g 20 -s 2000000 -S 26214400 -r /dev/fd3 3>&1 1>&2 | python2 extractor.py -c 1625800000 -r 2000000 -f hackrf --jobs 2 | fgrep "A:OK" >> output.bits
+    hackrf_transfer -f 1625800000 -a 1 -l 40 -g 20 -s 2000000 -S 26214400 -r /dev/fd3 3>&1 1>&2 | python2 extractor-python/extractor.py -c 1625800000 -r 2000000 -f hackrf --jobs 2 | fgrep "A:OK" >> output.bits
 
 This writes to `output.bits`. Iridium frames can be decoded with
 
