@@ -12,7 +12,7 @@ Unless otherwise noted in a file, everything here is
 and licensed under the 2-Clause BSD License
 
 ### Example usage
-#### Capture with [hackrf](https://greatscottgadgets.com/hackrf/) or [rad1o](https://rad1o.badge.events.ccc.de/start) and multiprocessing
+#### Capture with [hackrf](https://greatscottgadgets.com/hackrf/) or [rad1o](https://rad1o.badge.events.ccc.de/start) and extractor-python
 
 Note: The rad1o has to be in hackrf-mode
 
@@ -30,41 +30,8 @@ if you want to speed up that step you can install `pypy` and instead run
 
     pypy iridium-parser.py output.bits
 
-### Extracting Iridium packets from raw data
-
-To capture and demodulate Iridium packets use `extractor.py`. You can either process
-a file offline or stream data into the tool.
-
-#### Command line options:
-
-##### `-o`, `--offline`: Process a file offline
-By default, the extractor will drop samples if the computing power available is
-not enough to keep up. If you have an already recorded file, use the `-o`,`--offline`
-option to not drop any samples. In this case the extractor will pause reading the
-file (or input stream) until it can process more samples again.
-
-##### `-q`: Queue length
-The internal queue is filled with samples where the detector has detected activity
-in the file. By default it is 12000 elements long (roughly 4 GB at 2 Maps). You can
-tweak the length of the queue with this option
-
-##### `-c`: Center frequency
-The center frequency of the samples data in Hz.
-
-##### `-r`: Sample rate
-The sample rate of the samples in sps
-
-##### `-f`: Input file format
-| File Format                                        | `extractor.py` format option |
-|----------------------------------------------------|------------------------------|
-| complex uint8 (RTLSDR)                             | `rtl`                        |
-| complex int8 (hackrf, rad1o)                       | `hackrf`                     |
-| complex int16 (USRP with specrec from gr-analysis) | `sc16`                       |
-| complex float (GNURadio, `uhd_rx_cfile`)           | `float`                      |
-
-##### `-j`, `--jobs`
-The number of processes to spawn which demodulate packets. The detector runs in the main
-process.
+### Frame extraction
+See the python-extractor [README](python-extractor/README.md)
 
 ### Voice Decoding
 To listen to voice calls, you will need an AMBE decoder. There are two option:

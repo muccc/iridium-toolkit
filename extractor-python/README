@@ -1,8 +1,0 @@
-This is a legacy implementation written in Python and NumPy.
-
-It is provided for reference reasons. Please use the new
-GNURadio based code which can be found at
-https://github.com/muccc/gr-iridium
-
-The GNURadio based branch offers better performance with
-respect to computational effort and results.
