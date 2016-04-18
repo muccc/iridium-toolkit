@@ -192,27 +192,46 @@ class IridiumMessage(Message):
         else:
             data=self.bitstream_raw[len(iridium_access):]
 
-        # Try to detect packet type
-        if data[:32] == header_messaging:
-            self.msgtype="MS"
-        elif  1626229167<self.frequency<1626312500:
-            self.msgtype="RA"
-        elif len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
-            (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
-            (e1,lcw1,bch)= bch_repair( 29,o_lcw1)
-            (e2,lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit missing, so we guess
-            if (e2==1): # Maybe the other one...
-                (e2,lcw2,bch)= bch_repair(465,o_lcw2+'1')
-            (e3,lcw3,bch)= bch_repair( 41,o_lcw3)
-#            if e1>=0 and e2>=0 and e3>=0: # Valid LCW
-            if e1==0 and e2==0 and e3==0: # GOOD LCW
-                self.msgtype="DA"
-            elif len(data)>6+64 and ndivide(ringalert_bch_poly,de_interleave(data[6:6+64])[0][:31])==0:
-                self.msgtype="BC"
+        # Try to detect packet type.
+        # XXX: will not detect packets with correctable bit errors at the beginning
+        if "msgtype" not in self.__dict__:
+            if data[:32] == header_messaging:
+                self.msgtype="MS"
+
+        if "msgtype" not in self.__dict__:
+            hdrlen=6
+            blocklen=64
+            if len(data)>hdrlen+blocklen:
+                (o_bc1,o_bc2)=de_interleave(data[hdrlen:hdrlen+blocklen])
+                if ndivide(ringalert_bch_poly,o_bc1[:31])==0:
+                    if ndivide(ringalert_bch_poly,o_bc2[:31])==0:
+                        self.msgtype="BC"
+
+        if "msgtype" not in self.__dict__:
+            if len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
+                (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
+                if ndivide( 29,o_lcw1)==0:
+                    if ndivide( 41,o_lcw3)==0:
+                        (e2,lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit missing, so we guess
+                        if (e2==1): # Maybe the other one...
+                            (e2,lcw2,bch)= bch_repair(465,o_lcw2+'1')
+                        if e2==0:
+                            self.msgtype="DA"
+
+        if "msgtype" not in self.__dict__:
+            firstlen=3*32
+            if len(data)>=3*32:
+                (o_ra1,o_ra2,o_ra3)=de_interleave3(data[:firstlen])
+                if ndivide(ringalert_bch_poly,o_ra1[:31])==0:
+                    if ndivide(ringalert_bch_poly,o_ra2[:31])==0:
+                        if ndivide(ringalert_bch_poly,o_ra3[:31])==0:
+                            self.msgtype="RA"
+
+        if "msgtype" not in self.__dict__:
+            if len(data)<64:
+                raise ParserError("Iridium message too short")
             else:
                 raise ParserError("unknown Iridium message type")
-        else:
-            raise ParserError("Iridium message too short")
 
         if self.msgtype=="MS":
             hdrlen=32
