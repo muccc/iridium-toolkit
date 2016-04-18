@@ -720,17 +720,17 @@ class IridiumBCMessage(IridiumECCMessage):
             elif self.type == 1:
                 self.unknown21 = data1[6:10]
                 self.time = int(data1[10:21], 2) + int(data2[0:21], 2)
-                #self.readable += ' %s time:%02d' % (self.unknown21, self.time)
+                self.readable += ' %s time:%02d' % (self.unknown21, self.time)
             elif self.type == 2:
                 self.unknown31 = data1[6:10]
                 self.tmsi_expiry = int(data1[10:21] + data2[0:21], 2)
-                #self.readable += ' %s tmsi_expiry:%02d' % (self.unknown31, self.tmsi_expiry)
+                self.readable += ' %s tmsi_expiry:%02d' % (self.unknown31, self.tmsi_expiry)
             elif self.type == 4:
                 if data1+data2 != "000100000000100001110000110000110011110000":
                     self.readable += ' type: %02d %s%s' % (self.type, data1, data2)
             else: # Unknown Type
-                #print("RES: unknown Type %s" % type, "%s" % data1 + data2)
                 self.readable += ' type: %02d %s%s' % (self.type, data1, data2)
+#                raise ParserError("unknown BC Type %s"%self.type)
         def parse_assignment(data1, data2):
             result = ''
             if(data1 + data2 != '1110000000000000000000000000000000000000000'):
