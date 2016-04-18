@@ -719,8 +719,12 @@ class IridiumBCMessage(IridiumECCMessage):
                 self.readable += ' %s max_uplink_pwr:%02d' % (self.unknown11, self.max_uplink_pwr)
             elif self.type == 1:
                 self.unknown21 = data1[6:10]
-                self.time = int(data1[10:21], 2) + int(data2[0:21], 2)
-                self.readable += ' %s time:%02d' % (self.unknown21, self.time)
+                self.time = int(data1[10:21]+data2[0:21], 2)
+                # Different Iridium epochs that we know about:
+                # 2014-05-11T14:23:55Z : 1399818235 current one
+                # 2007-03-08T03:50:21Z : 1173325821
+                # 1996-06-01T00:00:11Z :  833587211 the original one
+                self.readable += ' %s time:%sZ' % (self.unknown21, datetime.datetime.fromtimestamp(self.time*90/1000+1399818235).isoformat())
             elif self.type == 2:
                 self.unknown31 = data1[6:10]
                 self.tmsi_expiry = int(data1[10:21] + data2[0:21], 2)
