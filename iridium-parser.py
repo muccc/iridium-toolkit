@@ -731,8 +731,8 @@ class IridiumECCMessage(IridiumMessage):
                 break
             parity=(data+bch).count('1') % 2
             if len(block)==32:
-                parity=(int(block[31])+parity)%2
-                #if parity==1: raise ParserError("Parity error")
+                self.parity=(int(block[31])+parity)%2
+                if self.parity==1: raise ParserError("Parity error")
             self.bitstream_bch+=data
             self.bitstream_messaging+=data[1:]
             self.oddbits+=data[0]
