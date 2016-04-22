@@ -617,10 +617,17 @@ class IridiumDAMessage(IridiumECCMessage):
         if len(self.bitstream_bch) < 9*20+16:
             raise ParserError("Not enough data in data packet")
 
-        self.da_crc=int(self.bitstream_bch[9*20:9*20+16],2)
-        crcstream=self.bitstream_bch[:16]+"0"*12+self.bitstream_bch[16:]
-        the_crc=crc16("".join([chr(int(x,2)) for x in crcstream]))
-        self.crc_ok=(the_crc==0)
+        self.da_len=int(self.bitstream_bch[11:16],2)
+        if self.da_len>0:
+            self.da_crc=int(self.bitstream_bch[9*20:9*20+16],2)
+            self.da_ta=[int(x,2) for x in slice(self.bitstream_bch[20:9*20],8)]
+            crcstream=self.bitstream_bch[:16]+"0"*12+self.bitstream_bch[16:]
+            the_crc=crc16("".join([chr(int(x,2)) for x in crcstream]))
+            self.the_crc=the_crc
+            self.crc_ok=(the_crc==0)
+        else:
+            self.da_ta=[int(x,2) for x in slice(self.bitstream_bch[20:11*20],8)]
+
         self.zero2=int(self.bitstream_bch[9*20+16:],2)
         if self.zero2 != 0:
             self._new_error("zero2 not 0")
@@ -647,41 +654,43 @@ class IridiumDAMessage(IridiumECCMessage):
         str+= " "+self.bitstream_bch[:4]
         str+= " "+self.bitstream_bch[4:5]
         str+= " ctr="+self.bitstream_bch[5:8]
-        str+= " "+self.bitstream_bch[8:12]
-        str+= " "+self.bitstream_bch[12:16]
+        str+= " "+self.bitstream_bch[8:11]
+        str+= " len=%02d"%self.da_len
         str+= " 0:"+self.bitstream_bch[16:20]
-        str+= " ["+".".join(["%02x"%int(x,2) for x in slice(self.bitstream_bch[20:9*20],8)])+"]"
-
-        def crc16(data): # 0x1021 / 0xffff unreflected
-            crc = 0xffff
-            for byte in data:
-                crc=crc^ord(byte)
-                for bit in range(0, 8):
-                    if (crc&0x1):
-                        crc = ((crc >> 1) ^ 0x8408)
-                    else:
-                        crc = crc >> 1
-            return crc ^ 0xdf9d
-        crcstream=self.bitstream_bch[:16]+"0"*12+self.bitstream_bch[16:]
-        self.sbdcrc=crc16("".join([chr(int(x,2)) for x in crcstream]))
-
-        str+= " %04x"%int(self.bitstream_bch[9*20:9*20+16],2)
-        str+="/%04x"%self.sbdcrc
-        if self.sbdcrc==0:
-            str+=" CRC:OK"
+        str+=" ["
+        if self.da_len>0:
+            if all([x==0 for x in self.da_ta[self.da_len+1:]]):
+                mstr= ".".join(["%02x"%x for x in self.da_ta[:self.da_len]])
+            else: # rest is not zero as it should be
+                mstr= ".".join(["%02x"%x for x in self.da_ta])
+                if self.da_len>0 and self.da_len<20:
+                    mstr=mstr[:3*self.da_len-1]+'!'+mstr[3*self.da_len:]
         else:
-            str+=" CRC:no"
-        str+= " "+self.bitstream_bch[9*20+16:]
+            mstr= ".".join(["%02x"%x for x in self.da_ta])
+        str+= "%-60s"%(mstr+"]")
 
-        sbd= self.bitstream_bch[1*20:9*20]
-
-        str+=' SBD: '
-        for x in slice(sbd, 8):
-            c=int(x,2)
-            if( c>=32 and c<127):
-                str+=chr(c)
+        if self.da_len>0:
+            str+= " %04x"%int(self.bitstream_bch[9*20:9*20+16],2)
+            str+="/%04x"%self.the_crc
+            if self.crc_ok:
+                str+=" CRC:OK"
             else:
-                str+="."
+                str+=" CRC:no"
+            str+= " "+self.bitstream_bch[9*20+16:]
+        else:
+            str+="  ---   "
+            str+= " "+self.bitstream_bch[9*20+16:]
+
+        if self.da_len>0:
+            sbd= self.bitstream_bch[1*20:9*20]
+
+            str+=' SBD: '
+            for x in slice(sbd, 8):
+                c=int(x,2)
+                if( c>=32 and c<127):
+                    str+=chr(c)
+                else:
+                    str+="."
 
         str+=self._pretty_trailer()
         return str
