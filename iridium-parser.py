@@ -371,7 +371,7 @@ class IridiumMessage(Message):
                 self.descramble_extra=data[312:]
             else: # Need to check what other ft are
                 self.msgtype="UK"
-                self.descrambled=data[:312]
+                self.descrambled=symbol_reverse(data[:312])
                 self.descramble_extra=data[312:]
 
         self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
