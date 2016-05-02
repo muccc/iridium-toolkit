@@ -25,7 +25,7 @@ See  [gr-iridium](https://github.com/muccc/gr-iridium) (recommended) or [extract
 
 ### Voice Decoding
 To listen to voice calls, you will need an AMBE decoder. There are two option:
- - Use tnt's open source AMBE decoder: http://git.osmocom.org/osmo-ir77/tree/codec
+ - Use tnt's open source AMBE decoder: http://git.osmocom.org/osmo-ir77/tree/codec (`git clone http://git.osmocom.org/osmo-ir77`)
  - Extract an AMBE decoder from a firmware binary. Have a look at the [documentation](ambe_emu/Readme.md) in the `ambe_emu/` directory.
 
 The easier option is to use tnt's AMBE decoder. You can use the extracted decoder if you want to create bit correct output. There almost no audible difference between the two options. Make sure that either `ir77_ambe_decode` or `ambe` is in your `PATH`. Also select the installed one in `play-iridium-ambe`.
