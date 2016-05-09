@@ -746,9 +746,9 @@ class IridiumBCMessage(IridiumECCMessage):
                 self.readable += ' %s tmsi_expiry:%02d' % (self.unknown31, self.tmsi_expiry)
             elif self.type == 4:
                 if data1+data2 != "000100000000100001110000110000110011110000":
-                    self.readable += ' type: %02d %s%s' % (self.type, data1, data2)
+                    self.readable += ' type:%02d %s%s' % (self.type, data1, data2)
             else: # Unknown Type
-                self.readable += ' type: %02d %s%s' % (self.type, data1, data2)
+                self.readable += ' type:%02d %s%s' % (self.type, data1, data2)
 #                raise ParserError("unknown BC Type %s"%self.type)
             blocks = blocks[2:]
 
@@ -765,7 +765,7 @@ class IridiumBCMessage(IridiumECCMessage):
                 dtoa = int(data2[5:13], 2)
                 dfoa = int(data2[13:19], 2)
                 unknown4 = data2[19:21]
-                result = ' %s %s ts:%d ul_sb:%02d dl_sb:%02d %s dtoa:%03d dfoa: %02d %s' % (unknown1, unknown2, timeslot, uplink_subband, downlink_subband, unknown3, dtoa, dfoa, unknown4)
+                result = ' %s %s ts:%d ul_sb:%02d dl_sb:%02d %s dtoa:%03d dfoa:%02d %s' % (unknown1, unknown2, timeslot, uplink_subband, downlink_subband, unknown3, dtoa, dfoa, unknown4)
             return result
 
         while len(blocks) > 1:
@@ -824,7 +824,7 @@ class IridiumRAMessage(IridiumECCMessage):
             ra_msg=ra_msg[42:]
         self.ra_extra=ra_msg
         if len(ra_msg)!=0:
-            self._new_error("RA content length unexpected: %d"%len(ra_msg))
+            self._new_error("RA content length unexpected:%d"%len(ra_msg))
     def upgrade(self):
         if self.error: return self
         try:
