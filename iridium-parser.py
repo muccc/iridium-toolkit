@@ -107,7 +107,7 @@ class Message(object):
         self.confidence=int(m.group(6))
         self.level=float(m.group(7))
 #        self.raw_length=m.group(8)
-        self.bitstream_raw=re.sub("[\[\]<> ]","",m.group(9)) # raw bitstring
+        self.bitstream_raw=symbol_reverse(re.sub("[\[\]<> ]","",m.group(9))) # raw bitstring with correct symbols
         self.symbols=len(self.bitstream_raw)/2
         if m.group(10):
             self.extra_data=m.group(10)
@@ -253,7 +253,6 @@ class IridiumMessage(Message):
         elif self.msgtype=="BC":
             hdrlen=6
             self.header=data[:hdrlen]
-            self.header=symbol_reverse(data[:hdrlen])
             (e,d,bch)=bch_repair(hdr_poly,self.header)
             if e==0:
                 self.header="bc:%d"%int(d,2)
@@ -348,11 +347,11 @@ class IridiumMessage(Message):
                     self._new_error("Not enough data in data packet")
             if self.ft==0: # Voice
                 self.msgtype="VO"
-                self.voice=data[:312]
+                self.voice=symbol_reverse(data[:312])
                 self.descramble_extra=data[312:]
             elif self.ft==1: # IP via PPP
                 self.msgtype="IP"
-                for x in slice(symbol_reverse(data[:312]),8):
+                for x in slice(data[:312],8):
                     self.descrambled+=[x[::-1]]
                 self.descramble_extra=data[312:]
             elif self.ft==2: # DAta (SBD)
@@ -368,12 +367,12 @@ class IridiumMessage(Message):
                 self.descrambled+=[b2[1:],b1[1:]] # Throw away the extra bit
             elif self.ft==7: # Synchronisation
                 self.msgtype="SY"
-                self.descrambled=data[:312]
+                self.descrambled=symbol_reverse(data[:312])
                 self.sync=[int(x,2) for x in slice(self.descrambled, 8)]
                 self.descramble_extra=data[312:]
             else: # Need to check what other ft are
                 self.msgtype="UK"
-                self.descrambled=symbol_reverse(data[:312])
+                self.descrambled=data[:312]
                 self.descramble_extra=data[312:]
 
         self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
@@ -1060,24 +1059,24 @@ def symbol_reverse(bits):
 
 def de_interleave(group):
 #    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
-    symbols = [group[z:z+2] for z in xrange(0,len(group),2)]
+    symbols = [group[z+1]+group[z] for z in xrange(0,len(group),2)]
     even = ''.join([symbols[x] for x in range(len(symbols)-2,-1, -2)])
     odd  = ''.join([symbols[x] for x in range(len(symbols)-1,-1, -2)])
     return (odd,even)
 
 def de_interleave3(group):
 #    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
-    symbols = [group[z:z+2] for z in xrange(0,len(group),2)]
+    symbols = [group[z+1]+group[z] for z in xrange(0,len(group),2)]
     third  = ''.join([symbols[x] for x in range(len(symbols)-3, -1, -3)])
     second = ''.join([symbols[x] for x in range(len(symbols)-2, -1, -3)])
     first  = ''.join([symbols[x] for x in range(len(symbols)-1, -1, -3)])
     return (first,second,third)
 
 def de_interleave_lcw(bits):
-    tbl= [ 39, 40, 35, 36, 31, 32, 27, 28, 23, 24, 19, 20, 15, 16, 11, 12,  7,  8,  3,  4,
-           42,
-           37, 38, 33, 34, 29, 30, 25, 26, 21, 22, 17, 18, 13, 14,  9, 10,  5,  6,  1,  2,
-           45, 46, 43, 44, 41]
+    tbl= [ 40, 39, 36, 35, 32, 31, 28, 27, 24, 23, 20, 19, 16, 15, 12, 11,  8,  7,  4,  3,
+           41,
+           38, 37, 34, 33, 30, 29, 26, 25, 22, 21, 18, 17, 14, 13, 10,  9,  6,  5,  2,  1, 46, 45, 44, 43,
+           42]
     lcw=[bits[x-1:x] for x in tbl]
     return (''.join(lcw[:7]),''.join(lcw[7:20]),''.join(lcw[20:]))
 
