@@ -747,8 +747,8 @@ class IridiumBCMessage(IridiumECCMessage):
 #                raise ParserError("unknown BC Type %s"%self.type)
         def parse_assignment(data1, data2):
             result = ''
-            if(data1 + data2 != '1110000000000000000000000000000000000000000'):
-                # maybe "Channel Assignment" ?
+            if(data1 + data2 != '111000000000000000000000000000000000000000'):
+                # Channel Assignment
                 unknown1 = data1[0:3]
                 unknown2 = data1[3:11]
                 timeslot = int(data1[11:13], 2)
