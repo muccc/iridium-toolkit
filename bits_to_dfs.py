@@ -49,5 +49,5 @@ for line in fileinput.input(infile):
         #print data
         for bits in chunks(data, 8):
             byte = int(bits[::-1],2)
-            outfile.write(chr(turn_symbols(byte)))
+            outfile.write(chr(byte))
 
