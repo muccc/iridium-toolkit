@@ -203,10 +203,11 @@ class IridiumMessage(Message):
             hdrlen=6
             blocklen=64
             if len(data)>hdrlen+blocklen:
-                (o_bc1,o_bc2)=de_interleave(data[hdrlen:hdrlen+blocklen])
-                if ndivide(ringalert_bch_poly,o_bc1[:31])==0:
-                    if ndivide(ringalert_bch_poly,o_bc2[:31])==0:
-                        self.msgtype="BC"
+                if ndivide(hdr_poly,data[:hdrlen])==0:
+                    (o_bc1,o_bc2)=de_interleave(data[hdrlen:hdrlen+blocklen])
+                    if ndivide(ringalert_bch_poly,o_bc1[:31])==0:
+                        if ndivide(ringalert_bch_poly,o_bc2[:31])==0:
+                            self.msgtype="BC"
 
         if "msgtype" not in self.__dict__:
             if len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
