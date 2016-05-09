@@ -31,6 +31,7 @@ header_messaging="00110011111100110011001111110011" # 0x9669 in BPSK
 messaging_bch_poly=1897
 ringalert_bch_poly=1207
 acch_bch_poly=3545 # 1207 also works?
+hdr_poly=29
 
 verbose = False
 perfect = False
@@ -252,6 +253,12 @@ class IridiumMessage(Message):
         elif self.msgtype=="BC":
             hdrlen=6
             self.header=data[:hdrlen]
+            self.header=symbol_reverse(data[:hdrlen])
+            (e,d,bch)=bch_repair(hdr_poly,self.header)
+            if e==0:
+                self.header="bc:%d"%int(d,2)
+            else:
+                self.header="%s/E%d"%(self.header,e)
             self.descrambled=[]
 
             (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
