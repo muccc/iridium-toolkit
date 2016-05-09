@@ -347,7 +347,7 @@ class IridiumMessage(Message):
                     self._new_error("Not enough data in data packet")
             if self.ft==0: # Voice
                 self.msgtype="VO"
-                self.voice=symbol_reverse(data[:312])
+                self.voice=data[:312]
                 self.descramble_extra=data[312:]
             elif self.ft==1: # IP via PPP
                 self.msgtype="IP"
@@ -367,7 +367,7 @@ class IridiumMessage(Message):
                 self.descrambled+=[b2[1:],b1[1:]] # Throw away the extra bit
             elif self.ft==7: # Synchronisation
                 self.msgtype="SY"
-                self.descrambled=symbol_reverse(data[:312])
+                self.descrambled=data[:312]
                 self.sync=[int(x,2) for x in slice(self.descrambled, 8)]
                 self.descramble_extra=data[312:]
             else: # Need to check what other ft are
@@ -434,7 +434,7 @@ class IridiumSYMessage(IridiumMessage):
         str= "ISY: "+self._pretty_header()
         errs=0
         for x in self.sync:
-            if x!=0x55:
+            if x!=0xaa:
                 errs+=1 # Maybe count bit errors
         if errs==0:
             str+=" Sync=OK"
