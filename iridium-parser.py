@@ -255,8 +255,10 @@ class IridiumMessage(Message):
             hdrlen=6
             self.header=data[:hdrlen]
             (e,d,bch)=bch_repair(hdr_poly,self.header)
+
+            self.bc_type = int(d, 2)
             if e==0:
-                self.header="bc:%d"%int(d,2)
+                self.header="bc:%d" % self.bc_type
             else:
                 self.header="%s/E%d"%(self.header,e)
             self.descrambled=[]
@@ -703,7 +705,7 @@ class IridiumBCMessage(IridiumECCMessage):
         blocks, _ =slice_extra(self.bitstream_bch,21)
 
         self.readable = ''
-        if len(blocks) > 1:
+        if len(blocks) > 1 and self.bc_type == 0:
             data1 = blocks[0]
             data2 = blocks[1]
 
@@ -719,9 +721,11 @@ class IridiumBCMessage(IridiumECCMessage):
 
             self.readable += 'sat:%02d cell:%02d %s ts:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.timeslot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
 
-        if len(blocks) > 3:
-            data1 = blocks[2]
-            data2 = blocks[3]
+            blocks = blocks[2:]
+
+        if len(blocks) > 1 and self.bc_type == 0:
+            data1 = blocks[0]
+            data2 = blocks[1]
 
             self.type = int(data1[0:6], 2)
             if self.type == 0:
@@ -746,6 +750,8 @@ class IridiumBCMessage(IridiumECCMessage):
             else: # Unknown Type
                 self.readable += ' type: %02d %s%s' % (self.type, data1, data2)
 #                raise ParserError("unknown BC Type %s"%self.type)
+            blocks = blocks[2:]
+
         def parse_assignment(data1, data2):
             result = ''
             if(data1 + data2 != '111000000000000000000000000000000000000000'):
@@ -762,15 +768,11 @@ class IridiumBCMessage(IridiumECCMessage):
                 result = ' %s %s ts:%d ul_sb:%02d dl_sb:%02d %s dtoa:%03d dfoa: %02d %s' % (unknown1, unknown2, timeslot, uplink_subband, downlink_subband, unknown3, dtoa, dfoa, unknown4)
             return result
 
-        if len(blocks) > 5:
-            data1 = blocks[4]
-            data2 = blocks[5]
+        while len(blocks) > 1:
+            data1 = blocks[0]
+            data2 = blocks[1]
             self.readable += parse_assignment(data1, data2)
-
-        if len(blocks) > 7:
-            data1 = blocks[6]
-            data2 = blocks[7]
-            self.readable += parse_assignment(data1, data2)
+            blocks = blocks[2:]
 
     def upgrade(self):
         if self.error: return self
