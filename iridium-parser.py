@@ -337,11 +337,6 @@ class IridiumMessage(Message):
             self.descrambled=[]
             data=data[lcwlen:]
 
-            def symbol_reverse(bits):
-                r = ''
-                for symbol in grouped(bits, 2):
-                    r += symbol[1] + symbol[0]
-                return r
             if self.ft<=2 and len(data)<312:
                     self._new_error("Not enough data in data packet")
             if self.ft==0: # Voice
@@ -1049,6 +1044,12 @@ class IridiumMessagingUnknown(IridiumMSMessage):
 def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), ..."
     return izip(*[iter(iterable)]*n)
+
+def symbol_reverse(bits):
+    r = ''
+    for x in xrange(0,len(bits)-1,2):
+        r += bits[x+1] + bits[x+0]
+    return r
 
 def de_interleave(group):
 #    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
