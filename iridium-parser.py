@@ -2,7 +2,9 @@
 # vim: set ts=4 sw=4 tw=0 et pm=:
 import sys
 import re
+import struct
 from bch import ndivide, nrepair, bch_repair
+from crc import crc24
 import fileinput
 import getopt
 import types
@@ -344,13 +346,16 @@ class IridiumMessage(Message):
                 self.header="LCW(%d,T:%s,C:%s(%s),%s E%d)"%(self.ft,ty,code,int(self.lcw2,2),int(self.lcw3,2),e1+e2+e3)
                 self.header="%-110s "%self.header
             self.descrambled=[]
+            self.payload=[]
             data=data[lcwlen:]
 
             if self.ft<=2 and len(data)<312:
                     self._new_error("Not enough data in data packet")
             if self.ft==0: # Voice
                 self.msgtype="VO"
-                self.voice=data[:312]
+                for x in slice(data[:312],8):
+                    self.descrambled+=[x[::-1]]
+                    self.payload+=[int(x[::-1],2)]
                 self.descramble_extra=data[312:]
             elif self.ft==1: # IP via PPP
                 self.msgtype="IP"
@@ -449,7 +454,14 @@ class IridiumSYMessage(IridiumMessage):
 class IridiumVOMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        # Decode stuff from self.bitstream_bch
+        self.crcval=crc24(bytearray(self.payload))
+        if self.crcval==0:
+            self.vtype="VDA"
+            self.crc=struct.unpack(">L",bytearray([0]+self.payload[-3:]))
+            self.payload=self.payload[:-3]
+        else:
+            self.vtype="VOC"
+
     def upgrade(self):
         return self
     def _pretty_header(self):
@@ -457,8 +469,10 @@ class IridiumVOMessage(IridiumMessage):
     def _pretty_trailer(self):
         return super(IridiumVOMessage,self)._pretty_trailer()
     def pretty(self):
-        str= "VOC: "+self._pretty_header()
-        str+= " "+self.voice
+        str= self.vtype+": "+self._pretty_header()
+        str+= " ["+".".join(["%02x"%x for x in self.payload])+"]"
+        if self.vtype=="VDA":
+            str+=" crc=%06x"%(self.crc)
         str+=self._pretty_trailer()
         return str
 
@@ -475,17 +489,7 @@ class IridiumIPMessage(IridiumMessage):
             pass
         self.ip_data=[int(x,2) for x in self.descrambled[5:31+5]] # XXX: only len bytes?
         self.ip_cksum= self.descrambled[31+5:]
-        def crc24(data):
-            crc = 0xffffff
-            for byte in data:
-                crc=crc^ord(byte)
-                for bit in range(0, 8):
-                    if (crc&0x1):
-                        crc = ((crc >> 1) ^ 0xAD85DD)
-                    else:
-                        crc = crc >> 1
-            return crc ^0x0c91b6 # Check value
-        self.crcval=crc24("".join([chr(int(x,2)) for x in self.descrambled]))
+        self.crcval=crc24(bytearray([int(x,2) for x in self.descrambled]))
     def upgrade(self):
         return self
     def _pretty_header(self):
