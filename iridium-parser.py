@@ -5,6 +5,7 @@ import re
 import struct
 from bch import ndivide, nrepair, bch_repair
 from crc import crc24
+from rs import rs_check,rs_fix
 import fileinput
 import getopt
 import types
@@ -346,7 +347,8 @@ class IridiumMessage(Message):
                 self.header="LCW(%d,T:%s,C:%s(%s),%s E%d)"%(self.ft,ty,code,int(self.lcw2,2),int(self.lcw3,2),e1+e2+e3)
                 self.header="%-110s "%self.header
             self.descrambled=[]
-            self.payload=[]
+            self.payload_r=[]
+            self.payload_f=[]
             data=data[lcwlen:]
 
             if self.ft<=2 and len(data)<312:
@@ -354,8 +356,9 @@ class IridiumMessage(Message):
             if self.ft==0: # Voice
                 self.msgtype="VO"
                 for x in slice(data[:312],8):
-                    self.descrambled+=[x[::-1]]
-                    self.payload+=[int(x[::-1],2)]
+                    self.descrambled+=[x]
+                    self.payload_f+=[int(x,2)]
+                    self.payload_r+=[int(x[::-1],2)]
                 self.descramble_extra=data[312:]
             elif self.ft==1: # IP via PPP
                 self.msgtype="IP"
@@ -454,13 +457,20 @@ class IridiumSYMessage(IridiumMessage):
 class IridiumVOMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        self.crcval=crc24(bytearray(self.payload))
+        self.crcval=crc24(bytearray(self.payload_r))
         if self.crcval==0:
             self.vtype="VDA"
-            self.crc=struct.unpack(">L",bytearray([0]+self.payload[-3:]))
-            self.payload=self.payload[:-3]
+            self.crc=struct.unpack(">L",bytearray([0]+self.payload_r[-3:]))
+            self.vdata=self.payload_r[:-3]
         else:
-            self.vtype="VOC"
+#            if rs_check(self.payload_f):
+            (ok,msg,rs)=rs_fix(self.payload_f)
+            if ok:
+                self.vtype="VOD"
+                self.vdata=msg
+            else:
+                self.vtype="VOC"
+                self.vdata=self.payload_f
 
     def upgrade(self):
         return self
@@ -470,7 +480,7 @@ class IridiumVOMessage(IridiumMessage):
         return super(IridiumVOMessage,self)._pretty_trailer()
     def pretty(self):
         str= self.vtype+": "+self._pretty_header()
-        str+= " ["+".".join(["%02x"%x for x in self.payload])+"]"
+        str+= " ["+".".join(["%02x"%x for x in self.vdata])+"]"
         if self.vtype=="VDA":
             str+=" crc=%06x"%(self.crc)
         str+=self._pretty_trailer()
