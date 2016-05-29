@@ -21,7 +21,7 @@ if you want to speed up that step you can install `pypy` and instead run
     pypy iridium-parser.py output.bits
 
 ### Frame extraction
-See  [gr-iridium](https://github.com/muccc/gr-iridium) (recommended) or [extractror-python](extractor-python/) (not recommended) on how to extract Iridium frames from raw data.
+See  [gr-iridium](https://github.com/muccc/gr-iridium) (recommended) or [extractor-python](extractor-python/) (not recommended) on how to extract Iridium frames from raw data.
 
 ### Voice Decoding
 To listen to voice calls, you will need an AMBE decoder. There are two option:
