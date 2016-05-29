@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+# vim: set ts=4 sw=4 tw=0 et pm=:
 import fileinput
 import sys
 
@@ -46,8 +48,12 @@ for line in fileinput.input(infile):
         if int(line[6]) < 179:
             continue
         data = line[10]
-        #print data
-        for bits in chunks(data, 8):
-            byte = int(bits[::-1],2)
-            outfile.write(chr(byte))
-
+        if (data[0] == "["):
+            for pos in xrange(1,len(data),3):
+                byte=int(data[pos:pos+2],16)
+                byte=int('{:08b}'.format(byte)[::-1], 2)
+                outfile.write(chr(byte))
+        else:
+            for bits in chunks(data, 8):
+                byte = int(bits[::-1],2)
+                outfile.write(chr(byte))
