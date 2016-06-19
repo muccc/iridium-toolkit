@@ -16,3 +16,4 @@ You can try to use "get_binary.sh" which will try to extract it from the TD10003
 
 The firmware image can be downloaded e.g. from: http://www.idgeurope.com/en/support/firmware-support
 
+NOTE: Currently only builds correctly on 64bit systems
