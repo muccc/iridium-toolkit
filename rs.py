@@ -6,8 +6,11 @@ import reedsolo
 generator=2
 fcr=0
 nsym=16
-reedsolo.init_tables(0x11d,generator)
+c_exp=8 # bits per symbol
+prim=0x11d
+reedsolo.init_tables(prim=prim,generator=generator,c_exp=c_exp)
 
+# erasure length
 elen=8
 
 def rs_check(data):

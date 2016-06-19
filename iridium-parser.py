@@ -5,7 +5,7 @@ import re
 import struct
 from bch import ndivide, nrepair, bch_repair
 from crc import crc24
-from rs import rs_check,rs_fix
+import rs
 import fileinput
 import getopt
 import types
@@ -464,7 +464,7 @@ class IridiumVOMessage(IridiumMessage):
             self.vdata=self.payload_r[:-3]
         else:
 #            if rs_check(self.payload_f):
-            (ok,msg,rs)=rs_fix(self.payload_f)
+            (ok,msg,rsc)=rs.rs_fix(self.payload_f)
             if ok:
                 self.vtype="VOD"
                 self.vdata=msg
