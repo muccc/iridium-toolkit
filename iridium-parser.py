@@ -461,7 +461,12 @@ class IridiumVOMessage(IridiumMessage):
         if self.crcval==0:
             self.vtype="VDA"
             self.crc=struct.unpack(">L",bytearray([0]+self.payload_r[-3:]))
-            self.vdata=self.payload_r[:-3]
+            self.vdata=self.payload_r[5:-3]
+            self.vstype=self.payload_r[0]
+            self.vctr1=self.payload_r[1]
+            self.vuk1 =self.payload_r[2]
+            self.vctr2=self.payload_r[3]
+            self.vlen =self.payload_r[4]
         else:
 #            if rs_check(self.payload_f):
             (ok,msg,rsc)=rs.rs_fix(self.payload_f)
@@ -481,8 +486,27 @@ class IridiumVOMessage(IridiumMessage):
     def pretty(self):
         str= self.vtype+": "+self._pretty_header()
         if self.vtype=="VDA":
-            str+= " ["+".".join(["{0:08b}".format(x) for x in self.vdata])+"]"
-            str+=" crc=%06x"%(self.crc)
+            if self.vstype==4:
+                str+= " type=%02x ct1=%03d ?=%02x ct2=%03d len=%03d "%(self.vstype,self.vctr1,self.vuk1,self.vctr2,self.vlen)
+                str+= "["
+                str+= ".".join(["%02x"%x for x in self.vdata[:self.vlen]])
+                str+= "]"
+                err=any(self.vdata[self.vlen:])
+                if err:
+                    str+=" ERR"
+                str+= "   "*(31-self.vlen)
+            else:
+                str+= " type=%02x ct1=%03d ?=%02x ct2=%03d "%(self.vstype,self.vctr1,self.vuk1,self.vctr2)
+                str+= "     ["
+                str+= "%02x."%self.vlen
+                str+= ".".join(["%02x"%x for x in self.vdata])
+                str+= "]"
+            str+=" crc=%06x "%(self.crc)
+            for c in self.vdata:
+                if( c>=32 and c<127):
+                    str+=chr(c)
+                else:
+                    str+="."
         else:
             str+= " ["+".".join(["%02x"%x for x in self.vdata])+"]"
         str+=self._pretty_trailer()
