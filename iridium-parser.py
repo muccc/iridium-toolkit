@@ -480,9 +480,11 @@ class IridiumVOMessage(IridiumMessage):
         return super(IridiumVOMessage,self)._pretty_trailer()
     def pretty(self):
         str= self.vtype+": "+self._pretty_header()
-        str+= " ["+".".join(["%02x"%x for x in self.vdata])+"]"
         if self.vtype=="VDA":
+            str+= " ["+".".join(["{0:08b}".format(x) for x in self.vdata])+"]"
             str+=" crc=%06x"%(self.crc)
+        else:
+            str+= " ["+".".join(["%02x"%x for x in self.vdata])+"]"
         str+=self._pretty_trailer()
         return str
 
