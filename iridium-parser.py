@@ -6,6 +6,7 @@ import struct
 from bch import ndivide, nrepair, bch_repair
 from crc import crc24
 import rs
+import rs6
 import fileinput
 import getopt
 import types
@@ -351,7 +352,7 @@ class IridiumMessage(Message):
             self.payload_f=[]
             data=data[lcwlen:]
 
-            if self.ft<=2 and len(data)<312:
+            if self.ft<=3 and len(data)<312:
                     self._new_error("Not enough data in data packet")
             if self.ft==0: # Voice
                 self.msgtype="VO"
@@ -381,6 +382,11 @@ class IridiumMessage(Message):
                 self.descrambled=data[:312]
                 self.sync=[int(x,2) for x in slice(self.descrambled, 8)]
                 self.descramble_extra=data[312:]
+            elif self.ft==3: # Unknown data
+                self.msgtype="U3"
+                self.descrambled=data[:312]
+                self.payload=[int(x,2) for x in slice(self.descrambled, 6)]
+                self.descramble_extra=data[312:]
             else: # Need to check what other ft are
                 self.msgtype="UK"
                 self.descrambled=data[:312]
@@ -399,6 +405,8 @@ class IridiumMessage(Message):
                 return IridiumIPMessage(self).upgrade()
             elif self.msgtype=="SY":
                 return IridiumSYMessage(self).upgrade()
+            elif self.msgtype=="U3":
+                return IridiumLCW3Message(self).upgrade()
             elif self.msgtype=="UK":
                 return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
@@ -451,6 +459,49 @@ class IridiumSYMessage(IridiumMessage):
             str+=" Sync=OK"
         else:
             str+=" Sync=no, errs=%d"%errs
+        str+=self._pretty_trailer()
+        return str
+
+class IridiumLCW3Message(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=imsg.__dict__
+        (ok,msg,csum)=rs6.rs_fix(self.payload)
+        self.rs6p=False
+        self.rs6=ok
+        if ok:
+            if bytearray(self.payload)==msg+csum:
+                self.rs6p=True
+            self.rs6m=msg
+            self.rs6c=csum
+#            self.payload=msg
+    def upgrade(self):
+        return self
+    def _pretty_header(self):
+        return super(IridiumLCW3Message,self)._pretty_header()
+    def _pretty_trailer(self):
+        return super(IridiumLCW3Message,self)._pretty_trailer()
+    def pretty(self):
+        str= "IU3: "+self._pretty_header()
+        if self.rs6:
+            if self.rs6p:
+                str+=" RS=OK"
+            else:
+                str+=" RS=ok"
+        else:
+            str+=" RS=no"
+        if self.rs6:
+            str+= " ["
+            v="".join(["{0:08b}".format(x) for x in self.rs6m ])
+            str+=group(v,24)
+            str+=" - "
+            str+=".".join(["%02x"%x for x in self.rs6c ])
+            str+="]"
+        else:
+            str+= " ["
+            v="".join(["{0:08b}".format(x) for x in self.payload ])
+            str+=group(v,24)
+            #str+=".".join(["%02x"%x for x in self.payload ])
+            str+="]"
         str+=self._pretty_trailer()
         return str
 
