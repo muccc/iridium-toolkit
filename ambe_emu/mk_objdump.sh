@@ -1,4 +1,8 @@
 [ ! -d binutils-gdb ] && git clone --depth=1 git://sourceware.org/git/binutils-gdb.git
+if [ ! -d binutils-gdb ] ; then
+	echo "Cloning binutils failed." >&2
+	exit
+fi
 cd binutils-gdb
 ./configure --target=c54x
 for a in bfd opcodes libiberty zlib binutils ; do
