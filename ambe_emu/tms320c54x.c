@@ -40,14 +40,14 @@ int rc;
 #define ah   ram[0x09]
 #define ag   ram[0x0a]
 #define a ((((uint64_t)ag<<32)|((uint64_t)ah<<16)|al) & 0xffffffffff)
-#define sex_a ((int64_t)(((a&(1L<<39))?0xffffff0000000000:0)|a))
+#define sex_a ((int64_t)(((a&(1LL<<39))?0xffffff0000000000:0)|a))
 //inline void set_as(uint64_t x) {if(_SXM && x>=0x8000){x|= 0xffffffff0000L };al=x&0xffff;ah=(x>>16)&0xffff;ag=(x>>32)&0xff;};
 inline void set_a(uint64_t x) {al=x&0xffff;ah=(x>>16)&0xffff;ag=(x>>32)&0xff;};
 #define bl   ram[0x0b]
 #define bh   ram[0x0c]
 #define bg   ram[0x0d]
 #define b ((((uint64_t)bg<<32)|((uint64_t)bh<<16)|bl) & 0xffffffffff)
-#define sex_b ((int64_t)(((b&(1L<<39))?0xffffff0000000000:0)|b))
+#define sex_b ((int64_t)(((b&(1LL<<39))?0xffffff0000000000:0)|b))
 inline void set_b(uint64_t x) {bl=x&0xffff;bh=(x>>16)&0xffff;bg=(x>>32)&0xff;};
 #define t    ram[0x0e]
 #define trn  ram[0x0f]
@@ -181,7 +181,7 @@ void debug(char* addr,char* op){
 	assert(_C16 ==0);
 	assert(_FRCT ==0);
 	printf ("\n@ %s ========================================= %s\n",addr,op);
-	printf ("PC: %04x SP: %04x A: %010lx B: %010lx ",pc,sp,a,b);
+	printf ("PC: %04x SP: %04x A: %010llx B: %010llx ",pc,sp,a,b);
 	printf ("ST0: %04x ST1: %04x\n",st0,st1);
 	printf ("AR0: %04x AR1: %04x AR2: %04x AR3: %04x AR4: %04x AR5: %04x AR6: %04x AR7: %04x\n",ar0,ar1,ar2,ar3,ar4,ar5,ar6,ar7);
 	printf ("@SP: %04x @SP+1: %04x @SP+2: %04x @SP+3: %04x",ram[sp],ram[sp+1],ram[sp+2],ram[sp+3]);

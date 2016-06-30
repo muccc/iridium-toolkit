@@ -243,26 +243,26 @@ sub getcond {
 	}elsif ($_[0] eq "bneq"){
 		return "b!=0";
 	}elsif ($_[0] eq "blt"){
-		return "(b&(1L<<39))!=0";
+		return "(b&(1LL<<39))!=0";
 	}elsif ($_[0] eq "bgeq"){
-		return "((b&(1L<<39))==0 )";
+		return "((b&(1LL<<39))==0 )";
 	}elsif ($_[0] eq "bgt"){
-		return "(((b&(1L<<39))==0 ) && (b!=0))";
+		return "(((b&(1LL<<39))==0 ) && (b!=0))";
 	}elsif ($_[0] eq "bleq"){
-		return "(((b&(1L<<39))!=0 ) || (b==0))";
+		return "(((b&(1LL<<39))!=0 ) || (b==0))";
 
 	}elsif ($_[0] eq "aeq"){
 		return "a==0";
 	}elsif ($_[0] eq "aneq"){
 		return "a!=0";
 	}elsif ($_[0] eq "alt"){
-		return "(a&(1L<<39))!=0";
+		return "(a&(1LL<<39))!=0";
 	}elsif ($_[0] eq "ageq"){
-		return "((a&(1L<<39))==0 )";
+		return "((a&(1LL<<39))==0 )";
 	}elsif ($_[0] eq "agt"){
-		return "(((a&(1L<<39))==0 ) && (a!=0))";
+		return "(((a&(1LL<<39))==0 ) && (a!=0))";
 	}elsif ($_[0] eq "aleq"){
-		return "(((a&(1L<<39))!=0 ) || (a==0))";
+		return "(((a&(1LL<<39))!=0 ) || (a==0))";
 
 	}elsif ($_[0] eq "c"){
 		return "_C";
@@ -492,7 +492,7 @@ my %cmds=(
 									$shift=-$shift;
 								return "if(_SXM){".
 								($_[0] =~ /^[ab]$/ ?
-								"set_$_[1](((($_[0]&(1L<<32))?0xffffff0000000000:0)|$_[0])>>$shift);"
+								"set_$_[1](((($_[0]&(1LL<<32))?0xffffff0000000000:0)|$_[0])>>$shift);"
 								:
 								"set_$_[1]((uint64_t)($mask($_[0])>>$shift));").
 								"}else{".
@@ -794,7 +794,7 @@ my %cmds=(
 				}else{
 					$s="<< ".$_[1];
 				};
-				"set_$_[0]( ( (int64_t)($_[0]| (($_[0]&(1L<<39))?0xffffff0000000000L:0) )) $s);",
+				"set_$_[0]( ( (int64_t)($_[0]| (($_[0]&(1LL<<39))?0xffffff0000000000L:0) )) $s);",
 				},
 	bc    => sub {
 					fixaddr($_[0]);
