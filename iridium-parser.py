@@ -94,7 +94,7 @@ class Message(object):
         self.parse_error=False
         self.error=False
         self.error_msg=[]
-        p=re.compile('RAW: ([^ ]*) (\d+) (\d+) A:(\w+) L:(\w+) +(\d+)% ([\d.]+) +(\d+) ([\[\]<> 01]+)(.*)')
+        p=re.compile('RAW: ([^ ]*) (\d+) (\d+) A:(\w+) [IL]:(\w+) +(\d+)% ([\d.]+) +(\d+) ([\[\]<> 01]+)(.*)')
         m=p.match(line)
         if(not m):
             self._new_error("Couldn't parse: "+line)
