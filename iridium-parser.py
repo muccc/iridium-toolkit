@@ -515,17 +515,27 @@ class IridiumVOMessage(IridiumMessage):
 class IridiumIPMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        self.ip_hdr=self.descrambled[0]
-        self.ip_ctr1=int(self.descrambled[1],2)
-        self.ip_uk1=self.descrambled[2]
-        self.ip_ctr2=int(self.descrambled[3],2)
-        self.ip_len= int(self.descrambled[4],2)
-        if self.ip_len>31:
-            #self._new_error("Invalid ip_len")
-            pass
-        self.ip_data=[int(x,2) for x in self.descrambled[5:31+5]] # XXX: only len bytes?
-        self.ip_cksum= self.descrambled[31+5:]
-        self.crcval=crc24(bytearray([int(x,2) for x in self.descrambled]))
+        self.payload_f=[int(x[::-1],2) for x in self.descrambled]
+        (ok,msg,rsc)=rs.rs_fix(self.payload_f)
+        if ok:
+            self.itype="IIQ"
+            self.idata=msg
+        else:
+            self.crcval=crc24(bytearray([int(x,2) for x in self.descrambled]))
+            if self.crcval==0:
+                self.itype="IIP"
+                self.ip_hdr=self.descrambled[0]
+                self.ip_ctr1=int(self.descrambled[1],2)
+                self.ip_uk1=self.descrambled[2]
+                self.ip_ctr2=int(self.descrambled[3],2)
+                self.ip_len= int(self.descrambled[4],2)
+                if self.ip_len>31:
+                    #self._new_error("Invalid ip_len")
+                    pass
+                self.ip_data=[int(x,2) for x in self.descrambled[5:31+5]] # XXX: only len bytes?
+                self.ip_cksum= self.descrambled[31+5:]
+            else:
+                self.itype="IIU"
     def upgrade(self):
         return self
     def _pretty_header(self):
@@ -533,22 +543,24 @@ class IridiumIPMessage(IridiumMessage):
     def _pretty_trailer(self):
         return super(IridiumIPMessage,self)._pretty_trailer()
     def pretty(self):
-        s= "IIP: "+self._pretty_header()
-        s+= " %s c1=%03d %s c2=%03d len=%03d"%(self.ip_hdr,self.ip_ctr1,self.ip_uk1,self.ip_ctr2,self.ip_len)
-        s+= " ["+".".join(["%02x"%x for x in self.ip_data])+"]"
-        s+= " %06x/%06x"%(int("".join(self.ip_cksum),2),self.crcval)
-        if self.crcval==0:
+        s= self.itype+": "+self._pretty_header()
+        if self.itype=="IIP":
+            s+= " %s c1=%03d %s c2=%03d len=%03d"%(self.ip_hdr,self.ip_ctr1,self.ip_uk1,self.ip_ctr2,self.ip_len)
+            s+= " ["+".".join(["%02x"%x for x in self.ip_data])+"]"
+            s+= " %06x/%06x"%(int("".join(self.ip_cksum),2),self.crcval)
             s+=" FCS:OK"
+            ip_data = ' IP: '
+            for c in self.ip_data:
+                if( c>=32 and c<127):
+                    ip_data+=chr(c)
+                else:
+                    ip_data+="."
+            s += ip_data
+        elif self.itype=="IIQ":
+            pl=[int(x,2) for x in self.descrambled[0:]]
+            s+= " ["+" ".join(["%02x"%x for x in self.idata])+"]"
         else:
-            s+=" FCS:no"
-
-        ip_data = ' IP: '
-        for c in self.ip_data:
-            if( c>=32 and c<127):
-                ip_data+=chr(c)
-            else:
-                ip_data+="."
-        s += ip_data
+            s+= " ["+" ".join(["%s"%x for x in self.descrambled])+"]"
 
         s+=self._pretty_trailer()
         return s
