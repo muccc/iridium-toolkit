@@ -3,34 +3,80 @@
 import sys
 import matplotlib.pyplot as plt
 f = open(sys.argv[1])
-#IRA: i-1424627833.3321-t1 0095916 1626242718  98% 0.317 101 L:OK ts:329774983 sat:11 cell:15 0 01111100,111[0999] 00 0011000000[0192] 01001,1000110[1222] 0110000 00 11010{26} 111111111111111111111 111111111111111111111 descr_extra:[100101111010110110110011001111]100111010000
-#IMS: i-1424627833.3321-t1 0465557 1626388717  87% 0.167 133 L:OK 00110011111100110011001111110011 odd:110001                     8:A:20 1 c=06559           10000000 00000000000000000 00000000000000000000 descr_extra:[100101111010110110110011001111]111000000010
-#0    1                    2         3           4   5     6   7    8
-#IDA: i-1443376286.1279-t1 000000026 1625062691  84% 0.016 180 L:no LCW(2,000011,000000011111101111110 E0) 1010101011010110 0000110001010011 0110100001100110 1010101111000000 0000000000000000 0000011011111100 0000000011100000 0110001110000011 0110111011001000 0011111100100011 1000000100000000 0000000000000001 1111111100000000 00 descr_extra:01
 
-tsl = []
-fl = []
-lenl = []
-confl = []
-sigl = []
-secl = []
-strengthl = []
 f.readline()
+
+max_f = None
+min_f = None
+min_ts = None
+max_ts = None
+
+frames = {}
+frames['IMS'] = ['darkgreen', 'o', [], []]
+frames['MSG'] = ['green', 'o', [], []]
+
+frames['IRA'] = ['red', 'o', [], []]
+
+frames['IBC'] = ['lightgreen', 'o', [], []]
+
+frames['ISY'] = ['grey', 'o', [], []]
+
+frames['IDA'] = ['cyan', 'o', [], []]
+
+frames['IU3'] = ['purple', 'o', [], []]
+
+frames['IIP'] = ['blue', 'o', [], []]
+frames['IIU'] = ['lightblue', 'o', [], []]
+frames['IIQ'] = ['darkblue', 'o', [], []]
+
+frames['VOC'] = ['orange', 'o', [], []]
+frames['VOD'] = ['yellow', 'o', [], []]
+frames['VDA'] = ['pink', 'o', [], []]
+
+#frames['RAW'] = ['purple', [], []]
+#frames['IRI'] = ['purple', [], []]
+
 for line in f:
     line = line.strip().split()
-    #print line
-    ts_base = int(line[1].split('-')[1].split('.')[0])
+    type = line[0][:-1]
+    #ts_base = int(line[1].split('-')[1].split('.')[0])
+    ts_base = 0
     ts = ts_base + float(line[2])/1000.
-    f = int(line[3])/1000.
+    f = int(line[3])
     #len = int(line[6])
-    strength = float(line[5])
-    tsl.append(ts)
-    fl.append(f)
-    #lenl.append(len)
-    strengthl.append(strength)
+    #strength = float(line[5])
 
-#plt.scatter(x = tsl, y = fl, s = lenl, c = strengthl, alpha=.5)
-plt.scatter(x = tsl, y = fl, c = strengthl, alpha=.5)
-plt.colorbar()
+    if max_f == None or max_f < f:
+        max_f = f
+    if min_f == None or min_f > f:
+        min_f = f
+    if max_ts == None or max_ts < ts:
+        max_ts = ts
+    if min_ts == None or min_ts > ts:
+        min_ts = ts
+
+    if type in frames:
+        frames[type][2].append(ts)
+        frames[type][3].append(f)
+
+for t in frames:
+    f = frames[t]
+    plt.scatter(y=f[3], x=f[2], c=f[0], label=t, alpha=.8, edgecolors=f[0], marker=f[1], s=20)
+
+#plt.colorbar()
+#plt.ylim([min_f, max_f])
+#plt.ylim([1624.95e6, 1626.5e6])
+#plt.ylim([1616e6, 1627e6])
+plt.ylim([1618e6, 1626.7e6])
+#plt.xlim([1618e6, 1626.7e6])
+#ax = plt.gca()
+#ax.ticklabel_format(useOffset=False)
+#ax.set_axis_bgcolor('white')
+
+
+plt.xlim([min_ts, max_ts])
+#plt.ylim([min_ts, max_ts])
+
+plt.legend()
 plt.show()
 
