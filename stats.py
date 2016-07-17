@@ -2,6 +2,8 @@
 # vim: set ts=4 sw=4 tw=0 et fenc=utf8 pm=:
 import sys
 import matplotlib.pyplot as plt
+import collections
+
 f = open(sys.argv[1])
 
 f.readline()
@@ -11,30 +13,28 @@ min_f = None
 min_ts = None
 max_ts = None
 
-frames = {}
-frames['IMS'] = ['darkgreen', 'o', [], []]
-frames['MSG'] = ['green', 'o', [], []]
+frames = collections.OrderedDict()
+frames['IMS'] = ['darkgreen', 'x', [], []]
+frames['MSG'] = ['cyan', 'o', [], []]
 
-frames['IRA'] = ['red', 'o', [], []]
-
-frames['IBC'] = ['lightgreen', 'o', [], []]
+frames['IRA'] = ['red', 'x', [], []]
 
 frames['ISY'] = ['grey', 'o', [], []]
 
-frames['IDA'] = ['cyan', 'o', [], []]
+frames['IBC'] = ['pink', 'o', [], []]
 
-frames['IU3'] = ['purple', 'o', [], []]
+frames['IDA'] = ['orange', 'o', [], []]
 
-frames['IIP'] = ['blue', 'o', [], []]
-frames['IIU'] = ['lightblue', 'o', [], []]
-frames['IIQ'] = ['darkblue', 'o', [], []]
+frames['IIU'] = ['magenta', 'o', [], []]
+frames['IIQ'] = ['lightgreen', 'o', [], []]
+frames['IIP'] = ['green', 'o', [], []]
 
-frames['VOC'] = ['orange', 'o', [], []]
-frames['VOD'] = ['yellow', 'o', [], []]
-frames['VDA'] = ['pink', 'o', [], []]
+frames['VOC'] = ['blue', 'o', [], []]
+frames['VDA'] = ['red', 'o', [], []]
+frames['VOD'] = ['cyan', 'x', [], []]
 
-#frames['RAW'] = ['purple', [], []]
-#frames['IRI'] = ['purple', [], []]
+#frames['IRI'] = ['purple', 'x', [], []]
+#frames['RAW'] = ['grey', 'x', [], []]
 
 for line in f:
     line = line.strip().split()
@@ -61,7 +61,7 @@ for line in f:
 
 for t in frames:
     f = frames[t]
-    plt.scatter(y=f[3], x=f[2], c=f[0], label=t, alpha=.8, edgecolors=f[0], marker=f[1], s=20)
+    plt.scatter(y=f[3], x=f[2], c=f[0], label=t, alpha=1, edgecolors=f[0], marker=f[1], s=20)
 
 #plt.colorbar()
 #plt.ylim([min_f, max_f])
