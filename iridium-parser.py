@@ -571,6 +571,22 @@ class IridiumIPMessage(IridiumMessage):
         if ok:
             self.itype="IIQ"
             self.idata=msg
+            csum1=0
+            csum2=0
+            for x in xrange(0,len(self.idata)-3,2):
+                csum1+=self.idata[x]
+                if csum1>255:
+                    csum1=csum1&0xff
+                    csum2+=1
+                csum2+=self.idata[x+1]
+                if csum2>255:
+                    csum2=csum2&0xff
+                    csum1+=1
+            csum1+=self.idata[-3] # Unclear if ever not=0
+            self.iiqcsum=0xffff^(256*csum1+csum2)
+            if (self.iiqcsum == self.idata[-2]*256+self.idata[-1]):
+               self.itype="IIR"
+               self.idata=self.idata[0:-2]
         else:
             self.crcval=crc24(bytearray([int(x,2) for x in self.descrambled]))
             if self.crcval==0:
@@ -608,7 +624,11 @@ class IridiumIPMessage(IridiumMessage):
                     ip_data+="."
             s += ip_data
         elif self.itype=="IIQ":
-            pl=[int(x,2) for x in self.descrambled[0:]]
+            s+= " ["+" ".join(["%02x"%x for x in self.idata])+"]"
+            s+= " C=%04x"%self.iiqcsum
+            if (self.iiqcsum == self.idata[-2]*256+self.idata[-1]):
+               s+=" OK"
+        elif self.itype=="IIR":
             s+= " ["+" ".join(["%02x"%x for x in self.idata])+"]"
         else:
             s+= " ["+" ".join(["%s"%x for x in self.descrambled])+"]"
