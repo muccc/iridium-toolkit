@@ -204,6 +204,10 @@ class IridiumMessage(Message):
                 self.msgtype="MS"
 
         if "msgtype" not in self.__dict__:
+            if data[:2] =="11" and data[2:352]=="0"*350:
+                self.msgtype="TL"
+
+        if "msgtype" not in self.__dict__:
             hdrlen=6
             blocklen=64
             if len(data)>hdrlen+blocklen:
@@ -246,6 +250,11 @@ class IridiumMessage(Message):
             (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
+        elif self.msgtype=="TL":
+            hdrlen=352
+            self.header=data[:hdrlen]
+            self.descrambled=data[hdrlen:hdrlen+512]
+            self.descramble_extra=data[hdrlen+512:]
         elif self.msgtype=="RA":
             firstlen=3*32
             if len(data)<firstlen:
@@ -407,6 +416,8 @@ class IridiumMessage(Message):
                 return IridiumSYMessage(self).upgrade()
             elif self.msgtype=="U3":
                 return IridiumLCW3Message(self).upgrade()
+            elif self.msgtype=="TL":
+                return IridiumSTLMessage(self).upgrade()
             elif self.msgtype=="UK":
                 return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
@@ -459,6 +470,23 @@ class IridiumSYMessage(IridiumMessage):
             str+=" Sync=OK"
         else:
             str+=" Sync=no, errs=%d"%errs
+        str+=self._pretty_trailer()
+        return str
+
+class IridiumSTLMessage(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=imsg.__dict__
+        self.header="<11>"
+    def upgrade(self):
+        return self
+    def _pretty_header(self):
+        return super(IridiumSTLMessage,self)._pretty_header()
+    def _pretty_trailer(self):
+        return super(IridiumSTLMessage,self)._pretty_trailer()
+    def pretty(self):
+        str= "ITL: "+self._pretty_header()
+        str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[:256]), 8) ])+"]"
+        str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[256:]), 8) ])+"]"
         str+=self._pretty_trailer()
         return str
 
@@ -583,6 +611,9 @@ class IridiumIPMessage(IridiumMessage):
                     csum2=csum2&0xff
                     csum1+=1
             csum1+=self.idata[-3] # Unclear if ever not=0
+            if csum1>255:
+                csum1=csum1&0xff
+                csum2+=1
             self.iiqcsum=0xffff^(256*csum1+csum2)
             if (self.iiqcsum == self.idata[-2]*256+self.idata[-1]):
                self.itype="IIR"
