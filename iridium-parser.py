@@ -928,7 +928,7 @@ class IridiumRAMessage(IridiumECCMessage):
         self.ra_int=   int(self.bitstream_bch[49:56],2) # 90ms interval of RA (within same sat/cell)
         self.ra_ts=    int(self.bitstream_bch[56:57],2) # Broadcast slot 1 or 4
         self.ra_eip=   int(self.bitstream_bch[57:58],2) # EPI ?
-        self.ra_bch=   int(self.bitstream_bch[58:63],2) # BCH downlink sub-band
+        self.ra_bc_sb= int(self.bitstream_bch[58:63],2) # BCH downlink sub-band
         self.ra_msg= False
         ra_msg=self.bitstream_bch[63:]
         self.paging=[]
@@ -969,7 +969,7 @@ class IridiumRAMessage(IridiumECCMessage):
         str+= " alt=%03d"%(sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4-6378+23) # Maybe try WGS84 geoid? :-)
         str+= " RAI:%02d"%self.ra_int
         str+= " ?%d%d"%(self.ra_ts,self.ra_eip)
-        str+= " bch:%02d"%self.ra_bch
+        str+= " bc_sb:%02d"%self.ra_bc_sb
 
         for p in self.paging:
             str+= " PAGE("
