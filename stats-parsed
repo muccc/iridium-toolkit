@@ -4,7 +4,7 @@ echo "$1: " `wc -l $1 | cut -f1 -d ' '` "lines"
 echo "Good frames:"
 cat $1 | grep -v ERR | cut -f1 -d ' '| sort | uniq -c
 echo "Total good frames:" `cat $1 | grep -v ERR | wc -l`
-echo "SBD with CRC:OK:" `cat $1 | grep CRC:OK | wc -l`
+echo "IDA with CRC:OK:" `cat $1 | grep CRC:OK | wc -l`
 echo "IIP with FCS:OK:" `cat $1 | grep FCS:OK | wc -l`
 echo "Bad frames:"
 cat $1 | grep ERR | cut -f1 -d ' '| sort | uniq -c
