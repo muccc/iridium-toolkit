@@ -83,7 +83,7 @@ def main():
 
     cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
-    plt.title("Click once left and once rigth to define an aerea. The script will try to play iridium using the play-iridium-ambe shell script.")
+    plt.title("Click once left and once rigth to define an area. The script will try to play iridium using the play-iridium-ambe shell script.")
     plt.show()
 
 
