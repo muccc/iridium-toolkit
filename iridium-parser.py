@@ -204,7 +204,7 @@ class IridiumMessage(Message):
                 self.msgtype="MS"
 
         if "msgtype" not in self.__dict__:
-            if data[:2] =="11" and data[2:352]=="0"*350:
+            if data[:2] =="11" and data[2:96]=="0"*94:
                 self.msgtype="TL"
 
         if "msgtype" not in self.__dict__:
@@ -251,10 +251,10 @@ class IridiumMessage(Message):
             for x in blocks:
                 self.descrambled+=de_interleave(x)
         elif self.msgtype=="TL":
-            hdrlen=352
+            hdrlen=96
             self.header=data[:hdrlen]
-            self.descrambled=data[hdrlen:hdrlen+512]
-            self.descramble_extra=data[hdrlen+512:]
+            self.descrambled=data[hdrlen:hdrlen+(256*3)]
+            self.descramble_extra=data[hdrlen+(256*3):]
         elif self.msgtype=="RA":
             firstlen=3*32
             if len(data)<firstlen:
@@ -486,7 +486,8 @@ class IridiumSTLMessage(IridiumMessage):
     def pretty(self):
         str= "ITL: "+self._pretty_header()
         str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[:256]), 8) ])+"]"
-        str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[256:]), 8) ])+"]"
+        str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[256:512]), 8) ])+"]"
+        str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[512:]), 8) ])+"]"
         str+=self._pretty_trailer()
         return str
 
