@@ -36,7 +36,9 @@ Steps to decode voice:
  - Decode your captured and demodulated bits using `iridium-parser` and put the result into a file: `pypy iridium-parser.py output.bits > output.parsed`
  - Use `stats-voc.py` to see streams of captured voice frames: `./stats-voc.py output.parsed`
  - Click once left and once right to select an area. `stats-voc.py` will try do decode and play the selected samples using the `play-iridium-ambe` script.
-
+ 
+### Frame Format
+Partial documentation: http://wiki.muc.ccc.de/iridium:toolkit#frame_format
 
 ### Main Components
 
