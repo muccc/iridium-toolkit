@@ -519,12 +519,29 @@ class IridiumLCW3Message(IridiumMessage):
         else:
             str+=" RS=no"
         if self.rs6:
+            str+=" {%02d}"%self.rs6m[0]
             str+= " ["
-            v="".join(["{0:08b}".format(x) for x in self.rs6m ])
-            str+=group(v,24)
-            str+=" - "
-            str+=".".join(["%02x"%x for x in self.rs6c ])
+            v="".join(["{0:06b}".format(x) for x in self.rs6m ])
+            if self.rs6m[0]==0:
+                str+=v[:8]+"| "+group(v[8:],10)
+            elif self.rs6m[0]==6:
+                str+=group(v,8)
+            elif self.rs6m[0]==32:
+                str+=group(v,6)
+            else:
+                str+=group(v,6)
+#            if not self.rs6p:
+#                str+=" - "
+#                str+=".".join(["%02x"%x for x in self.rs6c ])
             str+="]"
+            if self.rs6m[0]==6:
+                v="".join(["{0:06b}".format(x) for x in self.rs6m ])
+                w=[]
+                for x in xrange(8,len(v),24):
+                    w+=[int(v[x:x+24],2)]
+                while len(w)>0and w[-1]==0:
+                    w=w[:-1]
+                str+=" <"+" ".join(["%06x"%x for x in w])+">"
         else:
             str+= " ["
             v="".join(["{0:08b}".format(x) for x in self.payload ])
