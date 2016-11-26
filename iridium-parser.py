@@ -552,7 +552,7 @@ class IridiumLCW3Message(IridiumMessage):
                 w=[]
                 for x in xrange(8,len(v),24):
                     w+=[int(v[x:x+24],2)]
-                while len(w)>0and w[-1]==0:
+                while len(w)>0 and w[-1]==0:
                     w=w[:-1]
                 str+=" <"+" ".join(["%06x"%x for x in w])+">"
         else:
