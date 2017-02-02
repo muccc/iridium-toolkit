@@ -56,7 +56,7 @@ Supports some different output formats (`-o` option).
 
 Converts IRA frames to a kml file to be viewed in google earth.
 
-Run as `grep ^IRA output.bits |perl mkkml tracks > output.kml` to display satellite tracks
+Run as `grep ^IRA output.parsed |perl mkkml tracks > output.kml` to display satellite tracks
 
-Run as `grep ^IRA output.bits |perl mkkml heatmap > output.kml` to create a heatmap of sat positions and downlink positions
+Run as `grep ^IRA output.parsed |perl mkkml heatmap > output.kml` to create a heatmap of sat positions and downlink positions
 
