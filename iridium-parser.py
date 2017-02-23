@@ -87,6 +87,15 @@ if vdumpfile != None:
 class ParserError(Exception):
     pass
 
+class Zulu(datetime.tzinfo):
+    def utcoffset(self, dt):
+        return datetime.timedelta(0)
+    def dst(self, dt):
+        return datetime.timedelta(0)
+    def tzname(self,dt):
+         return "Z"
+
+Z=Zulu()
 tswarning=False
 tsoffset=0
 maxts=0
@@ -911,7 +920,7 @@ class IridiumBCMessage(IridiumECCMessage):
                 # 2014-05-11T14:23:55Z : 1399818235 current one
                 # 2007-03-08T03:50:21Z : 1173325821
                 # 1996-06-01T00:00:11Z :  833587211 the original one
-                self.readable += ' %s time:%sZ' % (self.unknown21, datetime.datetime.fromtimestamp(self.time*90/1000+1399818235).isoformat())
+                self.readable += ' %s time:%sZ' % (self.unknown21, datetime.datetime.fromtimestamp(self.time*90/1000+1399818235,tz=Z).strftime("%Y-%m-%dT%H:%M:%S"))
             elif self.type == 2:
                 self.unknown31 = data1[6:10]
                 self.tmsi_expiry = int(data1[10:21] + data2[0:21], 2)
