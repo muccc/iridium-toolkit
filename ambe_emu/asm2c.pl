@@ -55,7 +55,7 @@ sub subify{
 	return "sub_".$x;
 };
 
-my %hack=( 0x8fa9 => 1 );
+my %hack=( 0x8fa9 => 1 ); # Manually set start of sub that fails automatic detection
 for (keys %hack){
 	push @todo, [$_,sprintf("hack_%04x",$_)];
 };
@@ -77,7 +77,7 @@ sub add_todo{
 	push @todo,[$addr, $label];
 };
 
-
+# Identify subroutines / jump targets
 while ($#todo>=0){
 	my $retctr=0;
 	my $do = shift@todo;
@@ -160,6 +160,7 @@ my ($addr,$hex,$op);
 my ($cmd,$para);
 my @arg;
 
+
 sub set_sxm{
 	my ($laddr,$sxm)=@_;
 	if($sxm==0){
@@ -189,6 +190,8 @@ sub set_sxm{
 set_sxm("0x8f33",1);
 set_sxm("0x8e2b",1);
 
+# Possibly premature optimisation
+#  try to find if sxm is always set or not
 for (1..5){
 seek(STDIN,0,0);
 while(<>){
@@ -289,6 +292,7 @@ sub fixop{
 
 my $paralell_post;
 
+# Implemented from http://www.ti.com.cn/cn/lit/ug/spru172c/spru172c.pdf
 my %cmds=(
 	nop   => ";",
 	frame => "sp+=%0;",
