@@ -79,6 +79,9 @@ bitsparser.set_opts(args)
 if args.sigmffile:
     args.output="sigmf"
 
+if args.output == "json":
+    import json
+
 if args.output == "sigmf":
     import json
 
@@ -310,6 +313,17 @@ def perline(q):
                 print(" ".join([str(q.__dict__[x]) for x in args.ofmt]))
     elif args.output == "zmq":
         socket.send_string(q.pretty())
+    elif args.output == "json":
+        if q.error: return
+        for attr in ["parse_error", "error_msg", "descrambled", "bitstream_bch", "bitstream_raw", "rs6c", "rs6m", "rs8c", "rs8m", "idata", "payload_f", "payload_r", "descramble_extra", "swapped", "da_ta", "vdata", "header", "freq_print"]:
+            if attr in q.__dict__:
+                del q.__dict__[attr]
+        q.type = type(q).__name__
+        try:
+            print(json.dumps(q.__dict__))
+        except Exception as e:
+            print("Couldn't serialize: ", q.__dict__, file=sys.stderr)
+            raise e
     elif args.output == "sigmf":
         if q.parse_error:
             return
