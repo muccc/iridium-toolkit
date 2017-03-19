@@ -991,6 +991,10 @@ class IridiumRAMessage(IridiumECCMessage):
         self.ra_ts=    int(self.bitstream_bch[56:57],2) # Broadcast slot 1 or 4
         self.ra_eip=   int(self.bitstream_bch[57:58],2) # EPI ?
         self.ra_bc_sb= int(self.bitstream_bch[58:63],2) # BCH downlink sub-band
+
+        self.ra_lat = atan2(self.ra_pos_z,sqrt(self.ra_pos_x**2+self.ra_pos_y**2))*180/pi
+        self.ra_lon = atan2(self.ra_pos_y,self.ra_pos_x)*180/pi
+        self.ra_alt = sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4
         self.ra_msg= False
         ra_msg=self.bitstream_bch[63:]
         self.paging=[]
@@ -1027,8 +1031,8 @@ class IridiumRAMessage(IridiumECCMessage):
         str+= " sat:%02d"%self.ra_sat
         str+= " beam:%02d"%self.ra_cell
 #        str+= " aps=(%04d,%04d,%04d)"%(self.ra_pos_x,self.ra_pos_y,self.ra_pos_z)
-        str+= " pos=(%+06.2f/%+07.2f)"%(atan2(self.ra_pos_z,sqrt(self.ra_pos_x**2+self.ra_pos_y**2))*180/pi, atan2(self.ra_pos_y,self.ra_pos_x)*180/pi)
-        str+= " alt=%03d"%(sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4-6378+23) # Maybe try WGS84 geoid? :-)
+        str+= " pos=(%+06.2f/%+07.2f)"%(self.ra_lat,self.ra_lon)
+        str+= " alt=%03d"%(self.ra_alt-6378+23) # Maybe try WGS84 geoid? :-)
         str+= " RAI:%02d"%self.ra_int
         str+= " ?%d%d"%(self.ra_ts,self.ra_eip)
         str+= " bc_sb:%02d"%self.ra_bc_sb
