@@ -26,6 +26,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:ps', [
                                                          'plot=',
                                                          'filter=',
                                                          'voice-dump=',
+                                                         'format=',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -43,6 +44,7 @@ good = False
 dosatclass = False
 input= "raw"
 output= "line"
+ofmt= None
 linefilter=[]
 plotargs=["time", "frequency"]
 vdumpfile=None
@@ -70,6 +72,8 @@ for opt, arg in options:
         input=arg
     elif opt in ('-o', '--output'):
         output=arg
+    elif opt in ('--format'):
+        ofmt=arg.split(',');
     else:
         raise Exception("unknown argument?")
 
@@ -1352,7 +1356,10 @@ def perline(q):
         else:
             if (perfect):
                 q.descramble_extra=""
-            print q.pretty()
+            if not ofmt:
+                print q.pretty()
+            else:
+                print " ".join([str(q.__dict__[x]) for x in ofmt])
     elif output == "rxstats":
         print "RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__
     else:
