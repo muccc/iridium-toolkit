@@ -26,6 +26,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:ps', [
                                                          'plot=',
                                                          'filter=',
                                                          'voice-dump=',
+                                                         'format=',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -43,6 +44,7 @@ good = False
 dosatclass = False
 input= "raw"
 output= "line"
+ofmt= None
 linefilter=[]
 plotargs=["time", "frequency"]
 vdumpfile=None
@@ -70,6 +72,8 @@ for opt, arg in options:
         input=arg
     elif opt in ('-o', '--output'):
         output=arg
+    elif opt in ('--format'):
+        ofmt=arg.split(',');
     else:
         raise Exception("unknown argument?")
 
@@ -87,6 +91,15 @@ if vdumpfile != None:
 class ParserError(Exception):
     pass
 
+class Zulu(datetime.tzinfo):
+    def utcoffset(self, dt):
+        return datetime.timedelta(0)
+    def dst(self, dt):
+        return datetime.timedelta(0)
+    def tzname(self,dt):
+         return "Z"
+
+Z=Zulu()
 tswarning=False
 tsoffset=0
 maxts=0
@@ -911,7 +924,7 @@ class IridiumBCMessage(IridiumECCMessage):
                 # 2014-05-11T14:23:55Z : 1399818235 current one
                 # 2007-03-08T03:50:21Z : 1173325821
                 # 1996-06-01T00:00:11Z :  833587211 the original one
-                self.readable += ' %s time:%sZ' % (self.unknown21, datetime.datetime.fromtimestamp(self.time*90/1000+1399818235).isoformat())
+                self.readable += ' %s time:%sZ' % (self.unknown21, datetime.datetime.fromtimestamp(self.time*90/1000+1399818235,tz=Z).strftime("%Y-%m-%dT%H:%M:%S"))
             elif self.type == 2:
                 self.unknown31 = data1[6:10]
                 self.tmsi_expiry = int(data1[10:21] + data2[0:21], 2)
@@ -978,6 +991,10 @@ class IridiumRAMessage(IridiumECCMessage):
         self.ra_ts=    int(self.bitstream_bch[56:57],2) # Broadcast slot 1 or 4
         self.ra_eip=   int(self.bitstream_bch[57:58],2) # EPI ?
         self.ra_bc_sb= int(self.bitstream_bch[58:63],2) # BCH downlink sub-band
+
+        self.ra_lat = atan2(self.ra_pos_z,sqrt(self.ra_pos_x**2+self.ra_pos_y**2))*180/pi
+        self.ra_lon = atan2(self.ra_pos_y,self.ra_pos_x)*180/pi
+        self.ra_alt = sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4
         self.ra_msg= False
         ra_msg=self.bitstream_bch[63:]
         self.paging=[]
@@ -1014,8 +1031,8 @@ class IridiumRAMessage(IridiumECCMessage):
         str+= " sat:%02d"%self.ra_sat
         str+= " beam:%02d"%self.ra_cell
 #        str+= " aps=(%04d,%04d,%04d)"%(self.ra_pos_x,self.ra_pos_y,self.ra_pos_z)
-        str+= " pos=(%+06.2f/%+07.2f)"%(atan2(self.ra_pos_z,sqrt(self.ra_pos_x**2+self.ra_pos_y**2))*180/pi, atan2(self.ra_pos_y,self.ra_pos_x)*180/pi)
-        str+= " alt=%03d"%(sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4-6378+23) # Maybe try WGS84 geoid? :-)
+        str+= " pos=(%+06.2f/%+07.2f)"%(self.ra_lat,self.ra_lon)
+        str+= " alt=%03d"%(self.ra_alt-6378+23) # Maybe try WGS84 geoid? :-)
         str+= " RAI:%02d"%self.ra_int
         str+= " ?%d%d"%(self.ra_ts,self.ra_eip)
         str+= " bc_sb:%02d"%self.ra_bc_sb
@@ -1343,7 +1360,10 @@ def perline(q):
         else:
             if (perfect):
                 q.descramble_extra=""
-            print q.pretty()
+            if not ofmt:
+                print q.pretty()
+            else:
+                print " ".join([str(q.__dict__[x]) for x in ofmt])
     elif output == "rxstats":
         print "RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__
     else:
