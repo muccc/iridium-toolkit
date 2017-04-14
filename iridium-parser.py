@@ -1023,9 +1023,14 @@ class IridiumRAMessage(IridiumECCMessage):
                 'zero1': int(ra_msg[32:34],2),
                 'msc_id':int(ra_msg[34:39],2),
                 'zero2': int(ra_msg[39:42],2),
+                'raw': ra_msg[:42],
             }
             if ra_msg[:42]=="111111111111111111111111111111111111111111":
                 paging['none']=True
+                paging['fill']=False
+            elif ra_msg[:42]=="101000100111001110111010101000100010111000":
+                paging['none']=True
+                paging['fill']=True
             else:
                 paging['none']=False
             self.paging.append(paging)
@@ -1059,7 +1064,10 @@ class IridiumRAMessage(IridiumECCMessage):
         for p in self.paging:
             str+= " PAGE("
             if p['none']:
-                str+="NONE"
+                if p['fill']:
+                    str+="FILL"
+                else:
+                    str+="NONE"
             else:
                 str+= "tmsi:%08x"%p['tmsi']
                 if p['zero1']!=0: str+= " 0:%d"%p['zero1']
