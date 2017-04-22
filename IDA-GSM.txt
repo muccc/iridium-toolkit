@@ -1,0 +1,43 @@
+# DL:
+#
+# 03: Call Control - OK
+# 03.05 CC: Setup (Number)
+# 03.0f CC: Connect Acknowledge
+# 03.25 CC: Disconnect
+# 03.2a CC: Release Complete
+# 03.2d CC: Release
+#
+# 05: Mobility Management - OK
+# 05.02 MM: Location Updating Accept (LAI)
+# 05.04 MM: Location Updating Reject
+# 05.12 MM: Authentication Request (RAND)
+# 05.18 MM: Identity request
+# 05.1a MM: TMSI Reallocation Command (LAC, TIMSI)
+# 05.21 MM: CM Service Accept
+# 05.22 MM: CM Service Reject
+#
+# 06: Radio Resource Management - eher b0rk
+# 06.05 RRM: System Information Type 5bis (extradata)
+# 06.07 RRM: System Information Type 2quater
+# 06.3a RRM: Immediate assigment reject
+# 06.3b RRM: Additional Assignment (broken)
+#
+# 08: GPRS Mobility Management - eher b0rk
+# 08.05 GPRS MM: Detach Request (extradata) 
+# 08.39 GPRS MM: Unknown
+# 08.3a GPRS MM: Unknown
+#
+# 09: SMS Messages - OK
+# 09.01 SMS CP-DATA (Number, SMS)
+# 09.04 SMS CP-ACK
+# 09.10 SMS CP-ERROR
+#
+# 0b: Non call related SS messages
+# 0b.3b Register 
+
+# 76: Other
+# 76.05 (unknown)
+# 76.08 SBD
+# 76.09 SBD+
+# 76.0a SBD++
+

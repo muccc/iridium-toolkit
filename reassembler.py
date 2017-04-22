@@ -97,6 +97,166 @@ class Reassemble(object):
     def end(self):
         print "Kept %d/%d (%3.1f%%) lines"%(self.stat_filter,self.stat_line,100.0*self.stat_filter/self.stat_line)
 
+class ReassembleIDA(Reassemble):
+    def __init__(self):
+        pass
+    def filter(self,line):
+        q=super(ReassembleIDA,self).filter(line)
+        if q.typ=="IDA:":
+            qqq=re.compile('.* CRC:OK')
+            if not qqq.match(q.data):
+                return
+            # 0010 0 ctr=000 000 len=02 0:0000 [06.3a]                                                       7456/0000 CRC:OK 0000
+            # 0000 0 ctr=000 000 len=00 0:0000 [8a.ed.09.b2.e0.a9.e7.0b.06.78.c9.49.0d.9b.60.6f.c0.07.fc.00.00.00.00]  ---    0000
+
+            p=re.compile('.* cont=(\d) (\d) ctr=(\d+) \d+ len=(\d+) 0:0000 \[([0-9a-f.]*)\]\s+..../.... CRC:OK')
+            m=p.match(q.data)
+            if(not m):
+                print >> sys.stderr, "Couldn't parse IDA: ",q.data
+            else:
+                q.ul=        (q.uldl=='UL')
+                q.f1=         m.group(1)
+                q.f2=     int(m.group(2))
+                q.ctr=    int(m.group(3),2)
+                q.length= int(m.group(4))
+                q.data=   m.group(5)
+                q.cont=(q.f1=='1')
+#                print "%s %s ctr:%02d %s"%(q.time,q.frequency,q.ctr,q.data)
+                return q
+    buf=[]
+    stat_broken=0
+    stat_ok=0
+    stat_fragments=0
+    stat_dupes=0
+    otime=0
+    odata=None
+    ofreq=0
+    def process(self,m):
+        # rudimentary De-Dupe
+        if (self.otime-1)<=m.time<=(self.otime+1) and self.odata==m.data and (self.ofreq-200)<m.frequency<(self.ofreq+200):
+            self.stat_dupes+=1
+            if verbose:
+                print "dupe: ",m.time,"(",m.cont,m.ctr,")",m.data
+            return
+        self.otime=m.time
+        self.odata=m.data
+        self.ofreq=m.frequency
+
+        ok=False
+        for (idx,(freq,time,ctr,dat,cont,ul)) in enumerate(self.buf[:]):
+            if (freq-260)<m.frequency<(freq+260) and time[-1]<=m.time<=(time[-1]+280) and (ctr+1)%8==m.ctr and ul==m.ul:
+                del self.buf[idx]
+                dat=dat+"."+m.data
+                time.append(m.time)
+                if m.cont:
+                    self.buf.append([m.frequency,time,m.ctr,dat,m.cont,m.ul])
+                else:
+                    self.stat_ok+=1
+                    if verbose:
+                        print ">assembled: [%s] %s"%(",".join(["%s"%x for x in time+[m.time]]),dat)
+                    data="".join([chr(int(x,16)) for x in dat.split(".")])
+                    return [[data,m.time,ul,m.level]]
+                self.stat_fragments+=1
+                ok=True
+                break
+        if ok:
+            pass
+        elif m.ctr==0 and not m.cont:
+            if verbose:
+                print ">single: [%s] %s"%(m.time,m.data)
+            data="".join([chr(int(x,16)) for x in m.data.split(".")])
+            return [[data,m.time,m.ul,m.level]]
+        elif m.ctr==0 and m.cont: # New long packet
+            self.stat_fragments+=1
+            if verbose:
+                print "initial: ",m.time,"(",m.cont,m.ctr,")",m.data
+            self.buf.append([m.frequency,[m.time],m.ctr,m.data,m.cont,m.ul])
+        elif m.ctr>0:
+            self.stat_broken+=1
+            self.stat_fragments+=1
+            if verbose:
+                print "orphan: ",m.time,"(",m.cont,m.ctr,")",m.data
+            pass
+        else:
+             print "unknown: ",m.time,m.cont,m.ctr,m.data
+        # expire packets
+        for (idx,(freq,time,ctr,dat,cont,ul)) in enumerate(self.buf[:]):
+            if time[-1]+1000<=m.time:
+                self.stat_broken+=1
+                del self.buf[idx]
+                if verbose:
+                    print "timeout:",time,"(",cont,ctr,")",dat
+                data="".join([chr(int(x,16)) for x in dat.split(".")])
+                #could be put into assembled if long enough to be interesting?
+                break
+    def end(self):
+        super(ReassembleIDA,self).end()
+        print "%d valid packets assembled from %d fragments (1:%1.2f)."%(self.stat_ok,self.stat_fragments,((float)(self.stat_fragments)/self.stat_ok))
+        print "%d/%d (%3.1f%%) broken fragments."%(self.stat_broken,self.stat_fragments,(100.0*self.stat_broken/self.stat_fragments))
+        print "%d dupes removed."%(self.stat_dupes)
+    def consume(self,q):
+        (data,time,ul,level)=q
+        if ul:
+            ul="UL"
+        else:
+            ul="DL"
+        str=""
+        for c in data:
+            if( ord(c)>=32 and ord(c)<127):
+                str+=c
+            else:
+                str+="."
+        print >>outfile, "%09d %s %s | %s"%(time,ul," ".join("%02x"%ord(x) for x in data),str)
+
+class ReassembleIDALAP(ReassembleIDA):
+    first=True
+    outfile=None
+    def consume(self,q):
+        if self.first:
+            pcap_hdr=struct.pack("<LHHlLLL",0xa1b2c3d4,0x2,0x4,0x0,0,0xffff,1)
+            outfile.write(pcap_hdr)
+            self.first=False
+
+        # Filter non-GSM packets (see IDA-GSM.txt)
+        (data,time,ul,level)=q
+        if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
+            return
+        if len(data)==1:
+            return
+        lapdm=data
+        olvl=10*math.log(level,10)
+        if olvl>127:
+            olvl=127
+        if olvl<-126:
+            olvl=-126
+
+        if ul:
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,1*0+2,0,0x4000,olvl,0,0,7,0,0,0)+lapdm
+        else:
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,1*0+2,0,0x0000,olvl,0,0,7,0,0,0)+lapdm
+
+        udp=struct.pack("!HHHH",45988,4729,8+len(gsm),0xffff)+gsm
+
+        if ul:
+            ip=struct.pack("!BBHHBBBBHBBBBBBBB",(0x4<<4)+5,0,len(udp)+20,0xdaae,0x40,0x0,0x40,17,0xffff,10,0,0,1,127,0,0,1)+udp
+        else:
+            ip=struct.pack("!BBHHBBBBHBBBBBBBB",(0x4<<4)+5,0,len(udp)+20,0xdaae,0x40,0x0,0x40,17,0xffff,127,0,0,1,10,0,0,1)+udp
+
+        if ul:
+            eth=struct.pack("!BBBBBBBBBBBBH",0xaa,0xbb,0xcc,0xdd,0xee,0xff,0x10,0x22,0x33,0x44,0x55,0x66,0x800)+ip
+        else:
+            eth=struct.pack("!BBBBBBBBBBBBH",0x10,0x22,0x33,0x44,0x55,0x66,0xaa,0xbb,0xcc,0xdd,0xee,0xff,0x800)+ip
+
+        pcap=struct.pack("<IIII",time/1000,time%1000,len(eth),len(eth))+eth
+        outfile.write(pcap)
+        if verbose:
+            if ul:
+                ul="UL"
+            else:
+                ul="DL"
+            print "%09d %.3f %s %s"%(time,level,ul,".".join("%02x"%ord(x) for x in data))
+
+
 class ReassembleIRA(Reassemble):
     def __init__(self):
         pass
@@ -217,6 +377,13 @@ class ReassembleMSG(Reassemble):
 zx=None
 if False:
     pass
+if mode == "ida":
+    zx=ReassembleIDA()
+elif mode == "lap":
+    if outfile == sys.stdout: # Force file, since it's binary
+        ofile="%s.%s" % (basename, "pcap")
+        outfile=open(ofile,"w")
+    zx=ReassembleIDALAP()
 elif mode == "page":
     zx=ReassembleIRA()
 elif mode == "msg":
