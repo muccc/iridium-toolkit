@@ -12,7 +12,7 @@ Unless otherwise noted in a file, everything here is (c) Sec & schneider and lic
 ### Example usage
 Either extract some Iridium frames from the air or a file using [gr-iridium](https://github.com/muccc/gr-iridium) (recommended) or use the legacy code located in the [extractror-python](extractor-python/) directory if you don't want to install GNURadio (not recommended).
 
-Is is assumed that the output of the extractor has been written to `output.bits`. Iridium frames can be decoded with
+It is assumed that the output of the extractor has been written to `output.bits`. Iridium frames can be decoded with
 
     python2 iridium-parser.py output.bits
 
