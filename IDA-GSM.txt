@@ -23,7 +23,7 @@
 # 06.3b RRM: Additional Assignment (broken)
 #
 # 08: GPRS Mobility Management - eher b0rk
-# 08.05 GPRS MM: Detach Request (extradata) 
+# 08.05 GPRS MM: Detach Request (extradata)
 # 08.39 GPRS MM: Unknown
 # 08.3a GPRS MM: Unknown
 #
@@ -33,7 +33,7 @@
 # 09.10 SMS CP-ERROR
 #
 # 0b: Non call related SS messages
-# 0b.3b Register 
+# 0b.3b Register
 
 # 76: Other
 # 76.05 (unknown)
