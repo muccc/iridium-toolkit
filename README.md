@@ -60,3 +60,22 @@ Run as `grep ^IRA output.parsed |perl mkkml tracks > output.kml` to display sate
 
 Run as `grep ^IRA output.parsed |perl mkkml heatmap > output.kml` to create a heatmap of sat positions and downlink positions
 
+#### Reassembler
+
+`reassembler.py`
+
+Takes the parsed bits (from `iridium-parser.py`) and reassembles them into higher level protocols.
+
+Supports different modes with the `-m` option.
+
+Usage: (it is assumed that the output from iridium-parser is in `output.parsed`)
+
+    reassembler.py -i output.parsed -m <mode>
+
+Supported modes are currently:
+
+* `ida` - outputs Um Layer 3 messages as hex
+* `lap` - GSM-compatible L3 messages as GSMtap compatible `.pcap`
+* `page` - paging requests (Ring Alert Channel)
+* `msg` - Pager messages
+
