@@ -108,26 +108,29 @@ class Message(object):
         self.parse_error=False
         self.error=False
         self.error_msg=[]
-        p=re.compile('RAW: ([^ ]*) (\d+) (\d+) A:(\w+) [IL]:(\w+) +(\d+)% ([\d.]+) +(\d+) ([\[\]<> 01]+)(.*)')
+        p=re.compile('(RAW|RWA): ([^ ]*) (\d+) (\d+) A:(\w+) [IL]:(\w+) +(\d+)% ([\d.]+) +(\d+) ([\[\]<> 01]+)(.*)')
         m=p.match(line)
         if(not m):
             self._new_error("Couldn't parse: "+line)
             self.parse_error=True
             return
-        self.filename=m.group(1)
+        self.swapped=(m.group(1)=="RAW")
+        self.filename=m.group(2)
         if self.filename=="/dev/stdin":
             self.filename="-";
-        self.timestamp=int(m.group(2))
-        self.frequency=int(m.group(3))
-#        self.access_ok=(m.group(4)=="OK")
-#        self.leadout_ok=(m.group(5)=="OK")
-        self.confidence=int(m.group(6))
-        self.level=float(m.group(7))
-#        self.raw_length=m.group(8)
-        self.bitstream_raw=symbol_reverse(re.sub("[\[\]<> ]","",m.group(9))) # raw bitstring with correct symbols
+        self.timestamp=int(m.group(3))
+        self.frequency=int(m.group(4))
+#        self.access_ok=(m.group(5)=="OK")
+#        self.leadout_ok=(m.group(6)=="OK")
+        self.confidence=int(m.group(7))
+        self.level=float(m.group(8))
+#        self.raw_length=m.group(9)
+        self.bitstream_raw=(re.sub("[\[\]<> ]","",m.group(10))) # raw bitstring with correct symbols
+        if self.swapped:
+            self.bitstream_raw=symbol_reverse(self.bitstream_raw)
         self.symbols=len(self.bitstream_raw)/2
-        if m.group(10):
-            self.extra_data=m.group(10)
+        if m.group(11):
+            self.extra_data=m.group(11)
             self._new_error("There is crap at the end in extra_data")
         # Make a "global" timestamp
         global tswarning,tsoffset,maxts
