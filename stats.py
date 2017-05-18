@@ -44,6 +44,8 @@ frames['VDA'] = [colors[2], 'o', [], []]
 for line in f:
     line = line.strip().split()
     type = line[0][:-1]
+    if type == "ERR":
+        continue
     #ts_base = int(line[1].split('-')[1].split('.')[0])
     ts_base = 0
     ts = ts_base + float(line[2])/1000.

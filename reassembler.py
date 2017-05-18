@@ -101,7 +101,11 @@ class ReassembleIDA(Reassemble):
     def __init__(self):
         pass
     def filter(self,line):
-        q=super(ReassembleIDA,self).filter(line)
+	try:
+        	q=super(ReassembleIDA,self).filter(line)
+	except:
+		q=MyObject()
+		q.typ="NOTIDA:"
         if q.typ=="IDA:":
             qqq=re.compile('.* CRC:OK')
             if not qqq.match(q.data):
