@@ -292,7 +292,7 @@ class ReassembleMSG(Reassemble):
         q=super(ReassembleMSG,self).filter(line)
         if q.typ == "MSG:":
             #ric:0098049 fmt:05 seq:43 1010010000 1/1 oNEZCOuxvM3PuiQHujzQYd5n0Q8ra0wfMG2WnnhoxAnunT9xzIBSkXyvNP[3]     +11111
-            p=re.compile('.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]+)\.([01]*) ')
+            p=re.compile('.* ric:(\d+) fmt:(\d+) seq:(\d+) [0-1]{10} (\d)/(\d) (.*)\+1*')
             m=p.match(q.data)
             if(not m):
                 print >> sys.stderr, "Couldn't parse MSG: ",q.data
@@ -302,31 +302,10 @@ class ReassembleMSG(Reassemble):
                 q.msg_seq=     int(m.group(3))
                 q.msg_ctr=     int(m.group(4))
                 q.msg_ctr_max= int(m.group(5))
-                q.msg_checksum=int(m.group(6),16)
-                q.msg_hex=         m.group(7)
-                q.msg_brest=       m.group(8)
+                q.msg_ascii=   str(m.group(6))
                 q.time=        fixtime(q.name,q.time)
-
-
-                q.msg_msgdata = ''.join(["{0:08b}".format(int(q.msg_hex[i:i+2], 16)) for i in range(0, len(q.msg_hex), 2)])
-                q.msg_msgdata+=q.msg_brest
-
-                # convert to 7bit thingies 
-                m=re.compile('(\d{7})').findall(q.msg_msgdata)
-                q.msg_ascii=""
-                q.msg=[]
-                for (group) in m:
-                    character = int(group, 2)
-                    q.msg.append(character)
-                    if(character<32 or character==127):
-                        q.msg_ascii+="[%d]"%character
-                    else:
-                        q.msg_ascii+=chr(character)
-                if len(q.msg_msgdata)%7:
-                    q.msg_rest=q.msg_msgdata[-(len(q.msg_msgdata)%7):]
-                else:
-                    q.msg_rest=""
                 return q
+
     buf={}
     ricseq={}
     wrapmargin=10
@@ -342,24 +321,15 @@ class ReassembleMSG(Reassemble):
         self.ricseq[m.msg_ric][1]=m.msg_seq
         id="%07d %04d"%(m.msg_ric,(m.msg_seq+self.ricseq[m.msg_ric][0]))
         ts=m.time
+
         if id in self.buf:
-            if self.buf[id].msg_checksum != m.msg_checksum:
-                print "Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%(id,self.buf[id].time,self.buf[id].msg_checksum,m.time,m.msg_checksum)
-                # "Wrap around" to not miss the changed packet.
-                self.ricseq[m.msg_ric][0]+=62
-                id="%07d %04d"%(m.msg_ric,(m.msg_seq+self.ricseq[m.msg_ric][0]))
-                m.msgs=['[MISSING]']*3
-                self.buf[id]=m
+            # Doing nothing
+            pass
         else:
             m.msgs=['[MISSING]']*3
             self.buf[id]=m
-        self.buf[id].msgs[m.msg_ctr]=m.msg_ascii
 
-    def messagechecksum(self,msg):
-        csum=0
-        for x in msg:
-            csum=(csum+ord(x))%128
-        return (~csum)%128
+        self.buf[id].msgs[m.msg_ctr]=m.msg_ascii
 
     def consume(self,q):
         print "consume()"
@@ -369,11 +339,8 @@ class ReassembleMSG(Reassemble):
         for b in sorted(self.buf, key=lambda x: self.buf[x].time):
             msg="".join(self.buf[b].msgs[:1+self.buf[b].msg_ctr_max])
             msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
-            cmsg=re.sub("\[10\]","\n",msg) # XXX: should be done differently
-            csum=self.messagechecksum(cmsg)
+            msg=re.sub("    ","",msg) # XXX: should be done differently
             str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(self.buf[b].time).strftime("%Y-%m-%dT%H:%M:%S"),self.buf[b].msg_ctr_max)
-            str+= " %3d"%self.buf[b].msg_checksum
-            str+= (" fail"," OK  ")[self.buf[b].msg_checksum == csum]
             str+= ": %s"%(msg)
             print >> outfile, str
 
