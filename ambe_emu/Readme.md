@@ -14,4 +14,6 @@ Program and Data memory of the AMBE codec. These need to be extracted from an Ir
 
 You can try to use "get_binary.sh" which will try to extract it from the TD10003 binary for the 9601 SBD modem.
 
-The firmware image can be downloaded e.g. from: http://www.idgeurope.com/en/support/firmware-support
+As any direct links to firmware images seem to result in the images getting taken down, use google to search for
+the TD10003 firmware/upgrade.
+
