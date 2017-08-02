@@ -219,6 +219,7 @@ EOM
 		}
 		print "\t</Folder>\n";
 
+		if ($sc >0){
 		print "\t<Placemark>\n";
 		print "\t\t",emit( name => "Mid" );
 		print "\t\t<Point>\n";
@@ -227,6 +228,7 @@ EOM
 		print "</coordinates>\n";
 		print "\t\t</Point>\n";
 		print "\t</Placemark>\n";
+		};
 		print "\t</Folder>\n";
 }
 
