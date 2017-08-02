@@ -294,6 +294,7 @@ sub read_line{
 			$broken++;
 			next; # ignore broken stuff
 		};
+		$sat=sprintf"%03d",$sat;
 		$h*=1000;
 		$data->{$dir}=[] unless $data->{$dir}; # Vivify
 		add_pt($data->{$dir},$y,$x,$h,$str);
