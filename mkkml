@@ -274,6 +274,7 @@ sub do_tracks{
 }
 
 
+my $broken=0;
 sub read_line{
 	my ($data,$line)=@_;
 	if(/^IRA: (\S+) (\d+) \d+\s+(\d+)%\s+([0-9.]+).* sat:(\d+) beam:(\d+) (?:rps=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+)/){
@@ -290,6 +291,7 @@ sub read_line{
 		}elsif ($h > -100 && $h < 100){
 			$dir="down";
 		}else{
+			$broken++;
 			next; # ignore broken stuff
 		};
 		$h*=1000;
@@ -321,6 +323,10 @@ if ($ARGV[0] =~ /^(heatmap|tracks)/){
 
 my $data={};
 read_data($data);
+if ($broken>0){
+	print STDERR "Ignored $broken lines with incorrect altitude\n";
+};
+close(STDIN);
 
 print head(),"<Folder>\n",style();
 
