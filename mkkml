@@ -235,49 +235,81 @@ EOM
 		print "\t</Folder>\n";
 }
 
+sub break_track{
+	# Break track into pieces after 1000 seconds
+	my $track=shift;
+	my $idx=0;
+	my @tracks;
+
+	while ($idx<$#{$track}){
+		my $sidx=$idx;
+		while ($idx<$#{$track} && ($track->[$idx][3]-$track->[$sidx][3])<1000){
+			$idx++;
+		}
+		push @tracks,[@{$track}[$sidx..$idx-1]];
+	}
+	return [@tracks];
+}
+
+sub print_track{
+	my $s=shift;
+	for my $st (@{$s}){
+		print "<gx:Track>\n";
+		for my $p (@{$st}){
+			my ($x,$y,$h,$t)=@{$p};
+			print emit("when", strftime("%Y-%m-%dT%H:%M:%SZ",localtime($t)));
+		}
+		for my $p (@{$st}){
+			my ($x,$y,$h,$t)=@{$p};
+			print emit("gx:coord","$x $y $h");
+		}
+		print "</gx:Track>\n";
+	};
+}
+
 sub do_tracks{
 	my $ref=shift;
 	$|=1;
-#	print "<Folder>",emit("name" => "Tracks");
-	# Break track into pieces after 1000 seconds
 	for my $id (sort keys %{$ref}){
-		my $track=$ref->{$id};
-		my $idx=0;
-		my @tracks;
-		
-		while ($idx<$#{$track}){
-			my $sidx=$idx;
-			while ($idx<$#{$track} && ($track->[$idx][3]-$track->[$sidx][3])<1000){
-				$idx++;
-			};
-			push @tracks,[@{$track}[$sidx..$idx-1]];
-		};
-		$ref->{$id}=[@tracks];
+		$ref->{$id}=break_track($ref->{$id});
 	}
 	for my $id (sort keys %{$ref}){
 		print "<Placemark>\n";
-		print emit( name => "T$id" );
+		print emit( name => "S$id" );
 		print emit( description => "Satellite $id track" );
 		print "<gx:MultiTrack>\n";
 		print emit( altitudeMode => "absolute" );
-		for my $st (@{$ref->{$id}}){
-			print "<gx:Track>\n";
-			for my $p (@{$st}){
-				my ($x,$y,$h,$t)=@{$p};
-				print emit("when", strftime("%Y-%m-%dT%H:%M:%SZ",localtime($t)));
-			}
-			for my $p (@{$st}){
-				my ($x,$y,$h,$t)=@{$p};
-				print emit("gx:coord","$x $y $h");
-			}
-			print "</gx:Track>\n";
-		};
+		print_track($ref->{$id});
 		print "</gx:MultiTrack>\n";
 		print "</Placemark>\n";
 	}
 #	print "</Folder>\n";
 }
 
+sub do_beams{
+	my $ref=shift;
+	$|=1;
+	for my $sid (sort keys %{$ref}){
+		for my $bid (sort keys %{$ref->{$sid}}){
+			$ref->{$sid}{$bid}=break_track($ref->{$sid}{$bid});
+		}
+	}
+	for my $sid (sort keys %{$ref}){
+		print "<Folder>\n";
+		print emit("name" => "S$sid");
+		for my $bid (sort keys %{$ref->{$sid}}){
+			print "<Placemark>\n";
+			print emit( name => "S$sid B$bid" );
+			print emit( description => "Satellite $sid Beam $bid track" );
+			print "<gx:MultiTrack>\n";
+			print emit( altitudeMode => "absolute" );
+			print_track($ref->{$sid}{$bid});
+			print "</gx:MultiTrack>\n";
+			print "</Placemark>\n";
+		}
+		print "</Folder>\n";
+	}
+}
 
 my $broken=0;
 sub read_line{
@@ -303,8 +335,13 @@ sub read_line{
 		$h*=1000;
 		$data->{$dir}=[] unless $data->{$dir}; # Vivify
 		add_pt($data->{$dir},$y,$x,$h,$str);
-		$data->{"track_$dir"}{$sat}=[] unless $data->{"track_$dir"}{$sat}; # Vivify
-		add_pt($data->{"track_$dir"}{$sat},$y,$x,$h,$t);
+		if ($dir eq "down"){
+			$data->{"track_$dir"}{$sat}{$beam}=[] unless $data->{"track_$dir"}{$sat}{$beam}; # Vivify
+			add_pt($data->{"track_$dir"}{$sat}{$beam},$y,$x,$h,$t);
+		}else{
+			$data->{"track_$dir"}{$sat}=[] unless $data->{"track_$dir"}{$sat}; # Vivify
+			add_pt($data->{"track_$dir"}{$sat},$y,$x,$h,$t);
+		};
 	}else{
 		print STDERR "Couldn't parse: $_\n";
 	};
@@ -319,11 +356,11 @@ sub read_data{
 }
 
 my $mode;
-if ($ARGV[0] =~ /^(heatmap|tracks)/){
+if ($ARGV[0] =~ /^(heatmap|beams|tracks)/){
 	$mode=shift;
 }else{
 	print STDERR "Usage:\n";
-	print STDERR "$0 {heatmap|tracks}\n";
+	print STDERR "$0 {heatmap|beams|tracks}\n";
 	exit(-1);
 }
 
@@ -338,6 +375,8 @@ print head(),"<Folder>\n",style();
 
 if ($mode eq "tracks"){
 	do_tracks($data->{track_up});
+}elsif($mode eq "beams"){
+	do_beams($data->{track_down});
 }elsif($mode eq "heatmap"){
 	my $deg = shift || 0.5;
 	do_heatmap($data->{down},"Down",$deg);
