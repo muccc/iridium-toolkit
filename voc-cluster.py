@@ -43,6 +43,6 @@ for call in calls:
     is_voice = os.system('check-sample ' + filename) == 0
 
     if not is_voice:
-        os.system('rm ' + filename)
+        os.system('mv ' + filename + ' fail-%d.parsed' % call_id)
     call_id += 1
 
