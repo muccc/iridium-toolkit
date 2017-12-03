@@ -382,6 +382,7 @@ class IridiumMessage(Message):
                     self.descrambled+=[x]
                     self.payload_f+=[int(x,2)]
                     self.payload_r+=[int(x[::-1],2)]
+                self.payload_6=[int(x,2) for x in slice(data[:312], 6)]
                 self.descramble_extra=data[312:]
             elif self.ft==1: # IP via PPP
                 self.msgtype="IP"
@@ -578,6 +579,16 @@ class IridiumVOMessage(IridiumMessage):
             self.vctr2=self.payload_r[3]
             self.vlen =self.payload_r[4]
         else:
+            (ok,msg,csum)=rs6.rs_fix(self.payload_6)
+            self.rs6p=False
+            self.rs6=ok
+            if ok:
+                self.vtype="VO6"
+                if bytearray(self.payload_6)==msg+csum:
+                    self.rs6p=True
+                self.rs6m=msg
+                self.rs6c=csum
+                return
 #            if rs_check(self.payload_f):
             (ok,msg,rsc)=rs.rs_fix(self.payload_f)
             if ok:
@@ -617,6 +628,13 @@ class IridiumVOMessage(IridiumMessage):
                     str+=chr(c)
                 else:
                     str+="."
+        elif self.vtype=="VO6":
+            v="".join(["{0:06b}".format(x) for x in self.rs6m ])
+            if self.rs6p:
+                str+=" RS=OK"
+            else:
+                str+=" RS=ok"
+            str+=" "+group(v,6)
         else:
             str+= " ["+".".join(["%02x"%x for x in self.vdata])+"]"
         str+=self._pretty_trailer()
