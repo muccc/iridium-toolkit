@@ -256,7 +256,7 @@ class ReassembleIDALAP(ReassembleIDA):
         else:
             eth=struct.pack("!BBBBBBBBBBBBH",0x10,0x22,0x33,0x44,0x55,0x66,0xaa,0xbb,0xcc,0xdd,0xee,0xff,0x800)+ip
 
-        pcap=struct.pack("<IIII",time/1000,time%1000,len(eth),len(eth))+eth
+        pcap=struct.pack("<IIII",time/1000,1000*(time%1000),len(eth),len(eth))+eth
         outfile.write(pcap)
         if verbose:
             if ul:
