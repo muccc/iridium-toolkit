@@ -1,0 +1,1 @@
+python bits_to_dfs.py $1 /tmp/voice.dfs && ir77_ambe_decode /tmp/voice.dfs /tmp/voice.wav

@@ -88,12 +88,17 @@ class Reassemble(object):
         self.end()
     def filter(self,line):
         self.stat_line+=1
-        q=MyObject()
-        q.typ,q.name,q.time,q.frequency,q.confidence,q.level,q.symbols,q.uldl,q.data=line.split(None,8)
-        q.frequency=int(q.frequency)
-        q.time=int(q.time)
-        q.level=float(q.level)
-        return q
+        try:
+            q=MyObject()
+            q.typ,q.name,q.time,q.frequency,q.confidence,q.level,q.symbols,q.uldl,q.data=line.split(None,8)
+            q.frequency=int(q.frequency)
+            q.time=int(q.time)
+            q.level=float(q.level)
+            return q
+        except:
+            print >> sys.stderr, "Couldn't parse input line: ",line,
+            return None
+
     def end(self):
         print "Kept %d/%d (%3.1f%%) lines"%(self.stat_filter,self.stat_line,100.0*self.stat_filter/self.stat_line)
 
@@ -102,6 +107,7 @@ class ReassembleIDA(Reassemble):
         pass
     def filter(self,line):
         q=super(ReassembleIDA,self).filter(line)
+        if q==None: return None
         if q.typ=="IDA:":
             qqq=re.compile('.* CRC:OK')
             if not qqq.match(q.data):
@@ -250,7 +256,7 @@ class ReassembleIDALAP(ReassembleIDA):
         else:
             eth=struct.pack("!BBBBBBBBBBBBH",0x10,0x22,0x33,0x44,0x55,0x66,0xaa,0xbb,0xcc,0xdd,0xee,0xff,0x800)+ip
 
-        pcap=struct.pack("<IIII",time/1000,time%1000,len(eth),len(eth))+eth
+        pcap=struct.pack("<IIII",time/1000,1000*(time%1000),len(eth),len(eth))+eth
         outfile.write(pcap)
         if verbose:
             if ul:
@@ -265,6 +271,7 @@ class ReassembleIRA(Reassemble):
         pass
     def filter(self,line):
         q=super(ReassembleIRA,self).filter(line)
+        if q==None: return None
         if q.typ=="IRA:":
             p=re.compile('.*sat:(\d+) beam:(\d+) pos=\((.[0-9.]+)/(.[0-9.]+)\) alt=([-0-9]+) .* bc_sb:\d+ (.*)')
             m=p.match(q.data)
@@ -290,6 +297,7 @@ class ReassembleMSG(Reassemble):
         pass
     def filter(self,line):
         q=super(ReassembleMSG,self).filter(line)
+        if q == None: return None
         if q.typ == "MSG:":
             #ric:0098049 fmt:05 seq:43 1010010000 1/1 oNEZCOuxvM3PuiQHujzQYd5n0Q8ra0wfMG2WnnhoxAnunT9xzIBSkXyvNP[3]     +11111
             p=re.compile('.* ric:(\d+) fmt:(\d+) seq:(\d+) [0-1]{10} (\d)/(\d) (.*)\+1*')
