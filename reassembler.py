@@ -220,7 +220,7 @@ class ReassembleIDA(Reassemble):
                     if verbose:
                         print ">assembled: [%s] %s"%(",".join(["%s"%x for x in time+[m.time]]),dat)
                     data="".join([chr(int(x,16)) for x in re.split("[.!]",dat)])
-                    return [[data,m.time,ul,m.level]]
+                    return [[data,m.time,ul,m.level,freq]]
                 self.stat_fragments+=1
                 ok=True
                 break
@@ -230,7 +230,7 @@ class ReassembleIDA(Reassemble):
             if verbose:
                 print ">single: [%s] %s"%(m.time,m.data)
             data="".join([chr(int(x,16)) for x in re.split("[.!]",m.data)])
-            return [[data,m.time,m.ul,m.level]]
+            return [[data,m.time,m.ul,m.level,m.frequency]]
         elif m.ctr==0 and m.cont: # New long packet
             self.stat_fragments+=1
             if verbose:
@@ -260,7 +260,7 @@ class ReassembleIDA(Reassemble):
         print "%d/%d (%3.1f%%) broken fragments."%(self.stat_broken,self.stat_fragments,(100.0*self.stat_broken/self.stat_fragments))
         print "%d dupes removed."%(self.stat_dupes)
     def consume(self,q):
-        (data,time,ul,level)=q
+        (data,time,ul,level,freq)=q
         if ul:
             ul="UL"
         else:
@@ -283,7 +283,7 @@ class ReassembleIDALAP(ReassembleIDA):
             self.first=False
 
         # Filter non-GSM packets (see IDA-GSM.txt)
-        (data,time,ul,level)=q
+        (data,time,ul,level,freq)=q
         if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
             return
         if len(data)==1:
@@ -299,9 +299,9 @@ class ReassembleIDALAP(ReassembleIDA):
             olvl=-126
 
         if ul:
-            gsm=struct.pack("!BBBBHbBLBBBB",2,4,1*0+2,0,0x4000,olvl,0,0,7,0,0,0)+lapdm
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,1*0+2,0,0x4000,olvl,0,freq,7,0,0,0)+lapdm
         else:
-            gsm=struct.pack("!BBBBHbBLBBBB",2,4,1*0+2,0,0x0000,olvl,0,0,7,0,0,0)+lapdm
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,1*0+2,0,0x0000,olvl,0,freq,7,0,0,0)+lapdm
 
         udp=struct.pack("!HHHH",45988,4729,8+len(gsm),0xffff)+gsm
 
