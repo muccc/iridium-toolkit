@@ -12,13 +12,15 @@ import sys
 import matplotlib.pyplot as plt
 import numpy as np
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vs:', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vd:s:', [
                                                          'verbose',
+                                                         'direction=',
                                                          'sat='
                                                             ])
 debugpos=False
 verbose=False
 satno=None
+direction=None
 
 # Inclination in deg
 inc0=84.0
@@ -28,6 +30,16 @@ for opt, arg in options:
         verbose = True
     elif opt in ('-s','--sat'):
         satno=int(arg)
+    elif opt in ('-d','--direction'):
+        try:
+            direction=int(arg)
+        except ValueError:
+            if arg=="n":
+                direction=1
+            elif arg=="s":
+                direction=-1
+            else:
+                raise
 
 # Preallocate arrays
 xs=[[] for y in range(50)]
@@ -86,6 +98,10 @@ for line in fileinput.input(remainder):
                 if debugpos: print "# Too old"
                 north[sat]=0
                 continue
+            if direction is not None:
+                if direction!=north[sat]:
+                    if debugpos: print "# ignore direction"
+                    continue
 
             if north[sat] == 0:
                 if debugpos: print "# Unknown direction"
@@ -185,6 +201,13 @@ if satno:
     title='Beam Pattern for Sat %d'%satno
 else:
     title='Beam Pattern plot'
+if direction is not None:
+    if direction == 1:
+        title=title+' (North)'
+    elif direction == -1:
+        title=title+' (South)'
+    else:
+        raise
 
 plt.title(title)
 fig.canvas.set_window_title(title)
