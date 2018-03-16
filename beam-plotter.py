@@ -37,7 +37,7 @@ north=[0]* 255
 pos=[None]* 255
 
 for line in fileinput.input(remainder):
-        sat,cell,x,y,z,gtime=line.split(None,7)
+        sat,cell,x,y,z,gtime=line.split(None,6)
         sat=int(sat)
         if satno and sat!=satno:
              continue
