@@ -10,13 +10,18 @@ def filter_voc(t_start = None, t_stop = None, f_min = None, f_max = None):
     tsl = []
     fl = []
     lines = []
+    quals = []
     f = open(sys.argv[1])
 
     for line in f:
         line = line.strip()
         if 'VOC: ' in line and not "LCW(0,001111,100000000000000000000" in line:
             line_split = line.split()
-            lcw = line[8]
+            oknok=0
+            if line_split[1] == 'VOC:':
+                oknok=int(line_split[0][len(line_split[0])-1])
+                line_split=line_split[1:]
+            oknok=['red','orange','green'][oknok]
             #ts_base = int(line[1].split('-')[1].split('.')[0])
             ts_base = 0
             ts = ts_base + int(line_split[2])/1000.
@@ -27,8 +32,9 @@ def filter_voc(t_start = None, t_stop = None, f_min = None, f_max = None):
                     (not f_max or f <= f_max)):
                 tsl.append(ts)
                 fl.append(f)
+                quals.append(oknok)
                 lines.append(line)
-    return tsl, fl, lines
+    return tsl, fl, quals, lines
 
 
 def cut_convert_play(t_start, t_stop, f_min, f_max):
@@ -43,7 +49,7 @@ def cut_convert_play(t_start, t_stop, f_min, f_max):
             f_min = tmp
 
     f_out = open('/tmp/voice.bits', 'w')
-    _, _, lines = filter_voc(t_start, t_stop, f_min, f_max)
+    _, _, _, lines = filter_voc(t_start, t_stop, f_min, f_max)
     for line in lines:
         f_out.write(line + "\n")
     f_out.close()
@@ -67,13 +73,13 @@ def onclick(event):
         cut_convert_play(t_start, t_stop, f_min, f_max)
 
 def main():
-    tsl, fl, _ = filter_voc()
+    tsl, fl, quals, _ = filter_voc()
 
     print len(tsl)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    ax.scatter(x = tsl, y = fl)
+    ax.scatter(x = tsl, y = fl, c= quals, s=30)
 
     t_start = None
     t_stop = None

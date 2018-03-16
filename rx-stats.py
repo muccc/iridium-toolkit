@@ -53,5 +53,5 @@ if show_errors:
     title += " and having decoding errors"
 
 plt.title(title)
-plt.hist(timestamps, bins)
+plt.hist(timestamps, int(bins))
 plt.show()

@@ -108,26 +108,29 @@ class Message(object):
         self.parse_error=False
         self.error=False
         self.error_msg=[]
-        p=re.compile('RAW: ([^ ]*) (\d+) (\d+) A:(\w+) [IL]:(\w+) +(\d+)% ([\d.]+) +(\d+) ([\[\]<> 01]+)(.*)')
+        p=re.compile('(RAW|RWA): ([^ ]*) (\d+) (\d+) A:(\w+) [IL]:(\w+) +(\d+)% ([\d.]+) +(\d+) ([\[\]<> 01]+)(.*)')
         m=p.match(line)
         if(not m):
             self._new_error("Couldn't parse: "+line)
             self.parse_error=True
             return
-        self.filename=m.group(1)
+        self.swapped=(m.group(1)=="RAW")
+        self.filename=m.group(2)
         if self.filename=="/dev/stdin":
             self.filename="-";
-        self.timestamp=int(m.group(2))
-        self.frequency=int(m.group(3))
-#        self.access_ok=(m.group(4)=="OK")
-#        self.leadout_ok=(m.group(5)=="OK")
-        self.confidence=int(m.group(6))
-        self.level=float(m.group(7))
-#        self.raw_length=m.group(8)
-        self.bitstream_raw=symbol_reverse(re.sub("[\[\]<> ]","",m.group(9))) # raw bitstring with correct symbols
+        self.timestamp=int(m.group(3))
+        self.frequency=int(m.group(4))
+#        self.access_ok=(m.group(5)=="OK")
+#        self.leadout_ok=(m.group(6)=="OK")
+        self.confidence=int(m.group(7))
+        self.level=float(m.group(8))
+#        self.raw_length=m.group(9)
+        self.bitstream_raw=(re.sub("[\[\]<> ]","",m.group(10))) # raw bitstring with correct symbols
+        if self.swapped:
+            self.bitstream_raw=symbol_reverse(self.bitstream_raw)
         self.symbols=len(self.bitstream_raw)/2
-        if m.group(10):
-            self.extra_data=m.group(10)
+        if m.group(11):
+            self.extra_data=m.group(11)
             self._new_error("There is crap at the end in extra_data")
         # Make a "global" timestamp
         global tswarning,tsoffset,maxts
@@ -1023,9 +1026,14 @@ class IridiumRAMessage(IridiumECCMessage):
                 'zero1': int(ra_msg[32:34],2),
                 'msc_id':int(ra_msg[34:39],2),
                 'zero2': int(ra_msg[39:42],2),
+                'raw': ra_msg[:42],
             }
             if ra_msg[:42]=="111111111111111111111111111111111111111111":
                 paging['none']=True
+                paging['fill']=False
+            elif ra_msg[:42]=="101000100111001110111010101000100010111000":
+                paging['none']=True
+                paging['fill']=True
             else:
                 paging['none']=False
             self.paging.append(paging)
@@ -1059,7 +1067,10 @@ class IridiumRAMessage(IridiumECCMessage):
         for p in self.paging:
             str+= " PAGE("
             if p['none']:
-                str+="NONE"
+                if p['fill']:
+                    str+="FILL"
+                else:
+                    str+="NONE"
             else:
                 str+= "tmsi:%08x"%p['tmsi']
                 if p['zero1']!=0: str+= " 0:%d"%p['zero1']
@@ -1223,12 +1234,15 @@ class IridiumMessagingAscii(IridiumMSMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingAscii,self)._pretty_header()
-        return str+ " seq:%02d %10s %1d/%1d"%(self.msg_seq,self.msg_unknown1,self.msg_ctr,self.msg_ctr_max)
+        str+= " seq:%02d %10s %1d/%1d"%(self.msg_seq,self.msg_unknown1,self.msg_ctr,self.msg_ctr_max)
+        (full,rest)=slice_extra(self.msg_msgdata,8)
+        msgx="".join(["%02x"%int(x,2) for x in full])
+        return str+ " csum:%02x msg:%s.%s"%(self.msg_checksum,msgx,rest)
     def _pretty_trailer(self):
         return super(IridiumMessagingAscii,self)._pretty_trailer()
     def pretty(self):
        str= "MSG: "+self._pretty_header()
-       str+= " %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
+       str+= " TXT: %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
        str+= self._pretty_trailer()
        return str
 
