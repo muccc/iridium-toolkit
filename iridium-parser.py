@@ -676,7 +676,7 @@ class IridiumIPMessage(IridiumMessage):
                 self.itype="IIP"
                 self.ip_hdr=self.descrambled[0]
                 self.ip_ctr1=int(self.descrambled[1],2)
-                self.ip_uk1=self.descrambled[2]
+                self.ip_stream=int(self.descrambled[2],2)
                 self.ip_ctr2=int(self.descrambled[3],2)
                 self.ip_len= int(self.descrambled[4],2)
                 if self.ip_len>31:
@@ -695,7 +695,7 @@ class IridiumIPMessage(IridiumMessage):
     def pretty(self):
         s= self.itype+": "+self._pretty_header()
         if self.itype=="IIP":
-            s+= " %s c1=%03d %s c2=%03d len=%03d"%(self.ip_hdr,self.ip_ctr1,self.ip_uk1,self.ip_ctr2,self.ip_len)
+            s+= " %s c1=%03d stream=%s c2=%03d len=%03d"%(self.ip_hdr,self.ip_ctr1,self.ip_stream,self.ip_ctr2,self.ip_len)
             s+= " ["+".".join(["%02x"%x for x in self.ip_data])+"]"
             s+= " %06x/%06x"%(int("".join(self.ip_cksum),2),self.crcval)
             s+=" FCS:OK"
