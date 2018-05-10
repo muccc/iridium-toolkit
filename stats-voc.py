@@ -103,6 +103,8 @@ def read_lines():
     lines = []
     for line in fileinput.input():
         line = line.strip()
+        if 'A:OK' in line and "Message: Couldn't parse:" not in line:
+            raise RuntimeError('Expected "iridium-parser.py" parsed data. Found raw "iridium-extractor" data.')
         if 'VOC: ' in line and not "LCW(0,001111,100000000000000000000" in line:
             lines.append(VocLine(line))
     return lines
