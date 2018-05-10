@@ -1,10 +1,2 @@
 #!/bin/sh
-bits_to_dfs.py /tmp/voice.dfs $1
-#ambe -w /tmp/voice.dfs
-ir77_ambe_decode /tmp/voice.dfs /tmp/voice.wav
-
-if hash mplayer 2>/dev/null; then
-  mplayer /tmp/voice.wav
-else
-  aplay /tmp/voice.wav
-fi
+bits_to_dfs.py - $1 | ir77_ambe_decode - - | aplay
