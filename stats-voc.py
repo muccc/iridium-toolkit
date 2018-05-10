@@ -14,26 +14,15 @@ from bits_to_dfs import bits_to_dfs
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def filter_voc(lines, t_start = None, t_stop = None, f_min = None, f_max = None):
-    tsl = []
-    fl = []
-    filtered_lines = []
-
-    for line in lines:
+class VocLine(object):
+    def __init__(self, line):
+        self.line = line
         line_split = line.split()
-        lcw = line[8]
+        self.lcw = line[8]
         #ts_base = int(line[1].split('-')[1].split('.')[0])
         ts_base = 0
-        ts = ts_base + int(line_split[2])/1000.
-        f = int(line_split[3])/1000.
-        if ((not t_start or t_start <= ts) and
-                (not t_stop or ts <= t_stop) and
-                (not f_min or f_min <= f) and
-                (not f_max or f <= f_max)):
-            tsl.append(ts)
-            fl.append(f)
-            filtered_lines.append(line)
-    return tsl, fl, filtered_lines
+        self.ts = ts_base + int(line_split[2])/1000.
+        self.f = int(line_split[3])/1000.
 
 
 class OnClickHandler(object):
@@ -60,19 +49,30 @@ class OnClickHandler(object):
         if self.t_start and self.t_stop:
             self.cut_convert_play(self.t_start, self.t_stop, self.f_min, self.f_max)
 
+    def filter_voc(self, t_start, t_stop, f_min, f_max):
+        filtered_lines = []
+
+        for voc_line in self.lines:
+            ts = voc_line.ts
+            f = voc_line.f
+            if t_start <= ts and ts <= t_stop and \
+               f_min <= f and f <= f_max:
+                filtered_lines.append(voc_line.line)
+
+        return filtered_lines
+
     def cut_convert_play(self, t_start, t_stop, f_min, f_max):
         logger.info('Starting to play...')
-        if t_start and t_stop:
-            if t_start > t_stop:
-                tmp = t_stop
-                t_stop = t_start
-                t_start = tmp
-            if f_min > f_max:
-                tmp = f_max
-                f_max = f_min
-                f_min = tmp
+        if t_start > t_stop:
+            tmp = t_stop
+            t_stop = t_start
+            t_start = tmp
+        if f_min > f_max:
+            tmp = f_max
+            f_max = f_min
+            f_min = tmp
 
-        _, _, filtered_lines = filter_voc(self.lines, t_start=t_start, t_stop=t_stop, f_min=f_min, f_max=f_max)
+        filtered_lines = self.filter_voc(t_start, t_stop, f_min, f_max)
 
         _, dfs_file_path = tempfile.mkstemp(suffix='.dfs')
         _, wav_file_path = tempfile.mkstemp(suffix='.wav')
@@ -100,13 +100,18 @@ def read_lines():
     for line in fileinput.input():
         line = line.strip()
         if 'VOC: ' in line and not "LCW(0,001111,100000000000000000000" in line:
-            lines.append(line)
+            lines.append(VocLine(line))
     return lines
 
 def main():
     lines = read_lines()
     logger.info('Read %d VOC lines from input', len(lines))
-    tsl, fl, _ = filter_voc(lines)
+
+    tsl = []
+    fl = []
+    for voc_line in lines:
+        tsl.append(voc_line.ts)
+        fl.append(voc_line.f)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -115,7 +120,7 @@ def main():
     on_click_handler = OnClickHandler(lines)
     cid = fig.canvas.mpl_connect('button_press_event', on_click_handler.onclick)
 
-    plt.title('Click once left and once right to define an area. The script will try to play iridium using ir77_ambe_decode and aplay.')
+    plt.title('Click once left and once right to define an area.\nThe script will try to play iridium using ir77_ambe_decode and aplay.')
     plt.show()
 
 
