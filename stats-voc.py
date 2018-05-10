@@ -123,10 +123,11 @@ def main():
         plot_data[i][0] = voc_line.ts
         plot_data[i][1] = voc_line.f
 
-    fig = plt.figure()
-    thresh = 1.5
+    distances = hcluster.distance.pdist(plot_data)
+    thresh = 2 * distances.min()
     clusters = hcluster.fclusterdata(plot_data, thresh, criterion="distance")
 
+    fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
     ax.scatter(*np.transpose(plot_data), c=clusters)
 
