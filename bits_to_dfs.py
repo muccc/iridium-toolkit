@@ -10,28 +10,6 @@ VOC: i-1443338945.6543-t1 033399141 1625872817  81% 0.027 179 L:no LCW(0,001111,
 
 """
 
-def turn_symbols(byte):
-    out = 0
-    if byte & 0x01:
-        out |= 0x02
-    if byte & 0x02:
-        out |= 0x01
-    if byte & 0x04:
-        out |= 0x08
-    if byte & 0x08:
-        out |= 0x04
-
-    if byte & 0x10:
-        out |= 0x20
-    if byte & 0x20:
-        out |= 0x10
-    if byte & 0x40:
-        out |= 0x80
-    if byte & 0x80:
-        out |= 0x40
-
-    return out
-
 def chunks(l, n):
     """ Yield successive n-sized chunks from l.
     """
@@ -43,19 +21,21 @@ def bits_to_dfs(lines, output):
     data = ''
     for line in lines:
         line = line.split()
-        if line[0] == 'VOC:':
-            if int(line[6]) < 179:
-                continue
-            data = line[10]
-            if (data[0] == "["):
-                for pos in xrange(1,len(data),3):
-                    byte=int(data[pos:pos+2],16)
-                    byte=int('{:08b}'.format(byte)[::-1], 2)
-                    output.write(chr(byte))
-            else:
-                for bits in chunks(data, 8):
-                    byte = int(bits[::-1],2)
-                    output.write(chr(byte))
+        if line[0] != 'VOC:':
+            continue
+        if int(line[6]) < 179:
+            continue
+
+        data = line[10]
+        if data[0] == "[":
+            for pos in xrange(1,len(data),3):
+                byte=int(data[pos:pos+2],16)
+                byte=int('{:08b}'.format(byte)[::-1], 2)
+                output.write(chr(byte))
+        else:
+            for bits in chunks(data, 8):
+                byte = int(bits[::-1],2)
+                output.write(chr(byte))
 
 def main():
     parser = argparse.ArgumentParser(description='Convert iridium-parser.py VOC output to DFS')
