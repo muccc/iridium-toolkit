@@ -9,6 +9,10 @@ import subprocess
 import fileinput
 import logging
 import tempfile
+
+import numpy as np
+import scipy.cluster.hierarchy as hcluster
+
 from bits_to_dfs import bits_to_dfs
 
 logging.basicConfig(level=logging.INFO)
@@ -105,22 +109,31 @@ def read_lines():
 
 def main():
     lines = read_lines()
-    logger.info('Read %d VOC lines from input', len(lines))
+    number_of_lines = len(lines)
+    logger.info('Read %d VOC lines from input', number_of_lines)
 
-    tsl = []
-    fl = []
-    for voc_line in lines:
-        tsl.append(voc_line.ts)
-        fl.append(voc_line.f)
+    tsl = np.empty(number_of_lines)
+    fl = np.empty(number_of_lines)
+    plot_data = np.empty((number_of_lines, 2))
+    for i, voc_line in enumerate(lines):
+        tsl[i] = voc_line.ts
+        fl[i] = voc_line.f
+        plot_data[i][0] = voc_line.ts
+        plot_data[i][1] = voc_line.f
 
     fig = plt.figure()
-    ax = fig.add_subplot(111)
-    ax.scatter(x = tsl, y = fl)
+    thresh = 1.5
+    clusters = hcluster.fclusterdata(plot_data, thresh, criterion="distance")
+
+    ax = fig.add_subplot(1, 1, 1)
+    ax.scatter(*np.transpose(plot_data), c=clusters)
 
     on_click_handler = OnClickHandler(lines)
     cid = fig.canvas.mpl_connect('button_press_event', on_click_handler.onclick)
 
     plt.title('Click once left and once right to define an area.\nThe script will try to play iridium using ir77_ambe_decode and aplay.')
+    plt.xlabel('time')
+    plt.ylabel('frequency')
     plt.show()
 
 
