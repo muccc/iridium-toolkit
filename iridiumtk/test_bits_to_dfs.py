@@ -3,7 +3,7 @@
 import unittest
 from io import BytesIO
 
-from bits_to_dfs import chunks, bits_to_dfs
+from .bits_to_dfs import chunks, bits_to_dfs
 
 
 class ChunksTest(unittest.TestCase):

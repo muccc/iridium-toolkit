@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # vim: set ts=4 sw=4 tw=0 et fenc=utf8 pm=:
 import sys
-import matplotlib.pyplot as plt
 import os
 import subprocess
 import fileinput
@@ -10,6 +9,7 @@ import tempfile
 from datetime import datetime
 import argparse
 
+import matplotlib.pyplot as plt
 import numpy as np
 import scipy.cluster.hierarchy as hcluster
 import six
