@@ -25,7 +25,7 @@ matrix:
       env: TOXENV=pypy
 
   allow_failures:
-    - python: "pypy2.7"
+    - python: "pypy-5.4.1"
     - os: "osx"
 
 cache:
