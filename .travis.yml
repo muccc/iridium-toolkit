@@ -19,10 +19,10 @@ matrix:
     #  env: TOXENV=py27
 
     # PyPy 2.7
-    - python: "pypy-5.4.1"
-      os: "linux"
-      dist: trusty
-      env: TOXENV=pypy
+    #- python: "pypy-5.4.1"
+    #  os: "linux"
+    #  dist: trusty
+    #  env: TOXENV=pypy
 
   allow_failures:
     - python: "pypy-5.4.1"
