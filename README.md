@@ -14,6 +14,12 @@ virtualenv venv
 source venv/bin/activate
 pip install -r requirements.txt
 ```
+Then run commands via a module path. e.g
+```bash
+python -m iridiumtk.bits_to_dfs my_data.voice.dfs my_data.bits
+# or
+python -m iridiumtk.stats_voc my_data.bits
+```
 
 ### Example usage
 Either extract some Iridium frames from the air or a file using [gr-iridium](https://github.com/muccc/gr-iridium) (recommended) or use the legacy code located in the [extractror-python](extractor-python/) directory if you don't want to install GNURadio (not recommended).

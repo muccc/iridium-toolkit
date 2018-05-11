@@ -2,14 +2,11 @@
 
 import unittest
 
-from .stats_voc import VocLine
 
+class MainTest(unittest.TestCase):
+    def test_pass(self):
+        pass
 
-class VocLineTest(unittest.TestCase):
-
-    def test_empty_input(self):
-        with self.assertRaises(Exception):
-            VocLine('')
 
 def main():
     unittest.main()
