@@ -116,7 +116,7 @@ class OnClickHandler(object):
         logger.info('Finished Playing')
 
 
-def read_lines(input_files, start_time_filter):
+def read_lines(input_files, start_time_filter, end_time_filter):
     lines = []
     for line in fileinput.input(files=input_files):
         line = line.strip()
@@ -126,19 +126,23 @@ def read_lines(input_files, start_time_filter):
             voc_line = VocLine(line)
             if start_time_filter and start_time_filter > voc_line.datetime():
                 continue
+            if end_time_filter and end_time_filter < voc_line.datetime():
+                continue
             lines.append(voc_line)
     return lines
 
 def main():
     parser = argparse.ArgumentParser(description='Convert iridium-parser.py VOC output to DFS')
     parser.add_argument('--start', metavar='DATETIME', default=None, help='Filter events before this time')
+    parser.add_argument('--end', metavar='DATETIME', default=None, help='Filter events after this time')
     parser.add_argument('input', metavar='FILE', nargs='*', help='Files to read, if empty or -, stdin is used')
     args = parser.parse_args()
 
     input_files = args.input if len(args.input) > 0 else ['-']
     start_time_filter = dateparser.parse(args.start) if args.start else None
+    end_time_filter = dateparser.parse(args.end) if args.end else None
 
-    lines = read_lines(input_files, start_time_filter)
+    lines = read_lines(input_files, start_time_filter, end_time_filter)
     number_of_lines = len(lines)
     logger.info('Read %d VOC lines from input', number_of_lines)
 
