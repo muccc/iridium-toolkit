@@ -1,6 +1,10 @@
 sudo: false
+branches:
+  only:
+    - py27
 language: python
 python:
   - "2.7"
+  - "pypy2.7"
 install: pip install tox-travis
 script: tox
