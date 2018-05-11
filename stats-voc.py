@@ -1,7 +1,5 @@
 #!/usr/bin/python
 # vim: set ts=4 sw=4 tw=0 et fenc=utf8 pm=:
-#VOC: i-1430527570.4954-t1 421036605 1625859953  66% 0.008 219 L:no LCW(0,001111,100000000000000000000 E1) 101110110101010100101101111000111111111001011111001011010001000010010001101110011010011001111111011101111100011001001001000111001101001011001011000101111111101110110011111000000001110010001110101101001010011001101001010111101100011100110011110010110110101010110001010000100100101011010010100100100011010110101001
-
 import sys
 import matplotlib.pyplot as plt
 import os
@@ -9,24 +7,43 @@ import subprocess
 import fileinput
 import logging
 import tempfile
+from datetime import datetime
+import argparse
 
 import numpy as np
 import scipy.cluster.hierarchy as hcluster
+import six
+import dateparser
 
 from bits_to_dfs import bits_to_dfs
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Example lines
+# VOC: i-1430527570.4954-t1 421036605 1625859953  66% 0.008 219 L:no LCW(0,001111,100000000000000000000 E1) 101110110101010100101101111000111111111001011111001011010001000010010001101110011010011001111111011101111100011001001001000111001101001011001011000101111111101110110011111000000001110010001110101101001010011001101001010111101100011100110011110010110110101010110001010000100100101011010010100100100011010110101001
+# VOC: i-1526039037-t1 000065686 1620359296 100%   0.003 179 DL LCW(0,T:maint,C:maint[2][lqi:3,power:0,f_dtoa:0,f_dfoa:127](3),786686 E0)                                       [df.ff.f3.fc.10.33.c3.1f.0c.83.c3.cc.cc.30.ff.f3.ef.00.bc.0c.b4.0f.dc.d0.1a.cc.9c.c5.0c.fc.28.01.cc.38.c2.33.e0.ff.4f]
+
 class VocLine(object):
     def __init__(self, line):
         self.line = line
-        line_split = line.split()
-        self.lcw = line[8]
-        #ts_base = int(line[1].split('-')[1].split('.')[0])
-        ts_base = 0
-        self.ts = ts_base + int(line_split[2])/1000.
-        self.f = int(line_split[3])/1000.
+        try:
+            line_split = line.split()
+
+            raw_time_base = line_split[1]
+            ts_base_ms = int(raw_time_base.split('-')[1].split('.')[0])
+
+            time_offset_ns = int(line_split[2])
+            self.ts = ts_base_ms + (time_offset_ns / 1000)
+
+            self.f = int(line_split[3])/1000.
+            self.lcw = line[8]
+        except Exception as e:
+            six.raise_from(Exception('Failed to parse line "{}"'.format(line), e), e)
+
+    def datetime(self):
+        return datetime.utcfromtimestamp(self.ts)
+
 
 
 class OnClickHandler(object):
@@ -99,40 +116,54 @@ class OnClickHandler(object):
         logger.info('Finished Playing')
 
 
-def read_lines():
+def read_lines(input_files, start_time_filter):
     lines = []
-    for line in fileinput.input():
+    for line in fileinput.input(files=input_files):
         line = line.strip()
         if 'A:OK' in line and "Message: Couldn't parse:" not in line:
             raise RuntimeError('Expected "iridium-parser.py" parsed data. Found raw "iridium-extractor" data.')
         if 'VOC: ' in line and not "LCW(0,001111,100000000000000000000" in line:
-            lines.append(VocLine(line))
+            voc_line = VocLine(line)
+            if start_time_filter and start_time_filter > voc_line.datetime():
+                continue
+            lines.append(voc_line)
     return lines
 
 def main():
-    lines = read_lines()
+    parser = argparse.ArgumentParser(description='Convert iridium-parser.py VOC output to DFS')
+    parser.add_argument('--start', metavar='DATETIME', default=None, help='Filter events before this time')
+    parser.add_argument('input', metavar='FILE', nargs='*', help='Files to read, if empty or -, stdin is used')
+    args = parser.parse_args()
+
+    input_files = args.input if len(args.input) > 0 else ['-']
+    start_time_filter = dateparser.parse(args.start) if args.start else None
+
+    lines = read_lines(input_files, start_time_filter)
     number_of_lines = len(lines)
     logger.info('Read %d VOC lines from input', number_of_lines)
 
-    tsl = np.empty(number_of_lines)
-    fl = np.empty(number_of_lines)
+    if number_of_lines == 0:
+        print('No usable data found')
+        sys.exit(1)
+
     plot_data = np.empty((number_of_lines, 2))
     for i, voc_line in enumerate(lines):
-        tsl[i] = voc_line.ts
-        fl[i] = voc_line.f
         plot_data[i][0] = voc_line.ts
-        plot_data[i][1] = voc_line.f
+        plot_data[i][1] = np.float64(voc_line.f)
 
     distances = hcluster.distance.pdist(plot_data)
     thresh = 2 * distances.min()
     clusters = hcluster.fclusterdata(plot_data, thresh, criterion="distance")
 
     fig = plt.figure()
+    #fig.autofmt_xdate()
+    on_click_handler = OnClickHandler(lines)
+    fig.canvas.mpl_connect('button_press_event', on_click_handler.onclick)
+    
     ax = fig.add_subplot(1, 1, 1)
     ax.scatter(*np.transpose(plot_data), c=clusters)
-
-    on_click_handler = OnClickHandler(lines)
-    cid = fig.canvas.mpl_connect('button_press_event', on_click_handler.onclick)
+    #ax.xaxis_date()
+    ax.grid(True)
 
     plt.title('Click once left and once right to define an area.\nThe script will try to play iridium using ir77_ambe_decode and aplay.')
     plt.xlabel('time')
