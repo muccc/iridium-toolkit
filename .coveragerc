@@ -1,0 +1,6 @@
+[run]
+branch = True
+source =
+    iridiumtk
+omit =
+    *test_*.py
