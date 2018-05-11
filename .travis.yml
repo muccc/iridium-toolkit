@@ -1,10 +1,39 @@
 sudo: false
+
 branches:
   only:
     - py27
+
 language: python
-python:
-  - "2.7"
-  - "pypy2.7"
-install: pip install tox-travis
+
+matrix:
+  include:
+    # Python 2.7
+    - python: "2.7"
+      os: "linux"
+      dist: trusty
+      env: TOXENV=py27
+
+    #- os: "osx"
+    #  language: generic
+    #  env: TOXENV=py27
+
+    # PyPy 2.7
+    - python: "pypy-5.4.1"
+      os: "linux"
+      dist: trusty
+      env: TOXENV=pypy
+
+  allow_failures:
+    - python: "pypy2.7"
+    - os: "osx"
+
+cache:
+  directories:
+    - $PWD/wheelhouse  # cache wheels so that we don't hit network everytime
+env:
+  global:
+    - PIP_FIND_LINKS=$PWD/wheelhouse
+
+install: ./.travis/install.sh
 script: tox
