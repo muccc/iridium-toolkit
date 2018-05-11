@@ -1,13 +1,19 @@
 # Simple toolkit to decode Iridium signals
 
-### Requisites
+[![Build Status](https://travis-ci.org/TheBiggerGuy/iridium-toolkit.svg?branch=master)](https://travis-ci.org/TheBiggerGuy/iridium-toolkit)
 
- * Python (2.7)
- * NumPy (scipy)
+## Installing
+### User
+```bash
+python setup.py install
+```
 
-### License
-
-Unless otherwise noted in a file, everything here is (c) Sec & schneider and licensed under the 2-Clause BSD License
+### Development
+```bash
+virtualenv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
 ### Example usage
 Either extract some Iridium frames from the air or a file using [gr-iridium](https://github.com/muccc/gr-iridium) (recommended) or use the legacy code located in the [extractror-python](extractor-python/) directory if you don't want to install GNURadio (not recommended).
@@ -60,3 +66,5 @@ Run as `grep ^IRA output.parsed |perl mkkml tracks > output.kml` to display sate
 
 Run as `grep ^IRA output.parsed |perl mkkml heatmap > output.kml` to create a heatmap of sat positions and downlink positions
 
+### License
+Unless otherwise noted in a file, everything here is (c) Sec & schneider and licensed under the 2-Clause BSD License
