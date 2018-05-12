@@ -8,11 +8,12 @@ import logging
 import tempfile
 from datetime import datetime
 import argparse
+from collections import namedtuple
 
 
 import matplotlib.pyplot as plt
+from matplotlib.collections import BrokenBarHCollection
 import numpy as np
-import scipy.cluster.hierarchy as hcluster
 import dateparser
 
 
@@ -23,6 +24,35 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+KHZ = 1000
+MHZ = KHZ * 1000
+
+# https://www.sigidwiki.com/wiki/Iridium
+ChannelInfo = namedtuple('ChannelInfo', ['description', 'frequency'])
+SIMPLEX_CHANELS = {
+    ChannelInfo('Guard Channel', 1626.020833 * MHZ),
+    ChannelInfo('Guard Channel', 1626.062500 * MHZ),
+    ChannelInfo('Quaternary Messaging', 1626.104167 * MHZ),
+    ChannelInfo('Tertiary Messaging', 1626.145833 * MHZ),
+    ChannelInfo('Guard Channel', 1626.187500 * MHZ),
+    ChannelInfo('Guard Channel', 1626.229167 * MHZ),
+    ChannelInfo('Ring Alert', 1626.270833 * MHZ),
+    ChannelInfo('Guard Channel', 1626.312500 * MHZ),
+    ChannelInfo('Guard Channel', 1626.354167 * MHZ),
+    ChannelInfo('Secondary Messaging', 1626.395833 * MHZ),
+    ChannelInfo('Primary Messaging', 1626.437500 * MHZ),
+    ChannelInfo('Guard Channel', 1626.479167 * MHZ),
+}
+DUPLEX_CHANELS = frozenset(SIMPLEX_CHANELS)
+
+DUPLEX_CHANELS = set()
+for n in xrange(1, 240):
+    frequency = (1616 + 0.020833 * (2 * n - 1)) * MHZ
+    DUPLEX_CHANELS.add(ChannelInfo('Channel {}'.format(n), frequency))
+DUPLEX_CHANELS = frozenset(DUPLEX_CHANELS)
+
+ALL_CHANELS = frozenset((SIMPLEX_CHANELS | DUPLEX_CHANELS))
+    
 class OnClickHandler(object):
     def __init__(self, lines):
         self.lines = lines
@@ -127,24 +157,32 @@ def main():
         print('No usable data found')
         sys.exit(1)
 
-    plot_data = np.empty((number_of_lines, 2))
+    plot_data_time = np.empty(number_of_lines, dtype=np.float64)
+    plot_data_freq = np.empty(number_of_lines, dtype=np.uint32)
     for i, voc_line in enumerate(lines):
-        plot_data[i][0] = voc_line.ts
-        plot_data[i][1] = np.float64(voc_line.f)
-
-    distances = hcluster.distance.pdist(plot_data)
-    thresh = 2 * distances.min()
-    clusters = hcluster.fclusterdata(plot_data, thresh, criterion="distance")
+        #plot_data_time[i] = np.datetime64(voc_line.datetime().isoformat())
+        plot_data_time[i] = np.uint32(voc_line.ts)
+        plot_data_freq[i] = np.float64(voc_line.f)
 
     fig = plt.figure()
     #fig.autofmt_xdate()
     on_click_handler = OnClickHandler(lines)
     fig.canvas.mpl_connect('button_press_event', on_click_handler.onclick)
     
-    ax = fig.add_subplot(1, 1, 1)
-    ax.scatter(*np.transpose(plot_data), c=clusters)
-    #ax.xaxis_date()
-    ax.grid(True)
+    subplot = fig.add_subplot(1, 1, 1)
+    subplot.scatter(plot_data_time, plot_data_freq)
+    #subplot.xaxis_date()
+
+    for channel in ALL_CHANELS:
+        if 'Guard' in channel.description:
+            color = 'tab:gray'
+        elif 'Messaging' in channel.description:
+            color = 'tab:orange'
+        elif 'Ring' in channel.description:
+            color = 'tab:red'
+        else:
+            color = 'tab:green'
+        subplot.axhline(channel.frequency, color=color, alpha=0.3, label=channel.description)
 
     plt.title('Click once left and once right to define an area.\nThe script will try to play iridium using ir77_ambe_decode and aplay.')
     plt.xlabel('time')

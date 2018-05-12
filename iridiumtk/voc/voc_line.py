@@ -33,7 +33,7 @@ class VocLine(object):
             time_offset_ns = int(line_split[2])
             self.ts = ts_base_ms + (time_offset_ns / 1000)
 
-            self.f = int(line_split[3])/1000.
+            self.f = int(line_split[3])
             self.lcw = line[8]
 
             if int(line_split[6]) < 179:
