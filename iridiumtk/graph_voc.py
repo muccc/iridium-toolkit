@@ -17,7 +17,8 @@ import numpy as np
 import dateparser
 
 
-from .voc import VocLine
+from .line_parser import VocLine
+from .bits_to_dfs import bits_to_dfs
 
 
 logging.basicConfig(level=logging.INFO)
@@ -81,11 +82,11 @@ class OnClickHandler(object):
         filtered_lines = []
 
         for voc_line in self.lines:
-            ts = voc_line.ts
-            f = voc_line.f
+            ts = voc_line.datetime_unix
+            f = voc_line.frequency
             if t_start <= ts and ts <= t_stop and \
                f_min <= f and f <= f_max:
-                filtered_lines.append(voc_line.line)
+                filtered_lines.append(voc_line.raw_line)
 
         return filtered_lines
 
@@ -131,9 +132,9 @@ def read_lines(input_files, start_time_filter, end_time_filter):
             raise RuntimeError('Expected "iridium-parser.py" parsed data. Found raw "iridium-extractor" data.')
         if 'VOC: ' in line and not "LCW(0,001111,100000000000000000000" in line:
             voc_line = VocLine(line)
-            if start_time_filter and start_time_filter > voc_line.datetime():
+            if start_time_filter and start_time_filter > voc_line.datetime:
                 continue
-            if end_time_filter and end_time_filter < voc_line.datetime():
+            if end_time_filter and end_time_filter < voc_line.datetime:
                 continue
             lines.append(voc_line)
     return lines
@@ -161,8 +162,8 @@ def main():
     plot_data_freq = np.empty(number_of_lines, dtype=np.uint32)
     for i, voc_line in enumerate(lines):
         #plot_data_time[i] = np.datetime64(voc_line.datetime().isoformat())
-        plot_data_time[i] = np.uint32(voc_line.ts)
-        plot_data_freq[i] = np.float64(voc_line.f)
+        plot_data_time[i] = np.uint32(voc_line.datetime_unix)
+        plot_data_freq[i] = np.float64(voc_line.frequency)
 
     fig = plt.figure()
     #fig.autofmt_xdate()

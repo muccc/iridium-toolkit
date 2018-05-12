@@ -24,17 +24,15 @@ class VocLineTest(unittest.TestCase):
 
     def test_old_format(self):
         voc_line = VocLine(VocLineTest.TEST_VOC_LINE_1)
-        self.assertEquals(voc_line.datetime(), datetime.utcfromtimestamp(1443372344))
-        self.assertEquals(voc_line.raw_voice_bits(), '\x9e\x88$\xdb\xe6\x01')
+        self.assertEquals(voc_line.voice_bits, '\x9e\x88$\xdb\xe6\x01')
 
     def test_new_format(self):
         voc_line = VocLine(VocLineTest.TEST_VOC_LINE_2)
-        self.assertEquals(voc_line.datetime(), datetime.utcfromtimestamp(1526039102))
-        self.assertEquals(voc_line.raw_voice_bits(), '\xfb\xff\xcf?\x08\xcc\xc3\xf80\xc1\xc333\x0c\xff\xcf\xf7\x00=0-\xf0;\x0bX39\xa30?\x14\x803\x1cC\xcc\x07\xff\xf2')
+        self.assertEquals(voc_line.voice_bits, '\xfb\xff\xcf?\x08\xcc\xc3\xf80\xc1\xc333\x0c\xff\xcf\xf7\x00=0-\xf0;\x0bX39\xa30?\x14\x803\x1cC\xcc\x07\xff\xf2')
 
-    def test_raw_voice_bits_small_packet(self):
+    def test_voice_bits_small_packet(self):
         voc_line = VocLine(VocLineTest.TEST_VOC_LINE_3)
-        self.assertEquals(voc_line.raw_voice_bits(), None)
+        self.assertEquals(voc_line.voice_bits, None)
 
 
 def main():

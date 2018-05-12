@@ -18,7 +18,8 @@ Then run commands via a module path. e.g
 ```bash
 python -m iridiumtk.bits_to_dfs my_data.voice.dfs my_data.bits
 # or
-python -m iridiumtk.stats_voc my_data.bits
+python -m iridiumtk.graph_by_type my_data.bits
+python -m iridiumtk.graph_voc my_data.bits
 ```
 
 ### Example usage

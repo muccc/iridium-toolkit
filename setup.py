@@ -61,7 +61,8 @@ setup(
     packages=find_packages(exclude=['9601', 'ambe_emu', 'nal-shout', 'rtl-sdr', 'tools', 'tracking']),
     entry_points={
         'console_scripts': [
-            'iridiumtk-stats-voc=iridiumtk.stats_voc:main',
+            'iridiumtk-graph-voc=iridiumtk.graph_voc:main',
+            'iridiumtk-graph-by-type=iridiumtk.graph_by_type:main',
             'iridiumtk-bits-to-dfs=iridiumtk.bits_to_dfs:main',
         ],
     },

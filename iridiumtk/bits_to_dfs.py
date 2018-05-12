@@ -5,7 +5,7 @@ import sys
 import argparse
 
 
-from .voc import VocLine
+from .line_parser import VocLine
 
 
 def bits_to_dfs(lines, output):
@@ -16,9 +16,9 @@ def bits_to_dfs(lines, output):
         if not line.startswith('VOC:'):
             continue
 
-        raw_voice_bits = VocLine(line).raw_voice_bits()
-        if raw_voice_bits is not None:
-            output.write(raw_voice_bits)
+        voice_bits = VocLine(line).voice_bits
+        if voice_bits is not None:
+            output.write(voice_bits)
 
 
 def main():
