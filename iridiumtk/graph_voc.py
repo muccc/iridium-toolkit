@@ -125,7 +125,6 @@ class OnClickHandler(object):
 
 
 def read_lines(input_files, start_time_filter, end_time_filter):
-    lines = []
     for line in fileinput.input(files=input_files):
         line = line.strip()
         if 'A:OK' in line and "Message: Couldn't parse:" not in line:
@@ -136,8 +135,7 @@ def read_lines(input_files, start_time_filter, end_time_filter):
                 continue
             if end_time_filter and end_time_filter < voc_line.datetime:
                 continue
-            lines.append(voc_line)
-    return lines
+            yield voc_line
 
 def main():
     parser = argparse.ArgumentParser(description='Convert iridium-parser.py VOC output to DFS')
@@ -150,7 +148,7 @@ def main():
     start_time_filter = dateparser.parse(args.start) if args.start else None
     end_time_filter = dateparser.parse(args.end) if args.end else None
 
-    lines = read_lines(input_files, start_time_filter, end_time_filter)
+    lines = list(read_lines(input_files, start_time_filter, end_time_filter))
     number_of_lines = len(lines)
     logger.info('Read %d VOC lines from input', number_of_lines)
 

@@ -13,7 +13,7 @@ import numpy as np
 
 
 from .line_parser import BaseLine
-from .stats_voc import ALL_CHANELS
+from .graph_voc import ALL_CHANELS
 
 
 logging.basicConfig(level=logging.INFO)
