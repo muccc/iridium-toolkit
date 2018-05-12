@@ -5,10 +5,10 @@ import os
 import subprocess
 import fileinput
 import logging
-import tempfile
 from datetime import datetime
 import argparse
 from collections import namedtuple
+import subprocess
 
 
 import matplotlib.pyplot as plt
@@ -79,16 +79,12 @@ class OnClickHandler(object):
             self.cut_convert_play(self.t_start, self.t_stop, self.f_min, self.f_max)
 
     def filter_voc(self, t_start, t_stop, f_min, f_max):
-        filtered_lines = []
-
         for voc_line in self.lines:
             ts = voc_line.datetime_unix
             f = voc_line.frequency
             if t_start <= ts and ts <= t_stop and \
                f_min <= f and f <= f_max:
-                filtered_lines.append(voc_line.raw_line)
-
-        return filtered_lines
+                yield voc_line.raw_line
 
     def cut_convert_play(self, t_start, t_stop, f_min, f_max):
         logger.info('Starting to play...')
@@ -101,25 +97,18 @@ class OnClickHandler(object):
             f_max = f_min
             f_min = tmp
 
+
+        ir77_ambe_decode = subprocess.Popen(['ir77_ambe_decode'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        aplay = subprocess.Popen(['aplay'], stdin=ir77_ambe_decode.stdout, stderr=subprocess.PIPE)
+
         filtered_lines = self.filter_voc(t_start, t_stop, f_min, f_max)
+        bits_to_dfs(filtered_lines, ir77_ambe_decode.stdin)
+        ir77_ambe_decode.stdin.close()
 
-        _, dfs_file_path = tempfile.mkstemp(suffix='.dfs')
-        _, wav_file_path = tempfile.mkstemp(suffix='.wav')
+        logger.info('aplay "%s"', aplay.communicate()[1].strip())
 
-        logger.info('Making dfs file %s', dfs_file_path)
-        with open(dfs_file_path, 'w') as dfs_file:
-            bits_to_dfs(filtered_lines, dfs_file)
-
-        logger.info('Making wav file %s', wav_file_path)
-        subprocess.check_call(['ir77_ambe_decode', dfs_file_path, wav_file_path])
-        
-        logger.info('Cleaning up dfs')
-        os.remove(dfs_file_path)
-
-        subprocess.check_call(['aplay', wav_file_path])
-
-        logger.info('Cleaning up wav')
-        os.remove(wav_file_path)
+        ir77_ambe_decode.wait()
+        aplay.wait()
 
         logger.info('Finished Playing')
 
