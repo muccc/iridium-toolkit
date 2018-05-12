@@ -1,2 +1,2 @@
 #!/bin/sh
-bits_to_dfs.py - $1 | ir77_ambe_decode - - | aplay
+python -m iridiumtk.bits_to_dfs - $1 | ir77_ambe_decode - - | aplay
