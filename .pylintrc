@@ -20,7 +20,6 @@ disable=
     line-too-long,
     bad-continuation,
     invalid-name,
-    bad-whitespace,
     too-many-arguments,
     too-many-locals,
     len-as-condition,
@@ -32,10 +31,6 @@ disable=
     too-many-boolean-expressions,
     too-many-branches,
     too-many-statements,
-    unused-variable,
-    arguments-differ,
-    method-hidden,
-    unused-import,
 
 [FORMAT]
 

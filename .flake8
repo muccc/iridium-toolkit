@@ -15,5 +15,5 @@ exclude =
     .cache,
     .eggs
 import-order-style = google
-max-line-length = 99
+max-line-length = 100
 format = ${cyan}%(path)s${reset}:${yellow_bold}%(row)d${reset}:${green_bold}%(col)d${reset}: ${red_bold}%(code)s${reset} %(text)s
