@@ -64,6 +64,7 @@ setup(
             'iridiumtk-graph-voc=iridiumtk.graph_voc:main',
             'iridiumtk-graph-by-type=iridiumtk.graph_by_type:main',
             'iridiumtk-bits-to-dfs=iridiumtk.bits_to_dfs:main',
+            'iridiumtk-rx-stats-hist=iridiumtk.rx_stats_hist:main',
         ],
     },
     package_data={'': ['LICENSE', 'README.md']},
