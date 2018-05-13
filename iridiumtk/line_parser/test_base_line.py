@@ -4,7 +4,7 @@ from datetime import datetime
 import unittest
 
 
-from .base_line import BaseLine
+from .base_line import BaseLine, LineParseException
 
 
 class BaseLineTest(unittest.TestCase):
@@ -12,7 +12,7 @@ class BaseLineTest(unittest.TestCase):
     TEST_VOC_LINE_2 = 'VOC: i-1526039037-t1 000065686 1620359296 100%   0.003 179 DL LCW(0,T:maint,C:maint[2][lqi:3,power:0,f_dtoa:0,f_dfoa:127](3),786686 E0)                                       [df.ff.f3.fc.10.33.c3.1f.0c.83.c3.cc.cc.30.ff.f3.ef.00.bc.0c.b4.0f.dc.d0.1a.cc.9c.c5.0c.fc.28.01.cc.38.c2.33.e0.ff.4f]'
 
     def test_empty_input(self):
-        with self.assertRaises(Exception):
+        with self.assertRaises(LineParseException):
             BaseLine('')
 
     def test_old_format_datetime(self):

@@ -7,7 +7,7 @@ import logging
 import six
 
 
-from .base_line import BaseLine
+from .base_line import BaseLine, LineParseException
 
 
 logging.basicConfig(level=logging.INFO)
@@ -36,9 +36,9 @@ class VocLine(BaseLine):
                 self._voice_data = None
             else:
                 self._voice_data = line_split[10]
-        except Exception as e:
+        except (IndexError, ValueError) as e:
             logger.error('Failed to parse line "%s"', line)
-            six.raise_from(Exception('Failed to parse line "{}"'.format(line), e), e)
+            six.raise_from(LineParseException('Failed to parse line "{}"'.format(line), e), e)
 
     @property
     def voice_bits(self):

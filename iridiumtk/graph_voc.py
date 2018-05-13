@@ -1,5 +1,6 @@
 #!/usr/bin/python
 
+from __future__ import print_function
 import argparse
 from collections import namedtuple
 import fileinput
@@ -156,7 +157,7 @@ def main():
     logger.info('Read %d VOC lines from input', number_of_lines)
 
     if number_of_lines == 0:
-        print('No usable data found')
+        print('No usable data found', file=sys.stderr)
         sys.exit(1)
 
     plot_data_time = np.empty(number_of_lines, dtype=np.float64)

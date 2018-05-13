@@ -46,8 +46,8 @@ class MainTest(unittest.TestCase):
         self.assertEquals(voc_lines, [])
 
     def tearDown(self):
-        for file in self.tempfiles:
-            os.remove(file)
+        for path in self.tempfiles:
+            os.remove(path)
 
 
 def main():
