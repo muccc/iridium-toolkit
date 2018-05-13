@@ -1,19 +1,16 @@
 #!/usr/bin/python
-import sys
-import matplotlib.pyplot as plt
 import argparse
-import collections
 import fileinput
-from datetime import datetime
 import logging
 
 
 import dateparser
+import matplotlib.pyplot as plt
 import numpy as np
 
 
-from .line_parser import BaseLine
 from .graph_voc import ALL_CHANELS
+from .line_parser import BaseLine
 
 
 logging.basicConfig(level=logging.INFO)
@@ -21,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 def read_lines(input_files, start_time_filter, end_time_filter):
-    lines = []
     for line in fileinput.input(files=input_files):
         line = line.strip()
         if 'A:OK' in line and "Message: Couldn't parse:" not in line:
@@ -38,7 +34,7 @@ def read_lines(input_files, start_time_filter, end_time_filter):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Visualise ????') # TODO
+    parser = argparse.ArgumentParser(description='Visualise ????')  # TODO
     parser.add_argument('--start', metavar='DATETIME', default=None, help='Filter events before this time')
     parser.add_argument('--end', metavar='DATETIME', default=None, help='Filter events after this time')
     parser.add_argument('input', metavar='FILE', nargs='*', help='Files to read, if empty or -, stdin is used')
@@ -59,7 +55,7 @@ def main():
         logger.info(' - Read %d\t%s lines from input', len(frames), frame_type)
 
     fig = plt.figure()
-    
+
     subplot = fig.add_subplot(1, 1, 1)
     for frame_type, frames in stats.iteritems():
         number_of_frames = len(frames)
@@ -81,15 +77,15 @@ def main():
             color = 'tab:green'
         subplot.axhline(channel.frequency, color=color, alpha=0.3, label=channel.description)
 
-
     # Shrink current axis's height on the bottom
     handles, labels = zip(*[(h, l) for (h, l) in zip(*subplot.get_legend_handles_labels()) if l in stats])
-    subplot.legend(handles, labels, bbox_to_anchor=(1.04,1), loc="upper left")
+    subplot.legend(handles, labels, bbox_to_anchor=(1.04, 1), loc="upper left")
 
     plt.title('frequency vs time color coded by frame type')
     plt.xlabel('time')
     plt.ylabel('frequency')
     plt.show()
+
 
 if __name__ == "__main__":
     main()

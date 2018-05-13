@@ -1,19 +1,16 @@
 #!/usr/bin/python
 
-import sys
-import os
-import subprocess
-import fileinput
-import logging
-from datetime import datetime
 import argparse
 from collections import namedtuple
+import fileinput
+import logging
 import subprocess
+import sys
 
 
+import dateparser
 import matplotlib.pyplot as plt
 import numpy as np
-import dateparser
 
 
 from .line_parser import VocLine
@@ -75,7 +72,8 @@ class VoiceDataPlayer(object):
         self.ir77_ambe_decode.wait()
         self.aplay.wait()
         logger.info('ir77_ambe_decode/aplay closed')
-    
+
+
 class OnClickHandler(object):
     def __init__(self, lines):
         self.lines = lines
@@ -86,7 +84,7 @@ class OnClickHandler(object):
 
     def onclick(self, event):
         logger.info('button=%d, x=%d, y=%d, xdata=%f, ydata=%f',
-            event.button, event.x, event.y, event.xdata, event.ydata)
+                    event.button, event.x, event.y, event.xdata, event.ydata)
 
         if event.button == 1:
             self.t_start = event.xdata
@@ -96,7 +94,7 @@ class OnClickHandler(object):
         if event.button == 3:
             self.t_stop = event.xdata
             self.f_max = event.ydata
-        
+
         if self.t_start and self.t_stop:
             self.cut_convert_play(self.t_start, self.t_stop, self.f_min, self.f_max)
 
@@ -133,13 +131,14 @@ def read_lines(input_files, start_time_filter, end_time_filter):
         line = line.strip()
         if 'A:OK' in line and "Message: Couldn't parse:" not in line:
             raise RuntimeError('Expected "iridium-parser.py" parsed data. Found raw "iridium-extractor" data.')
-        if 'VOC: ' in line and not "LCW(0,001111,100000000000000000000" in line:
+        if 'VOC: ' in line and "LCW(0,001111,100000000000000000000" not in line:
             voc_line = VocLine(line)
             if start_time_filter and start_time_filter > voc_line.datetime:
                 continue
             if end_time_filter and end_time_filter < voc_line.datetime:
                 continue
             yield voc_line
+
 
 def main():
     parser = argparse.ArgumentParser(description='Convert iridium-parser.py VOC output to DFS')
@@ -163,18 +162,18 @@ def main():
     plot_data_time = np.empty(number_of_lines, dtype=np.float64)
     plot_data_freq = np.empty(number_of_lines, dtype=np.uint32)
     for i, voc_line in enumerate(lines):
-        #plot_data_time[i] = np.datetime64(voc_line.datetime().isoformat())
+        # plot_data_time[i] = np.datetime64(voc_line.datetime().isoformat())
         plot_data_time[i] = np.uint32(voc_line.datetime_unix)
         plot_data_freq[i] = np.float64(voc_line.frequency)
 
     fig = plt.figure()
-    #fig.autofmt_xdate()
+    # fig.autofmt_xdate()
     on_click_handler = OnClickHandler(lines)
     fig.canvas.mpl_connect('button_press_event', on_click_handler.onclick)
-    
+
     subplot = fig.add_subplot(1, 1, 1)
     subplot.scatter(plot_data_time, plot_data_freq)
-    #subplot.xaxis_date()
+    # subplot.xaxis_date()
 
     for channel in ALL_CHANELS:
         if 'Guard' in channel.description:

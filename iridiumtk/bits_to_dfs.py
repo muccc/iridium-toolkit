@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
+import argparse
 import fileinput
 import sys
-import argparse
 
 
 from .line_parser import VocLine

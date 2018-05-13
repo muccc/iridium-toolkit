@@ -53,10 +53,10 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 setup(
     name=title,
     version=version,
-    description='iridiumtk', # TODO
+    description='iridiumtk',  # TODO
     long_description=long_description,
     author=author,
-    author_email='thebigguy.co.uk@gmail.com', # TODO
+    author_email='thebigguy.co.uk@gmail.com',  # TODO
     url='https://github.com/muccc/iridium-toolkit',
     packages=find_packages(exclude=['9601', 'ambe_emu', 'nal-shout', 'rtl-sdr', 'tools', 'tracking']),
     entry_points={

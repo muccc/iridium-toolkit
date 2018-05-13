@@ -1,0 +1,19 @@
+# Flake8 Configuration
+[flake8]
+ignore = 
+    D100
+    # FIXME: E501 line length needs worked on
+    E501
+exclude =
+    .tox,
+    .git,
+    __pycache__,
+    build,
+    dist,
+    *.pyc,
+    *.egg-info,
+    .cache,
+    .eggs
+import-order-style = google
+max-line-length = 99
+format = ${cyan}%(path)s${reset}:${yellow_bold}%(row)d${reset}:${green_bold}%(col)d${reset}: ${red_bold}%(code)s${reset} %(text)s

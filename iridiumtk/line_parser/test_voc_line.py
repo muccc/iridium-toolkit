@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import unittest
-from datetime import datetime
 
 
 from .voc_line import chunks, VocLine

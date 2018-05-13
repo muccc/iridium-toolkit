@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-import unittest
 from datetime import datetime
+import unittest
 
 
 from .base_line import BaseLine

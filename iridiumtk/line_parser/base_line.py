@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 
-import logging
-from io import BytesIO
 from datetime import datetime
+import logging
 
 
 import six
