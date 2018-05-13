@@ -12,13 +12,11 @@ import subprocess
 
 
 import matplotlib.pyplot as plt
-from matplotlib.collections import BrokenBarHCollection
 import numpy as np
 import dateparser
 
 
 from .line_parser import VocLine
-from .bits_to_dfs import bits_to_dfs
 
 
 logging.basicConfig(level=logging.INFO)
@@ -53,6 +51,30 @@ for n in xrange(1, 240):
 DUPLEX_CHANELS = frozenset(DUPLEX_CHANELS)
 
 ALL_CHANELS = frozenset((SIMPLEX_CHANELS | DUPLEX_CHANELS))
+
+
+class VoiceDataPlayer(object):
+    def __init__(self):
+        self.ir77_ambe_decode = subprocess.Popen(['ir77_ambe_decode'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        self.aplay = subprocess.Popen(['aplay'], stdin=self.ir77_ambe_decode.stdout, stderr=subprocess.PIPE)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        self.close()
+
+    def play_bits(self, bits):
+        self.ir77_ambe_decode.stdin.write(bits)
+
+    def close(self):
+        self.ir77_ambe_decode.stdin.close()
+        logger.info('aplay "%s"', self.aplay.communicate()[1].strip())
+
+        logger.info('Waiting for ir77_ambe_decode/aplay')
+        self.ir77_ambe_decode.wait()
+        self.aplay.wait()
+        logger.info('ir77_ambe_decode/aplay closed')
     
 class OnClickHandler(object):
     def __init__(self, lines):
@@ -84,7 +106,7 @@ class OnClickHandler(object):
             f = voc_line.frequency
             if t_start <= ts and ts <= t_stop and \
                f_min <= f and f <= f_max:
-                yield voc_line.raw_line
+                yield voc_line
 
     def cut_convert_play(self, t_start, t_stop, f_min, f_max):
         logger.info('Starting to play...')
@@ -97,18 +119,11 @@ class OnClickHandler(object):
             f_max = f_min
             f_min = tmp
 
-
-        ir77_ambe_decode = subprocess.Popen(['ir77_ambe_decode'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        aplay = subprocess.Popen(['aplay'], stdin=ir77_ambe_decode.stdout, stderr=subprocess.PIPE)
-
-        filtered_lines = self.filter_voc(t_start, t_stop, f_min, f_max)
-        bits_to_dfs(filtered_lines, ir77_ambe_decode.stdin)
-        ir77_ambe_decode.stdin.close()
-
-        logger.info('aplay "%s"', aplay.communicate()[1].strip())
-
-        ir77_ambe_decode.wait()
-        aplay.wait()
+        with VoiceDataPlayer() as player:
+            for voc_frame in self.filter_voc(t_start, t_stop, f_min, f_max):
+                voice_bits = voc_frame.voice_bits
+                if voice_bits is not None:
+                    player.play_bits(voice_bits)
 
         logger.info('Finished Playing')
 
