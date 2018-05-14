@@ -13,6 +13,7 @@ import sys
 import dateparser
 import matplotlib.pyplot as plt
 import numpy as np
+from six.moves import range
 
 
 from .line_parser import VocLine
@@ -44,7 +45,7 @@ SIMPLEX_CHANELS = {
 DUPLEX_CHANELS = frozenset(SIMPLEX_CHANELS)
 
 DUPLEX_CHANELS = set()
-for n in xrange(1, 240):
+for n in range(1, 240):
     frequency = (1616 + 0.020833 * (2 * n - 1)) * MHZ
     DUPLEX_CHANELS.add(ChannelInfo('Channel {}'.format(n), frequency))
 DUPLEX_CHANELS = frozenset(DUPLEX_CHANELS)
@@ -54,8 +55,8 @@ ALL_CHANELS = frozenset((SIMPLEX_CHANELS | DUPLEX_CHANELS))
 
 class VoiceDataPlayer(object):
     def __init__(self):
-        self.ir77_ambe_decode = subprocess.Popen(['ir77_ambe_decode'], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        self.aplay = subprocess.Popen(['aplay'], stdin=self.ir77_ambe_decode.stdout, stderr=subprocess.PIPE)
+        self.ir77_ambe_decode = subprocess.Popen(['ir77_ambe_decode'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, bufsize=-1)
+        self.aplay = subprocess.Popen(['aplay'], stdin=self.ir77_ambe_decode.stdout, stderr=subprocess.PIPE, bufsize=-1)
 
     def __enter__(self):
         return self

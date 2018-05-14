@@ -30,7 +30,7 @@ class BaseLine(object):
             ts_base_ms = int(raw_time_base.split('-')[1].split('.')[0])
 
             time_offset_ns = int(line_split[2])
-            self._timestamp = ts_base_ms + (time_offset_ns / 1000)
+            self._timestamp = int(ts_base_ms + (time_offset_ns / 1000))
 
             self._frequnecy = int(line_split[3])
         except (IndexError, ValueError) as e:

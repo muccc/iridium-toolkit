@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
-from io import BytesIO
 import logging
 
 
 import six
+from six.moves import range
 
 
 from .base_line import BaseLine, LineParseException
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def chunks(l, n):
     """ Yield successive n-sized chunks from l.
     """
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):
         yield l[i:i + n]
 
 
@@ -45,14 +45,14 @@ class VocLine(BaseLine):
         data = self._voice_data
         if data is None:
             return None
-        byte_stream = BytesIO()
+        byte_stream = six.BytesIO()
         if data[0] == "[":
-            for pos in xrange(1, len(data), 3):
+            for pos in range(1, len(data), 3):
                 byte = int(data[pos:pos + 2], 16)
                 byte = int('{:08b}'.format(byte)[::-1], 2)
-                byte_stream.write(chr(byte))
+                byte_stream.write(six.int2byte(byte))
         else:
             for bits in chunks(data, 8):
                 byte = int(bits[::-1], 2)
-                byte_stream.write(chr(byte))
+                byte_stream.write(six.int2byte(byte))
         return byte_stream.getvalue()
