@@ -7,7 +7,6 @@ import datetime
 import re
 
 verbose = False
-ifmt= "line"
 ofmt= "undef"
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:', [
@@ -19,8 +18,6 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:', [
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
         verbose = True
-    elif opt in ('-i', '--input'):
-        ifmt=arg
     elif opt in ('-o', '--output'):
         ofmt=arg
     else:
@@ -28,7 +25,7 @@ for opt, arg in options:
 
 class Message(object):
     def __init__(self,line):
-            self.typ,self.name,self.time,self.frequency,self.confidence,self.level,self.symbols,self.uldl,self.data=line.split(None,8)
+            self.typ, self.name, self.time, self.frequency, self.confidence, self.level, self.symbols, self.uldl, self.data = line.split(None,8)
     def upgrade(self):
 #            return IridiumMessage(self).upgrade()
         return self
@@ -45,19 +42,15 @@ class Message(object):
 selected=[]
 
 def do_input(type):
-    if ifmt=="line":
-        for line in fileinput.input(remainder):
-            qqq=re.compile('Warning:')
-            if qqq.match(line):
-                print "Skip: ",line
-                continue
-#            try:
-            perline(Message(line.strip()).upgrade())
-#            except ValueError:
-#                print >> sys.stderr, "Couldn't parse line",line
-    else:
-        print "Unknown input mode."
-        exit(1)
+    for line in fileinput.input(remainder):
+        qqq=re.compile('Warning:')
+        if qqq.match(line):
+            print "Skip: ",line
+            continue
+    #            try:
+        perline(Message(line.strip()).upgrade())
+    #            except ValueError:
+    #                print >> sys.stderr, "Couldn't parse line",line
 
 def fixtime(n,t):
     try:
@@ -71,7 +64,7 @@ def perline(q):
         pass
     elif ofmt == "page":
         if q.typ=="IRA:":
-            p=re.compile('.*sat:(\d+) beam:(\d+) pos=\((.[0-9.]+)/(.[0-9.]+)\) alt=([-0-9]+) .* bch:\d+ (.*)')
+            p=re.compile('.*sat:(\d+) beam:(\d+) pos=\((.[0-9.]+)/(.[0-9.]+)\) alt=([-0-9]+) .* bc_sb:\d+ (.*)')
             m=p.match(q.data)
             if(not m):
                 print >> sys.stderr, "Couldn't parse IRA: ",q.data

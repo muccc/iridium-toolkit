@@ -10,8 +10,8 @@ import numpy as np
 import six
 
 
-from .line_parser import BaseLine
 from .graph import add_chanel_lines_to_axis
+from .line_parser import BaseLine
 
 
 logging.basicConfig(level=logging.INFO)

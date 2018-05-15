@@ -29,6 +29,7 @@ class VocLine(BaseLine):
         super(VocLine, self).__init__(line)
         try:
             line_split = line.split()
+            assert line_split[0] == 'VOC:', 'Non VOC line passed to VocLine'
 
             self.lcw = line[8]
 
