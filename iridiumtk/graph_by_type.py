@@ -7,9 +7,10 @@ import logging
 import dateparser
 import matplotlib.pyplot as plt
 import numpy as np
+import six
 
 
-from .graph_voc import ALL_CHANELS
+from .graph import add_chanel_lines_to_axis
 from .line_parser import BaseLine
 
 
@@ -51,13 +52,13 @@ def main():
         stats.setdefault(base_line.frame_type, []).append(base_line)
 
     logger.info('Read %d lines from input', number_of_lines)
-    for frame_type, frames in stats.iteritems():
+    for frame_type, frames in six.iteritems(stats):
         logger.info(' - Read %d\t%s lines from input', len(frames), frame_type)
 
     fig = plt.figure()
 
     subplot = fig.add_subplot(1, 1, 1)
-    for frame_type, frames in stats.iteritems():
+    for frame_type, frames in six.iteritems(stats):
         number_of_frames = len(frames)
         plot_data_time = np.empty(number_of_frames, dtype=np.float64)
         plot_data_freq = np.empty(number_of_frames, dtype=np.uint32)
@@ -66,18 +67,8 @@ def main():
             plot_data_freq[i] = np.float64(base_line.frequency)
         subplot.scatter(plot_data_time, plot_data_freq, label=frame_type)
 
-    for channel in ALL_CHANELS:
-        if 'Guard' in channel.description:
-            color = 'tab:gray'
-        elif 'Messaging' in channel.description:
-            color = 'tab:orange'
-        elif 'Ring' in channel.description:
-            color = 'tab:red'
-        else:
-            color = 'tab:green'
-        subplot.axhline(channel.frequency, color=color, alpha=0.3, label=channel.description)
+    add_chanel_lines_to_axis(subplot)
 
-    # Shrink current axis's height on the bottom
     handles, labels = zip(*[(h, l) for (h, l) in zip(*subplot.get_legend_handles_labels()) if l in stats])
     subplot.legend(handles, labels, bbox_to_anchor=(1.04, 1), loc="upper left")
 

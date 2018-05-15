@@ -154,8 +154,13 @@ def main():
     if show_errors:
         title += " and having decoding errors"
 
+    fig = plt.figure()
+    subplot = fig.add_subplot(1, 1, 1)
+    subplot.hist(data, bins)
+
     plt.title(title)
-    plt.hist(data, bins)
+    plt.xlabel(args.dimension)
+    plt.ylabel('count')
     plt.show()
 
 
