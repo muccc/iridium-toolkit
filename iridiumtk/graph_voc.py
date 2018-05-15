@@ -2,8 +2,8 @@
 
 from __future__ import print_function
 
+
 import argparse
-from collections import namedtuple
 import fileinput
 import logging
 import subprocess
@@ -13,44 +13,14 @@ import sys
 import dateparser
 import matplotlib.pyplot as plt
 import numpy as np
-from six.moves import range
 
 
+from .graph import add_chanel_lines_to_axis
 from .line_parser import VocLine
 
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-KHZ = 1000
-MHZ = KHZ * 1000
-
-# https://www.sigidwiki.com/wiki/Iridium
-ChannelInfo = namedtuple('ChannelInfo', ['description', 'frequency'])
-SIMPLEX_CHANELS = {
-    ChannelInfo('Guard Channel', 1626.020833 * MHZ),
-    ChannelInfo('Guard Channel', 1626.062500 * MHZ),
-    ChannelInfo('Quaternary Messaging', 1626.104167 * MHZ),
-    ChannelInfo('Tertiary Messaging', 1626.145833 * MHZ),
-    ChannelInfo('Guard Channel', 1626.187500 * MHZ),
-    ChannelInfo('Guard Channel', 1626.229167 * MHZ),
-    ChannelInfo('Ring Alert', 1626.270833 * MHZ),
-    ChannelInfo('Guard Channel', 1626.312500 * MHZ),
-    ChannelInfo('Guard Channel', 1626.354167 * MHZ),
-    ChannelInfo('Secondary Messaging', 1626.395833 * MHZ),
-    ChannelInfo('Primary Messaging', 1626.437500 * MHZ),
-    ChannelInfo('Guard Channel', 1626.479167 * MHZ),
-}
-DUPLEX_CHANELS = frozenset(SIMPLEX_CHANELS)
-
-DUPLEX_CHANELS = set()
-for n in range(1, 240):
-    frequency = (1616 + 0.020833 * (2 * n - 1)) * MHZ
-    DUPLEX_CHANELS.add(ChannelInfo('Channel {}'.format(n), frequency))
-DUPLEX_CHANELS = frozenset(DUPLEX_CHANELS)
-
-ALL_CHANELS = frozenset((SIMPLEX_CHANELS | DUPLEX_CHANELS))
 
 
 class VoiceDataPlayer(object):
@@ -178,16 +148,7 @@ def main():
     subplot.scatter(plot_data_time, plot_data_freq)
     # subplot.xaxis_date()
 
-    for channel in ALL_CHANELS:
-        if 'Guard' in channel.description:
-            color = 'tab:gray'
-        elif 'Messaging' in channel.description:
-            color = 'tab:orange'
-        elif 'Ring' in channel.description:
-            color = 'tab:red'
-        else:
-            color = 'tab:green'
-        subplot.axhline(channel.frequency, color=color, alpha=0.3, label=channel.description)
+    add_chanel_lines_to_axis(subplot)
 
     plt.title('Click once left and once right to define an area.\nThe script will try to play iridium using ir77_ambe_decode and aplay.')
     plt.xlabel('time')
