@@ -65,6 +65,7 @@ setup(
             'iridiumtk-graph-by-type=iridiumtk.graph_by_type:main',
             'iridiumtk-bits-to-dfs=iridiumtk.bits_to_dfs:main',
             'iridiumtk-rx-stats-hist=iridiumtk.rx_stats_hist:main',
+            'iridiumtk-reassembler=iridiumtk.reassembler:main',
         ],
     },
     package_data={'': ['LICENSE', 'README.md']},

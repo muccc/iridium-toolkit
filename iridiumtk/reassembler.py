@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# vim: set ts=4 sw=4 tw=0 et pm=:
 
 import sys
 import fileinput
@@ -82,7 +81,6 @@ def perline(q):
                 q.posx= m.group(3)
                 q.posy= m.group(4)
                 q.alt=  int(m.group(5))
-#                print "%d %d:"%(q.sat,q.beam)
                 p=re.compile('PAGE\(tmsi:([0-9a-f]+) msc_id:([0-9]+)\)')
                 m=p.findall(m.group(6))
                 for x in m:
@@ -127,51 +125,56 @@ def perline(q):
         print "Unknown output mode."
         exit(1)
 
-do_input(input)
 
-if ofmt == "msg":
-    buf={}
-    ricseq={}
-    wrapmargin=10
-    for m in selected:
-        # msg_seq wraps around after 61, detect it, and fix it.
-        if m.msg_ric in ricseq:
-            if (m.msg_seq + wrapmargin) < ricseq[m.msg_ric][1]: # seq wrapped around
-                ricseq[m.msg_ric][0]+=62
-            if (m.msg_seq + wrapmargin - 62) > ricseq[m.msg_ric][1]: # "wrapped back" (out-of-order old message)
-                ricseq[m.msg_ric][0]-=62
-        else:
-            ricseq[m.msg_ric]=[0,0]
-        ricseq[m.msg_ric][1]=m.msg_seq
-        id="%07d %04d"%(m.msg_ric,(m.msg_seq+ricseq[m.msg_ric][0]))
-        ts=m.time
-        if id in buf:
-            if buf[id].msg_checksum != m.msg_checksum:
-                print "Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%(id,buf[id].time,buf[id].msg_checksum,m.time,m.msg_checksum)
-                # "Wrap around" to not miss the changed packet.
-                ricseq[m.msg_ric][0]+=62
-                id="%07d %04d"%(m.msg_ric,(m.msg_seq+ricseq[m.msg_ric][0]))
+def main():
+    do_input(input)
+
+    if ofmt == "msg":
+        buf={}
+        ricseq={}
+        wrapmargin=10
+        for m in selected:
+            # msg_seq wraps around after 61, detect it, and fix it.
+            if m.msg_ric in ricseq:
+                if (m.msg_seq + wrapmargin) < ricseq[m.msg_ric][1]: # seq wrapped around
+                    ricseq[m.msg_ric][0]+=62
+                if (m.msg_seq + wrapmargin - 62) > ricseq[m.msg_ric][1]: # "wrapped back" (out-of-order old message)
+                    ricseq[m.msg_ric][0]-=62
+            else:
+                ricseq[m.msg_ric]=[0,0]
+            ricseq[m.msg_ric][1]=m.msg_seq
+            id="%07d %04d"%(m.msg_ric,(m.msg_seq+ricseq[m.msg_ric][0]))
+            ts=m.time
+            if id in buf:
+                if buf[id].msg_checksum != m.msg_checksum:
+                    print "Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%(id,buf[id].time,buf[id].msg_checksum,m.time,m.msg_checksum)
+                    # "Wrap around" to not miss the changed packet.
+                    ricseq[m.msg_ric][0]+=62
+                    id="%07d %04d"%(m.msg_ric,(m.msg_seq+ricseq[m.msg_ric][0]))
+                    m.msgs=['[MISSING]']*3
+                    buf[id]=m
+            else:
                 m.msgs=['[MISSING]']*3
                 buf[id]=m
-        else:
-            m.msgs=['[MISSING]']*3
-            buf[id]=m
-        buf[id].msgs[m.msg_ctr]=m.msg_ascii
+            buf[id].msgs[m.msg_ctr]=m.msg_ascii
 
-    def messagechecksum(msg):
-        csum=0
-        for x in msg:
-            csum=(csum+ord(x))%128
-        return (~csum)%128
+        def messagechecksum(msg):
+            csum=0
+            for x in msg:
+                csum=(csum+ord(x))%128
+            return (~csum)%128
 
-    for b in sorted(buf, key=lambda x: buf[x].time):
-        msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
-        msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
-        cmsg=re.sub("\[10\]","\n",msg) # XXX: should be done differently
-#        csum=""
-        csum=messagechecksum(cmsg)
-        str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(buf[b].time).strftime("%Y-%m-%dT%H:%M:%S"),buf[b].msg_ctr_max)
-        str+= " %3d"%buf[b].msg_checksum
-        str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
-        str+= ": %s"%(msg)
-        print str
+        for b in sorted(buf, key=lambda x: buf[x].time):
+            msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
+            msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
+            cmsg=re.sub("\[10\]","\n",msg) # XXX: should be done differently
+    #        csum=""
+            csum=messagechecksum(cmsg)
+            str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(buf[b].time).strftime("%Y-%m-%dT%H:%M:%S"),buf[b].msg_ctr_max)
+            str+= " %3d"%buf[b].msg_checksum
+            str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
+            str+= ": %s"%(msg)
+            print str
+
+if __name__ == '__main__':
+    main()
