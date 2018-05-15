@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from datetime import datetime
+from enum import Enum
 import logging
 
 
@@ -13,6 +14,12 @@ logger = logging.getLogger(__name__)
 
 class LineParseException(Exception):
     pass
+
+
+class LinkDirection(Enum):
+    UPLINK = 'ul'
+    DOWNLINK = 'dl'
+    NO_DIRECTION = 'L:no'
 
 
 # Example lines
@@ -34,6 +41,16 @@ class BaseLine(object):
             self._timestamp = int(ts_base_ms + (time_offset_ns / 1000))
 
             self._frequnecy = int(line_split[3])
+            self._confidence = int(line_split[4][:-1])
+            self._level = float(line_split[5])
+            self._symbols = int(line_split[6])
+
+            if line_split[7] == 'DL':
+                self._link_direction = LinkDirection.DOWNLINK
+            elif line_split[7] == 'UL':
+                self._link_direction = LinkDirection.UPLINK
+            else:
+                self._link_direction = LinkDirection.NO_DIRECTION
         except (IndexError, ValueError) as e:
             logger.error('Failed to parse line "%s"', line)
             six.raise_from(LineParseException('Failed to parse line "{}"'.format(line), e), e)
@@ -47,13 +64,35 @@ class BaseLine(object):
         return self._frame_type
 
     @property
-    def frequency(self):
-        return self._frequnecy
-
-    @property
     def datetime(self):
         return datetime.utcfromtimestamp(self._timestamp)
 
     @property
     def datetime_unix(self):
         return self._timestamp
+
+    @property
+    def frequency(self):
+        return self._frequnecy
+
+    @property
+    def confidence(self):
+        return self._confidence
+
+    @property
+    def level(self):
+        return self._level
+
+    @property
+    def symbols(self):
+        return self._symbols
+
+    @property
+    def link_direction(self):
+        return self._link_direction
+
+    def is_uplink(self):
+        return self._link_direction == LinkDirection.UPLINK
+
+    def is_downlink(self):
+        return self._link_direction == LinkDirection.DOWNLINK

@@ -4,7 +4,7 @@ from datetime import datetime
 import unittest
 
 
-from .base_line import BaseLine, LineParseException
+from .base_line import BaseLine, LineParseException, LinkDirection
 
 
 class BaseLineTest(unittest.TestCase):
@@ -32,6 +32,33 @@ class BaseLineTest(unittest.TestCase):
     def test_frame_type(self):
         base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_2)
         self.assertEquals(base_line.frame_type, 'VOC')
+
+    def test_confidence(self):
+        base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_1)
+        self.assertEquals(base_line.confidence, 81)
+        base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_2)
+        self.assertEquals(base_line.confidence, 100)
+
+    def test_level(self):
+        base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_1)
+        self.assertEquals(base_line.level, 0.027)
+        base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_2)
+        self.assertEquals(base_line.level, 0.003)
+
+    def test_symbols(self):
+        base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_1)
+        self.assertEquals(base_line.symbols, 179)
+
+    def test_link_direction(self):
+        base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_1)
+        self.assertEquals(base_line.link_direction, LinkDirection.NO_DIRECTION)
+        self.assertEquals(base_line.is_downlink(), False)
+        self.assertEquals(base_line.is_uplink(), False)
+
+        base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_2)
+        self.assertEquals(base_line.link_direction, LinkDirection.DOWNLINK)
+        self.assertEquals(base_line.is_downlink(), True)
+        self.assertEquals(base_line.is_uplink(), False)
 
     def test_raw_line(self):
         for line in [BaseLineTest.TEST_VOC_LINE_1, BaseLineTest.TEST_VOC_LINE_2]:
