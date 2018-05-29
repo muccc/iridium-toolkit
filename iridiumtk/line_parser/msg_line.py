@@ -14,8 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # eg .... ric:3525696 fmt:05 seq:18 1101000111 0/0 AgAFACYCgTLIxITKA4x8qpLs5geb4SICAVgVzXq9gdkuxao79yKD7DG5XpZD      +1111
-MSG_META_REGEX = re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ (\d)/(\d) ')
-MSG_TEXT_REGEX = re.compile(r'.* csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]+)\.([01]*) ')
+MSG_META_REGEX = re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ (\d)/(\d) (.{65,}) \+([01]{0,6})')
 
 
 # Example lines
@@ -38,34 +37,8 @@ class MsgLine(BaseLine):
             self._msg_ctr = int(matches.group(4))
             self._msg_ctr_max = int(matches.group(5))
 
-            matches = MSG_TEXT_REGEX.match(data)
-            if matches:
-                self._msg_checksum = int(matches.group(6), 16)
-                self._msg_hex = matches.group(7)
-                self._msg_brest = matches.group(8)
-
-                msg_msgdata = ''.join(["{0:08b}".format(int(self._msg_hex[i:i + 2], 16)) for i in range(0, len(self._msg_hex), 2)])
-                msg_msgdata += self._msg_brest
-                matches = re.compile(r'(\d{7})').findall(msg_msgdata)
-                msg_ascii = ''
-                for (group) in matches:
-                    character = int(group, 2)
-                    if (character < 32 or character == 127):
-                        msg_ascii += '[%d]' % character
-                    else:
-                        msg_ascii += chr(character)
-                self._msg_ascii = msg_ascii
-
-                if len(msg_msgdata) % 7:
-                    self._msg_rest = msg_msgdata[-(len(msg_msgdata) % 7):]
-                else:
-                    self._msg_rest = ''
-            else:
-                self._msg_checksum = None
-                self._msg_hex = None
-                self._msg_brest = None
-                self._msg_ascii = None
-                self._msg_rest = None
+            self._msg_data_escaped = matches.group(6).strip()
+            self._msg_rest = matches.group(7)
         except (IndexError, ValueError) as e:
             logger.error('Failed to parse line "%s"', line)
             six.raise_from(LineParseException('Failed to parse line "{}"'.format(line), e), e)
@@ -91,20 +64,12 @@ class MsgLine(BaseLine):
         return self._msg_ctr_max
 
     @property
-    def message_checksum(self):
-        return self._msg_checksum
+    def message_data_escaped(self):
+        return self._msg_data_escaped
 
     @property
-    def message_hex(self):
-        return self._msg_hex
-
-    @property
-    def message_brest(self):
-        return self._msg_brest
-
-    @property
-    def message_ascii(self):
-        return self._msg_ascii
+    def message_data(self):
+        return bytearray(re.sub(r'\[[0-9]{1,3}\]', lambda matchobj: chr(int(matchobj.group(0)[1:-1])), self._msg_data_escaped), 'ascii')
 
     @property
     def message_rest(self):
