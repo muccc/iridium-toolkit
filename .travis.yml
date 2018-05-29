@@ -1,11 +1,5 @@
 sudo: false
 
-branches:
-  only:
-    - py27
-    - py27_36
-    - reassembler
-
 language: python
 
 matrix:
