@@ -27,7 +27,7 @@ def main():
     parser.add_argument('input', metavar='FILE', nargs='*', help='Files to read, if empty or -, stdin is used')
     args = parser.parse_args()
 
-    output_file = sys.stdout if args.output == '-' else open(args.output, 'w')
+    output_file = sys.stdout if args.output == '-' else open(args.output, 'wb')
     input_files = args.input if len(args.input) > 0 else ['-']
 
     bits_to_dfs(fileinput.input(files=input_files), output_file)

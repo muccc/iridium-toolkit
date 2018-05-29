@@ -18,7 +18,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def read_lines(input_files, start_time_filter, end_time_filter):
+def read_lines(input_files, start_time_filter, end_time_filter, type_filter):
     for line in fileinput.input(files=input_files):
         line = line.strip()
         if 'A:OK' in line and "Message: Couldn't parse:" not in line:
@@ -31,6 +31,8 @@ def read_lines(input_files, start_time_filter, end_time_filter):
             continue
         if end_time_filter and end_time_filter < base_line.datetime:
             continue
+        if type_filter and base_line.frame_type not in type_filter:
+            continue
         yield base_line
 
 
@@ -38,16 +40,18 @@ def main():
     parser = argparse.ArgumentParser(description='Visualise ????')  # TODO
     parser.add_argument('--start', metavar='DATETIME', default=None, help='Filter events before this time')
     parser.add_argument('--end', metavar='DATETIME', default=None, help='Filter events after this time')
+    parser.add_argument('--filter-to-types', metavar='TYPE', default=None, help='Filter events by type (coma separated)')
     parser.add_argument('input', metavar='FILE', nargs='*', help='Files to read, if empty or -, stdin is used')
     args = parser.parse_args()
 
     input_files = args.input if len(args.input) > 0 else ['-']
     start_time_filter = dateparser.parse(args.start) if args.start else None
     end_time_filter = dateparser.parse(args.end) if args.end else None
+    type_filter = [t.strip().upper() for t in args.filter_to_types.split(',')] if args.filter_to_types else None
 
     stats = {}
     number_of_lines = 0
-    for base_line in read_lines(input_files, start_time_filter, end_time_filter):
+    for base_line in read_lines(input_files, start_time_filter, end_time_filter, type_filter):
         number_of_lines += 1
         stats.setdefault(base_line.frame_type, []).append(base_line)
 
@@ -71,6 +75,8 @@ def main():
 
     handles, labels = zip(*[(h, l) for (h, l) in zip(*subplot.get_legend_handles_labels()) if l in stats])
     subplot.legend(handles, labels, bbox_to_anchor=(1.04, 1), loc="upper left")
+
+    del stats
 
     plt.title('frequency vs time color coded by frame type')
     plt.xlabel('time')
