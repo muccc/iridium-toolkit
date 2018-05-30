@@ -70,8 +70,11 @@ setup(
     },
     package_data={'': ['LICENSE', 'README.md']},
     zip_safe=False,
+
+    python_requires='>=3.6',
     install_requires=[],
     tests_require=['pytest'],
+    
     cmdclass={'test': PyTest},
     keywords=[],
     license='BSD',
@@ -80,7 +83,9 @@ setup(
         'License :: OSI Approved :: BSD License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2.7',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.6',
         'Programming Language :: Python :: Implementation :: CPython',
+        'Programming Language :: Python :: Implementation :: PyPy',
     ),
 )

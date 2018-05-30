@@ -16,7 +16,10 @@ import sys
 
 
 import dateparser
-import matplotlib.pyplot as plt
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    print('Failed to import matplotlib. This prevents any GUI.' , file=sys.stderr)
 
 
 logging.basicConfig(level=logging.INFO)

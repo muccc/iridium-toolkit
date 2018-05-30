@@ -1,10 +1,7 @@
 #!/usr/bin/env python
 
 import logging
-
-
-import six
-from six.moves import range
+from io import BytesIO
 
 
 from .base_line import BaseLine, LineParseException
@@ -39,21 +36,25 @@ class VocLine(BaseLine):
                 self._voice_data = line_split[10]
         except (IndexError, ValueError) as e:
             logger.error('Failed to parse line "%s"', line)
-            six.raise_from(LineParseException('Failed to parse line "{}"'.format(line), e), e)
+            raise LineParseException(f'Failed to parse line "{line}"') from e
 
     @property
     def voice_bits(self):
         data = self._voice_data
         if data is None:
             return None
-        byte_stream = six.BytesIO()
         if data[0] == "[":
-            for pos in range(1, len(data), 3):
-                byte = int(data[pos:pos + 2], 16)
-                byte = int('{:08b}'.format(byte)[::-1], 2)
-                byte_stream.write(six.int2byte(byte))
+            return bytes.fromhex(data[1:-1].replace('.', ' '))
         else:
-            for bits in chunks(data, 8):
-                byte = int(bits[::-1], 2)
-                byte_stream.write(six.int2byte(byte))
-        return byte_stream.getvalue()
+            result = bytearray()
+            for bits_of_byte in chunks(data, 8):
+                byte = 0
+                for i in range(0, len(bits_of_byte)):
+                    if bits_of_byte[i] == '0':
+                        continue
+                    elif bits_of_byte[i] == '1':
+                        byte = byte | (1 << i)
+                    else:
+                        raise LineParseException(f'Unknown byte format: {data}')
+                result.append(byte)
+            return result

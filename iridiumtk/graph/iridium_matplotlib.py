@@ -3,9 +3,6 @@
 from collections import namedtuple
 
 
-from six.moves import range
-
-
 KHZ = 1000
 MHZ = KHZ * 1000
 
