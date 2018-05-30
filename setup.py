@@ -74,7 +74,7 @@ setup(
     python_requires='>=3.6',
     install_requires=[],
     tests_require=['pytest'],
-    
+
     cmdclass={'test': PyTest},
     keywords=[],
     license='BSD',

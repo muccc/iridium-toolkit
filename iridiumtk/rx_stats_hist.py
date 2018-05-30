@@ -3,9 +3,6 @@
 
 # Parses .bits files and displays the distribution
 # of the "HIST_DIMENTION_KEY" of received frames
-
-from __future__ import print_function
-
 import argparse
 from collections import namedtuple
 from datetime import datetime
@@ -19,7 +16,7 @@ import dateparser
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    print('Failed to import matplotlib. This prevents any GUI.' , file=sys.stderr)
+    print('Failed to import matplotlib. This prevents any GUI.', file=sys.stderr)
 
 
 logging.basicConfig(level=logging.INFO)

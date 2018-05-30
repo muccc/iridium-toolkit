@@ -19,27 +19,27 @@ class MsgLineTest(unittest.TestCase):
     def test_simple(self):
         msg_line = MsgLine(MsgLineTest.TEST_MSG_LINE_1)
 
-        self.assertEquals(msg_line.message_ric, 3525696)
-        self.assertEquals(msg_line.format, 5)
-        self.assertEquals(msg_line.message_sequence, 18)
-        self.assertEquals(msg_line.message_ctr, 0)
-        self.assertEquals(msg_line.message_ctr_max, 0)
+        self.assertEqual(msg_line.message_ric, 3525696)
+        self.assertEqual(msg_line.format, 5)
+        self.assertEqual(msg_line.message_sequence, 18)
+        self.assertEqual(msg_line.message_ctr, 0)
+        self.assertEqual(msg_line.message_ctr_max, 0)
 
-        self.assertEquals(msg_line.message_data_escaped, 'AgAFACYCgTLIxITKA4x8qpLs5geb4SICAVgVzXq9gdkuxao79yKD7DG5XpZD')
-        self.assertEquals(msg_line.message_data, b'AgAFACYCgTLIxITKA4x8qpLs5geb4SICAVgVzXq9gdkuxao79yKD7DG5XpZD')
-        self.assertEquals(msg_line.message_rest, '1111')
+        self.assertEqual(msg_line.message_data_escaped, 'AgAFACYCgTLIxITKA4x8qpLs5geb4SICAVgVzXq9gdkuxao79yKD7DG5XpZD')
+        self.assertEqual(msg_line.message_data, b'AgAFACYCgTLIxITKA4x8qpLs5geb4SICAVgVzXq9gdkuxao79yKD7DG5XpZD')
+        self.assertEqual(msg_line.message_rest, '1111')
 
     def test_escaped_message(self):
         msg_line = MsgLine(MsgLineTest.TEST_MSG_LINE_2)
 
-        self.assertEquals(msg_line.message_data_escaped, 'AgAFAiZzt1VegmFKoMZzD/Bb.M![127][25][19]+/tuE3QMEXmzPe433ff0L2RchgTp2z')
-        self.assertEquals(msg_line.message_data, b'AgAFAiZzt1VegmFKoMZzD/Bb.M!\x7f\x19\x13+/tuE3QMEXmzPe433ff0L2RchgTp2z')
-        self.assertEquals(msg_line.message_rest, '1111')
+        self.assertEqual(msg_line.message_data_escaped, 'AgAFAiZzt1VegmFKoMZzD/Bb.M![127][25][19]+/tuE3QMEXmzPe433ff0L2RchgTp2z')
+        self.assertEqual(msg_line.message_data, b'AgAFAiZzt1VegmFKoMZzD/Bb.M!\x7f\x19\x13+/tuE3QMEXmzPe433ff0L2RchgTp2z')
+        self.assertEqual(msg_line.message_rest, '1111')
 
     def test_no_msg_reset_chars(self):
         msg_line = MsgLine(MsgLineTest.TEST_MSG_LINE_3)
 
-        self.assertEquals(msg_line.message_rest, '')
+        self.assertEqual(msg_line.message_rest, '')
 
 
 def main():

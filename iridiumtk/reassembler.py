@@ -1,11 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
-import sys
 import fileinput
-import getopt
-import datetime
-import re
 import logging
 
 
@@ -24,7 +20,6 @@ class MessageTypeProcessor(object):
         self._base_frames = base_frames
 
     def frames(self):
-        selected = []
         for base_frame in self._base_frames:
             if base_frame.frame_type != 'MSG':
                 continue
@@ -41,7 +36,7 @@ class PageTypeProcessor(object):
             if base_frame.frame_type != 'IRA':
                 continue
             ira_frame = IraLine(base_frame.raw_line)
-            
+
             for page in ira_frame.pages:
                 yield "%02d %02d %s %s %03d : %s %s" % (ira_frame.satellite, ira_frame.beam, ira_frame.position.x, ira_frame.position.y, ira_frame.altitude, page.tmsi, page.msc_id)
 
@@ -69,6 +64,7 @@ def parse_to_base_frame_and_filter_time(input_files, start_time_filter, end_time
             continue
         yield base_line
 
+
 def main():
     parser = argparse.ArgumentParser(description='Convert iridium-parser.py VOC output to DFS')
     parser.add_argument('--start', metavar='DATETIME', type=str, default=None, help='Filter events before this time')
@@ -91,7 +87,6 @@ def main():
     for frame in type_processor(base_frames).frames():
         print(frame)
     logger.info('Finished parsing frames')
-
 
 
 if __name__ == '__main__':

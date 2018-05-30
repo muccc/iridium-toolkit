@@ -17,11 +17,11 @@ class IraLineTest(unittest.TestCase):
     def test_simple(self):
         ira_line = IraLine(IraLineTest.TEST_IRA_LINE_1)
 
-        self.assertEquals(ira_line.satellite, 80)
-        self.assertEquals(ira_line.beam, 30)
-        self.assertEquals(ira_line.position, (54.57, -1.24))
-        self.assertEquals(ira_line.altitude, 1)
-        self.assertEquals(ira_line.pages, [Page(tmsi='0cf155ab', msc_id=3)])
+        self.assertEqual(ira_line.satellite, 80)
+        self.assertEqual(ira_line.beam, 30)
+        self.assertEqual(ira_line.position, (54.57, -1.24))
+        self.assertEqual(ira_line.altitude, 1)
+        self.assertEqual(ira_line.pages, [Page(tmsi='0cf155ab', msc_id=3)])
 
 
 def main():

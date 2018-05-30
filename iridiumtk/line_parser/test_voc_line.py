@@ -10,7 +10,7 @@ from .voc_line import chunks, VocLine
 class ChunksTest(unittest.TestCase):
     def test_simple(self):
         result = list(chunks([1, 2, 3, 4, 5, 6], 2))
-        self.assertEquals(result, [[1, 2], [3, 4], [5, 6]])
+        self.assertEqual(result, [[1, 2], [3, 4], [5, 6]])
 
 
 class VocLineTest(unittest.TestCase):
@@ -24,15 +24,15 @@ class VocLineTest(unittest.TestCase):
 
     def test_old_format(self):
         voc_line = VocLine(VocLineTest.TEST_VOC_LINE_1)
-        self.assertEquals(voc_line.voice_bits, b'\x9e\x88$\xdb\xe6\x01')
+        self.assertEqual(voc_line.voice_bits, b'\x9e\x88$\xdb\xe6\x01')
 
     def test_new_format(self):
         voc_line = VocLine(VocLineTest.TEST_VOC_LINE_2)
-        self.assertEquals(voc_line.voice_bits, b'\xdf\xff\xf3\xfc\x10\x33\xc3\x1f\x0c\x83\xc3\xcc\xcc\x30\xff\xf3\xef\x00\xbc\x0c\xb4\x0f\xdc\xd0\x1a\xcc\x9c\xc5\x0c\xfc\x28\x01\xcc\x38\xc2\x33\xe0\xff\x4f')
+        self.assertEqual(voc_line.voice_bits, b'\xdf\xff\xf3\xfc\x10\x33\xc3\x1f\x0c\x83\xc3\xcc\xcc\x30\xff\xf3\xef\x00\xbc\x0c\xb4\x0f\xdc\xd0\x1a\xcc\x9c\xc5\x0c\xfc\x28\x01\xcc\x38\xc2\x33\xe0\xff\x4f')
 
     def test_voice_bits_small_packet(self):
         voc_line = VocLine(VocLineTest.TEST_VOC_LINE_3)
-        self.assertEquals(voc_line.voice_bits, None)
+        self.assertEqual(voc_line.voice_bits, None)
 
 
 def main():

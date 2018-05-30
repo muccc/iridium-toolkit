@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 import logging
-from io import BytesIO
 
 
 from .base_line import BaseLine, LineParseException
@@ -45,16 +44,18 @@ class VocLine(BaseLine):
             return None
         if data[0] == "[":
             return bytes.fromhex(data[1:-1].replace('.', ' '))
-        else:
+        elif data[0] in ('0', '1'):
             result = bytearray()
             for bits_of_byte in chunks(data, 8):
                 byte = 0
-                for i in range(0, len(bits_of_byte)):
-                    if bits_of_byte[i] == '0':
+                for i, b in enumerate(bits_of_byte):
+                    if b == '0':
                         continue
-                    elif bits_of_byte[i] == '1':
+                    elif b == '1':
                         byte = byte | (1 << i)
                     else:
                         raise LineParseException(f'Unknown byte format: {data}')
                 result.append(byte)
             return result
+        else:
+            raise LineParseException(f'Unknown binary format: {data}')

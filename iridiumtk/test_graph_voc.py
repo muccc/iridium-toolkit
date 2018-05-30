@@ -29,7 +29,7 @@ class MainTest(unittest.TestCase):
             input_file.write(MainTest.TEST_VOC_LINE_3 + '\n')
 
         voc_lines = list(read_lines(input_file_path, None, None))
-        self.assertEquals(len(voc_lines), 2)
+        self.assertEqual(len(voc_lines), 2)
 
     def test_test_read_lines_with_raw_data(self):
         input_file_path = self.get_temp_file()
@@ -43,7 +43,7 @@ class MainTest(unittest.TestCase):
         with open(input_file_path, 'w') as input_file:
             input_file.write('RAW: i-1525892321-t1 000045987 1626110208  83%   0.001 <001100000011000011110011> 1100000000000000 .... 00011001 ERR:Message: unknown Iridium message type\n')
         voc_lines = list(read_lines(input_file_path, None, None))
-        self.assertEquals(voc_lines, [])
+        self.assertEqual(voc_lines, [])
 
     def tearDown(self):
         for path in self.tempfiles:

@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
+import calendar
 from datetime import datetime
 from enum import Enum
 import logging
-import calendar
 
 
 logging.basicConfig(level=logging.INFO)
@@ -37,8 +37,8 @@ class BaseLine(object):
             raw_time_base = line_split[1]
             try:
                 ts_base_ms = int(raw_time_base.split('-')[1].split('.')[0])
-            except ValueError as e:
-                logger.warn('No base datetime found. Using now instead')
+            except ValueError:
+                logger.warning('No base datetime found. Using now instead')
                 ts_base_ms = calendar.timegm(now.timetuple())
 
             time_offset_ns = int(line_split[2])

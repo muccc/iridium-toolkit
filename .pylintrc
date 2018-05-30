@@ -31,6 +31,7 @@ disable=
     too-many-boolean-expressions,
     too-many-branches,
     too-many-statements,
+    too-many-instance-attributes,
 
 [FORMAT]
 

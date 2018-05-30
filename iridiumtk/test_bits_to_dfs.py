@@ -15,7 +15,7 @@ class BitsToDfsTest(unittest.TestCase):
     def test_empty_input(self):
         output = BytesIO()
         bits_to_dfs([], output)
-        self.assertEquals(output.getvalue(), b'')
+        self.assertEqual(output.getvalue(), b'')
 
     def test_raw_data(self):
         output = BytesIO()
@@ -24,22 +24,22 @@ class BitsToDfsTest(unittest.TestCase):
 
         output = BytesIO()
         bits_to_dfs(['RAW: i-1525892321-t1 000045987 1626110208  83%   0.001 <001100000011000011110011> 1100000000000000 0000000000000000 0000000000000000 1001000000000000 0000000000000000 0000000000000000 0100001000110110 0111100001010110 1011001111101110 1010110101000101 1111111001110101 1011110101110001 1110000001110111 0110001000001010 0100100100111000 1000001111010100 1011001101011110 0100011011100010 1111110001010001 1100110110101111 0011100111100101 1110100100000110 0111011111110010 1111110011001000 1101000011000011 1011110101110111 0000101000000001 1000111010101100 1011000001010011 0111011100011101 0101011000011101 0111110001001101 0100001011001010 1101001110100010 0111011001000101 0100111001010110 0001111110101010 1110001100010111 0001010101100100 1001010100111011 1001111110001101 0110100100010010 0001110111101001 1000011010111100 00011001 ERR:Message: unknown Iridium message type'], output)
-        self.assertEquals(output.getvalue(), b'')
+        self.assertEqual(output.getvalue(), b'')
 
     def test_short_packet(self):
         output = BytesIO()
         bits_to_dfs([BitsToDfsTest.TEST_VOC_LINE_3], output)
-        self.assertEquals(output.getvalue(), b'')
+        self.assertEqual(output.getvalue(), b'')
 
     def test_multiple(self):
         output = BytesIO()
         bits_to_dfs([BitsToDfsTest.TEST_VOC_LINE_1, BitsToDfsTest.TEST_VOC_LINE_1, BitsToDfsTest.TEST_VOC_LINE_2], output)
-        self.assertEquals(output.getvalue(), (b'\x9e\x88$\xdb\xe6\x01' * 2) + b'\xdf\xff\xf3\xfc\x103\xc3\x1f\x0c\x83\xc3\xcc\xcc0\xff\xf3\xef\x00\xbc\x0c\xb4\x0f\xdc\xd0\x1a\xcc\x9c\xc5\x0c\xfc(\x01\xcc8\xc23\xe0\xffO')
+        self.assertEqual(output.getvalue(), (b'\x9e\x88$\xdb\xe6\x01' * 2) + b'\xdf\xff\xf3\xfc\x103\xc3\x1f\x0c\x83\xc3\xcc\xcc0\xff\xf3\xef\x00\xbc\x0c\xb4\x0f\xdc\xd0\x1a\xcc\x9c\xc5\x0c\xfc(\x01\xcc8\xc23\xe0\xffO')
 
     def test_filters_non_voc_lines(self):
         output = BytesIO()
         bits_to_dfs([BitsToDfsTest.TEST_VOC_LINE_1, 'NOT_VOC:', BitsToDfsTest.TEST_VOC_LINE_2], output)
-        self.assertEquals(output.getvalue(), b'\x9e\x88$\xdb\xe6\x01' + b'\xdf\xff\xf3\xfc\x103\xc3\x1f\x0c\x83\xc3\xcc\xcc0\xff\xf3\xef\x00\xbc\x0c\xb4\x0f\xdc\xd0\x1a\xcc\x9c\xc5\x0c\xfc(\x01\xcc8\xc23\xe0\xffO')
+        self.assertEqual(output.getvalue(), b'\x9e\x88$\xdb\xe6\x01' + b'\xdf\xff\xf3\xfc\x103\xc3\x1f\x0c\x83\xc3\xcc\xcc0\xff\xf3\xef\x00\xbc\x0c\xb4\x0f\xdc\xd0\x1a\xcc\x9c\xc5\x0c\xfc(\x01\xcc8\xc23\xe0\xffO')
 
 
 class MainTest(unittest.TestCase):

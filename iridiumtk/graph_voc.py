@@ -14,7 +14,7 @@ import dateparser
 try:
     import matplotlib.pyplot as plt
 except ImportError:
-    print('Failed to import matplotlib. This prevents any GUI.' , file=sys.stderr)
+    print('Failed to import matplotlib. This prevents any GUI.', file=sys.stderr)
 import numpy as np
 
 
