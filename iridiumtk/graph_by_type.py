@@ -70,7 +70,7 @@ def main():
         plot_data_time = np.empty(number_of_frames, dtype=np.float64)
         plot_data_freq = np.empty(number_of_frames, dtype=np.uint32)
         for i, base_line in enumerate(frames):
-            plot_data_time[i] = np.uint32(base_line.datetime_unix)
+            plot_data_time[i] = np.uint32(base_line.datetime_unix_utc)
             plot_data_freq[i] = np.float64(base_line.frequency)
         subplot.scatter(plot_data_time, plot_data_freq, label=frame_type)
 

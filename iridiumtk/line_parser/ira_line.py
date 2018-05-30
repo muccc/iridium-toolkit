@@ -5,9 +5,6 @@ import logging
 import re
 
 
-import six
-
-
 from .base_line import BaseLine, LineParseException
 
 
@@ -48,7 +45,7 @@ class IraLine(BaseLine):
                 self._pages.append(Page(tmsi=match[0], msc_id=int(match[1])))
         except (IndexError, ValueError) as e:
             logger.error('Failed to parse line "%s"', line)
-            six.raise_from(LineParseException('Failed to parse line "{}"'.format(line), e), e)
+            raise LineParseException(f'Failed to parse line "{line}"') from e
 
     @property
     def satellite(self):

@@ -76,7 +76,7 @@ class OnClickHandler(object):
 
     def filter_voc(self, t_start, t_stop, f_min, f_max):
         for voc_line in self.lines:
-            ts = voc_line.datetime_unix
+            ts = voc_line.datetime_unix_utc
             f = voc_line.frequency
             if t_start <= ts and ts <= t_stop and \
                f_min <= f and f <= f_max:
@@ -139,7 +139,7 @@ def main():
     plot_data_freq = np.empty(number_of_lines, dtype=np.uint32)
     for i, voc_line in enumerate(lines):
         # plot_data_time[i] = np.datetime64(voc_line.datetime().isoformat())
-        plot_data_time[i] = np.uint32(voc_line.datetime_unix)
+        plot_data_time[i] = np.uint32(voc_line.datetime_unix_utc)
         plot_data_freq[i] = np.float64(voc_line.frequency)
 
     fig = plt.figure()

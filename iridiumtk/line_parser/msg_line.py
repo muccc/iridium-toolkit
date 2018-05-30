@@ -4,9 +4,6 @@ import logging
 import re
 
 
-import six
-
-
 from .base_line import BaseLine, LineParseException
 
 
@@ -41,7 +38,7 @@ class MsgLine(BaseLine):
             self._msg_rest = matches.group(7)
         except (IndexError, ValueError) as e:
             logger.error('Failed to parse line "%s"', line)
-            six.raise_from(LineParseException('Failed to parse line "{}"'.format(line), e), e)
+            raise LineParseException(f'Failed to parse line "{line}"') from e
 
     @property
     def message_ric(self):

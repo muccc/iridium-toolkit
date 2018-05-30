@@ -3,10 +3,7 @@
 from datetime import datetime
 from enum import Enum
 import logging
-import time
-
-
-import six
+import calendar
 
 
 logging.basicConfig(level=logging.INFO)
@@ -42,7 +39,7 @@ class BaseLine(object):
                 ts_base_ms = int(raw_time_base.split('-')[1].split('.')[0])
             except ValueError as e:
                 logger.warn('No base datetime found. Using now instead')
-                ts_base_ms = time.mktime(now.timetuple())
+                ts_base_ms = calendar.timegm(now.timetuple())
 
             time_offset_ns = int(line_split[2])
             self._timestamp = int(ts_base_ms + (time_offset_ns / 1000))
@@ -65,7 +62,7 @@ class BaseLine(object):
                 self._link_direction = None
         except (IndexError, ValueError) as e:
             logger.error('Failed to parse line "%s"', line)
-            six.raise_from(LineParseException('Failed to parse line "{}"'.format(line), e), e)
+            raise LineParseException(f'Failed to parse line "{line}"') from e
 
     @property
     def raw_line(self):
@@ -80,7 +77,7 @@ class BaseLine(object):
         return datetime.utcfromtimestamp(self._timestamp)
 
     @property
-    def datetime_unix(self):
+    def datetime_unix_utc(self):
         return self._timestamp
 
     @property

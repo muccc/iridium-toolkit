@@ -19,19 +19,19 @@ class BaseLineTest(unittest.TestCase):
 
     def test_old_format_datetime(self):
         base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_1)
-        self.assertEquals(base_line.datetime_unix, 1443372344)
+        self.assertEquals(base_line.datetime_unix_utc, 1443372344)
         self.assertEquals(base_line.datetime, datetime.utcfromtimestamp(1443372344))
 
     def test_new_format_datetime(self):
         base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_2)
-        self.assertEquals(base_line.datetime_unix, 1526039102)
+        self.assertEquals(base_line.datetime_unix_utc, 1526039102)
         self.assertEquals(base_line.datetime, datetime.utcfromtimestamp(1526039102))
 
     def test_filename_datetime(self):
         now = datetime.utcfromtimestamp(1526300857)
         base_line = BaseLine(BaseLineTest.TEST_IMS_LINE_1, now=now)
-        self.assertEquals(base_line.datetime_unix, 1526297260)
-        self.assertEquals(base_line.datetime, datetime.utcfromtimestamp(1526297260))
+        self.assertEquals(base_line.datetime_unix_utc, 1526300860)
+        self.assertEquals(base_line.datetime, datetime.utcfromtimestamp(1526300860))
 
     def test_frequency(self):
         base_line = BaseLine(BaseLineTest.TEST_VOC_LINE_2)
