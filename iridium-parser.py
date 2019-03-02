@@ -22,6 +22,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:ps', [
                                                          'input=',
                                                          'output=',
                                                          'perfect',
+                                                         'errorfree',
                                                          'interesting',
                                                          'satclass',
                                                          'plot=',
@@ -41,6 +42,7 @@ hdr_poly=29
 
 verbose = False
 perfect = False
+errorfree = False
 interesting = False
 good = False
 dosatclass = False
@@ -64,6 +66,8 @@ for opt, arg in options:
         interesting = True
     elif opt in ('-p', '--perfect'):
         perfect = True
+    elif opt in ('--errorfree'):
+        errorfree = True
     elif opt in ('-s', '--satclass'):
         dosatclass = True
     elif opt in ('--plot'):
@@ -1372,6 +1376,14 @@ def perline(q):
         if("bitstream_messaging" in q.__dict__): del q.bitstream_messaging
         if("descrambled" in q.__dict__): del q.descrambled
         del q.descramble_extra
+    if perfect:
+        if q.error or q.fixederrs>0:
+            return
+        q.descramble_extra=""
+    if errorfree:
+        if q.error:
+            return
+        q.descramble_extra=""
     if len(linefilter)>0:
         if linefilter[0]!="All" and type(q).__name__ != linefilter[0]:
             return
@@ -1398,12 +1410,9 @@ def perline(q):
     elif output == "plot":
         selected.append(q)
     elif output == "line":
-        if(q.error):
-            if(not perfect):
-                print q.pretty()+" ERR:"+", ".join(q.error_msg)
+        if (q.error):
+            print q.pretty()+" ERR:"+", ".join(q.error_msg)
         else:
-            if (perfect):
-                q.descramble_extra=""
             if not ofmt:
                 print q.pretty()
             else:
