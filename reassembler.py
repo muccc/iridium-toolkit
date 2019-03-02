@@ -9,6 +9,7 @@ import re
 import struct
 import math
 import os
+import socket
 
 verbose = False
 ifile= None
@@ -275,19 +276,9 @@ class ReassembleIDA(Reassemble):
 
 class ReassembleIDALAP(ReassembleIDA):
     first=True
-    outfile=None
-    def consume(self,q):
-        if self.first:
-            pcap_hdr=struct.pack("<LHHlLLL",0xa1b2c3d4,0x2,0x4,0x0,0,0xffff,1)
-            outfile.write(pcap_hdr)
-            self.first=False
-
-        # Filter non-GSM packets (see IDA-GSM.txt)
+    sock = None
+    def gsmwrap(self,q):
         (data,time,ul,level,freq)=q
-        if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
-            return
-        if len(data)==1:
-            return
         lapdm=data
         try:
             olvl=int(10*math.log(level,10))
@@ -298,12 +289,79 @@ class ReassembleIDALAP(ReassembleIDA):
         if olvl<-126:
             olvl=-126
 
+        # GSMTAP:
+        #
+        #struct gsmtap_hdr {
+        #        uint8_t version;        /* version, set to 0x01 currently */      2
+        #        uint8_t hdr_len;        /* length in number of 32bit words */     4
+        #        uint8_t type;           /* see GSMTAP_TYPE_* */                   2 (ABIS) / 0x13 (IRIDIUM)
+        #        uint8_t timeslot;       /* timeslot (0..7 on Um) */               0
+        #
+        #        uint16_t arfcn;         /* ARFCN (frequency) */                   0x0/0x4000
+        #        int8_t signal_dbm;      /* signal level in dBm */                 olvl
+        #        int8_t snr_db;          /* signal/noise ratio in dB */            0 ?
+        #        uint32_t frame_number;  /* GSM Frame Number (FN) */               freq??
+        #        uint8_t sub_type;       /* Type of burst/channel, see above */    7
+        #        uint8_t antenna_nr;     /* Antenna Number */                      0 ?
+        #        uint8_t sub_slot;       /* sub-slot within timeslot */            0 ?
+        #        uint8_t res;            /* reserved for future use (RFU) */       0 ?
+        #} +attribute+((packed));
         if ul:
-            gsm=struct.pack("!BBBBHbBLBBBB",2,4,1*0+2,0,0x4000,olvl,0,freq,7,0,0,0)+lapdm
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x4000,olvl,0,freq,1,0,0,0)+lapdm
         else:
-            gsm=struct.pack("!BBBBHbBLBBBB",2,4,1*0+2,0,0x0000,olvl,0,freq,7,0,0,0)+lapdm
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x0000,olvl,0,freq,1,0,0,0)+lapdm
 
-        udp=struct.pack("!HHHH",45988,4729,8+len(gsm),0xffff)+gsm
+        return gsm
+
+    def consume(self,q):
+        # Filter non-GSM packets (see IDA-GSM.txt)
+        if self.first:
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.first=False
+
+        (data,_,ul,_,_)=q
+        if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
+            return
+        if len(data)==1:
+            return
+        pkt=self.gsmwrap(q)
+        self.sock.sendto(pkt, ("127.0.0.1", 4729)) # 4729 == GSMTAP
+
+        if verbose:
+            if ul:
+                ul="UL"
+            else:
+                ul="DL"
+            print "%09d %.3f %s %s"%(time,level,ul,".".join("%02x"%ord(x) for x in data))
+
+class ReassembleIDALAPPCAP(ReassembleIDALAP):
+    first=True
+    outfile=None
+    def consume(self,q):
+        # Most of this constructs fake ip packets around the gsmtap data so it can be written as pcap
+        if self.first:
+            #typedef struct pcap_hdr_s {
+            #        guint32 magic_number;   /* magic number */            0xa1b2c3d4
+            #        guint16 version_major;  /* major version number */    2
+            #        guint16 version_minor;  /* minor version number */    4
+            #        gint32  thiszone;       /* GMT to local correction */ 0
+            #        guint32 sigfigs;        /* accuracy of timestamps */  0
+            #        guint32 snaplen;        /* max length of captured packets, in octets */
+            #                                                              (must be > largest pkt)
+            #        guint32 network;        /* data link type */          1 (ethernet)
+            #} pcap_hdr_t;
+            pcap_hdr=struct.pack("<LHHlLLL",0xa1b2c3d4,0x2,0x4,0x0,0,0xffff,1)
+            outfile.write(pcap_hdr)
+            self.first=False
+
+        # Filter non-GSM packets (see IDA-GSM.txt)
+        (data,time,ul,_,_)=q
+        if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
+            return
+        if len(data)==1:
+            return
+        gsm=self.gsmwrap(q)
+        udp=struct.pack("!HHHH",45988,4729,8+len(gsm),0xffff)+gsm  # 4729 == GSMTAP
 
         if ul:
             ip=struct.pack("!BBHHBBBBHBBBBBBBB",(0x4<<4)+5,0,len(udp)+20,0xdaae,0x40,0x0,0x40,17,0xffff,10,0,0,1,127,0,0,1)+udp
@@ -317,13 +375,6 @@ class ReassembleIDALAP(ReassembleIDA):
 
         pcap=struct.pack("<IIII",time/1000,1000*(time%1000),len(eth),len(eth))+eth
         outfile.write(pcap)
-        if verbose:
-            if ul:
-                ul="UL"
-            else:
-                ul="DL"
-            print "%09d %.3f %s %s"%(time,level,ul,".".join("%02x"%ord(x) for x in data))
-
 
 class ReassembleIRA(Reassemble):
     def __init__(self):
@@ -449,11 +500,13 @@ if False:
     pass
 if mode == "ida":
     zx=ReassembleIDA()
+if mode == "gsmtap":
+    zx=ReassembleIDALAP()
 elif mode == "lap":
     if outfile == sys.stdout: # Force file, since it's binary
         ofile="%s.%s" % (basename, "pcap")
         outfile=open(ofile,"w")
-    zx=ReassembleIDALAP()
+    zx=ReassembleIDALAPPCAP()
 elif mode == "page":
     zx=ReassembleIRA()
 elif mode == "msg":
