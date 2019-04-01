@@ -92,24 +92,24 @@ sub emit {
 	return "<$tag>".$content."</$tag>\n";
 }
 
-sub argb{
+sub argb {
 	my ($r,$g,$b)=@_;
 	my $v=sprintf "%02x%02x%02x%02x",255,$r*255,$g*255,$b*255;
 	return $v;
 }
 
-sub rainbow{
+sub rainbow {
 	my ($cur,$max)=@_;
 	$cur=$max if $cur>$max;
 	my $h=$cur/$max*2/3;
 	my ($s,$v)=(1,1);
-    return argb($v,$v,$v) if $s==0;
-    my $i = int($h*6.0);
-    my $f = ($h*6.0) - $i;
-    my $p = $v*(1.0 - $s);
-    my $q = $v*(1.0 - $s*$f);
-    my $t = $v*(1.0 - $s*(1.0-$f));
-       $i = $i%6;
+	return argb($v,$v,$v) if $s==0;
+	my $i = int($h*6.0);
+	my $f = ($h*6.0) - $i;
+	my $p = $v*(1.0 - $s);
+	my $q = $v*(1.0 - $s*$f);
+	my $t = $v*(1.0 - $s*(1.0-$f));
+	$i = $i%6;
 	return argb($v, $t, $p) if $i==0;
 	return argb($q, $v, $p) if $i==1;
 	return argb($p, $v, $t) if $i==2;
@@ -297,7 +297,7 @@ sub read_line{
 			$dir="down";
 		}else{
 			$broken++;
-			next; # ignore broken stuff
+			return; # ignore broken stuff
 		};
 		$sat=sprintf"%03d",$sat;
 		$h*=1000;
