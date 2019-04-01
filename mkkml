@@ -100,6 +100,7 @@ sub argb{
 
 sub rainbow{
 	my ($cur,$max)=@_;
+	$cur=$max if $cur>$max;
 	my $h=$cur/$max*2/3;
 	my ($s,$v)=(1,1);
     return argb($v,$v,$v) if $s==0;
@@ -173,6 +174,7 @@ sub do_heatmap{
 		};
 	};
 	printf STDERR "$name maxval: %.3f\n",$maxval;
+	$maxval*=0.9;
 
 	print "\t<Folder>";
 	print emit("name" => $name) if defined $name;
@@ -187,8 +189,9 @@ sub do_heatmap{
 
 #				my $color=rainbow($cnt,$maxcnt);
 				my $color=rainbow($val,$maxval);
+#				next if $cnt < $maxcnt/2;
 
-				$cnt*=3*1000;
+				$cnt*=3*100;
 				my $coord= sprintf join(" ",("%s,%s,%s")x4),
 				   $x    ,$y    ,$cnt,
 				   $x    ,$y+$pd,$cnt,
