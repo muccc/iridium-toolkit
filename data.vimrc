@@ -17,7 +17,7 @@ map ,7 :let &l:colorcolumn = join(range(1,999,16),',')
 map ,8 :let &l:colorcolumn = join(range(1,999,32),',')
 map ,9 :let &l:colorcolumn = join(range(93,999,33),',')
 
-map ,p :%s/ //g:%s/^\[//g:%s/]$//:%s/0/_/g:%!grep 11G/\|_*1_*\|
+map ,p :%s/ //g:%s/^\[//g:%s/]$//:%s/0/_/g/^[^1]*$:.,$!uniq -c 1G/^[_\|]*1[_\|]*\|
 
 function! DoSort() range abort
   let col = col(".")
