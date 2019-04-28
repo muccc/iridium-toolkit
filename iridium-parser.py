@@ -231,9 +231,17 @@ class IridiumMessage(Message):
             if data[:32] == header_messaging:
                 self.msgtype="MS"
 
+        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumMSMessage":
+            self._new_error("filtered message")
+            return
+
         if "msgtype" not in self.__dict__:
             if data[:2] =="11" and data[2:96]=="0"*94:
                 self.msgtype="TL"
+
+        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumSTLMessage":
+            self._new_error("filtered message")
+            return
 
         if "msgtype" not in self.__dict__:
             hdrlen=6
@@ -244,6 +252,10 @@ class IridiumMessage(Message):
                     if ndivide(ringalert_bch_poly,o_bc1[:31])==0:
                         if ndivide(ringalert_bch_poly,o_bc2[:31])==0:
                             self.msgtype="BC"
+
+        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumBCMessage":
+            self._new_error("filtered message")
+            return
 
         if "msgtype" not in self.__dict__:
             if len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
@@ -256,6 +268,10 @@ class IridiumMessage(Message):
                         if e2==0:
                             self.msgtype="DA"
 
+        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumDAMessage":
+            self._new_error("filtered message")
+            return
+
         if "msgtype" not in self.__dict__:
             firstlen=3*32
             if len(data)>=3*32:
@@ -264,6 +280,10 @@ class IridiumMessage(Message):
                     if ndivide(ringalert_bch_poly,o_ra2[:31])==0:
                         if ndivide(ringalert_bch_poly,o_ra3[:31])==0:
                             self.msgtype="RA"
+
+        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumRAMessage":
+            self._new_error("filtered message")
+            return
 
         if "msgtype" not in self.__dict__:
             if len(data)<64:
