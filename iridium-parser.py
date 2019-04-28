@@ -1379,7 +1379,7 @@ def perline(q):
         if("descrambled" in q.__dict__): del q.descrambled
         del q.descramble_extra
     if perfect:
-        if q.error or q.fixederrs>0:
+        if q.error or ("fixederrs" in q.__dict__ and q.fixederrs>0):
             return
         q.descramble_extra=""
     if errorfree:
