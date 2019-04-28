@@ -1565,6 +1565,7 @@ if output == "dump":
 
 if output == "plot":
     import matplotlib.pyplot as plt
+    import matplotlib.ticker as ticker
     xl=[]
     yl=[]
     cl=[]
@@ -1783,6 +1784,10 @@ if output == "plot":
     plt.ylabel(plotargs[1])
     if plotargs[0]=="time":
         plotargs[0]="globaltime"
+        def format_date(x, pos=None):
+            return datetime.datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S')
+        plt.gca().xaxis.set_major_formatter(ticker.FuncFormatter(format_date))
+        plt.gcf().autofmt_xdate()
 
     if False:
         plotsats(plt,selected[0].globaltime,selected[-1].globaltime)
