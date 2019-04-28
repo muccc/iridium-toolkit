@@ -49,7 +49,7 @@ dosatclass = False
 input= "raw"
 output= "line"
 ofmt= None
-linefilter=[]
+linefilter={ 'type': 'All', 'attr': None, 'check': None }
 plotargs=["time", "frequency"]
 vdumpfile=None
 
@@ -73,7 +73,11 @@ for opt, arg in options:
     elif opt in ('--plot'):
         plotargs=arg.split(',')
     elif opt in ('--filter'):
-        linefilter=arg.split(',')
+        linefilter['type']=arg
+        if ',' in linefilter['type']:
+            (linefilter['type'],linefilter['check'])=linefilter['type'].split(',',2)
+        if '+' in linefilter['type']:
+            (linefilter['type'],linefilter['attr'])=linefilter['type'].split('+')
     elif opt in ('--voice-dump'):
         vdumpfile=arg
     elif opt in ('-i', '--input'):
@@ -1387,12 +1391,12 @@ def perline(q):
         if q.error:
             return
         q.descramble_extra=""
-    if len(linefilter)>0:
-        if linefilter[0]!="All" and type(q).__name__ != linefilter[0]:
-            return
-        if len(linefilter)>1:
-            if not eval(linefilter[1]):
-                return
+    if linefilter['type']!="All" and type(q).__name__ != linefilter['type']:
+        return
+    if linefilter['attr'] and linefilter['attr'] not in q.__dict__:
+        return
+    if linefilter['check'] and not eval(linefilter['check']):
+        return
     if vdumpfile != None and type(q).__name__ == "IridiumVOMessage":
         if len(q.voice)!=312:
             raise Exception("illegal Voice frame length")
@@ -1518,11 +1522,14 @@ if output == "plot":
     if len(plotargs)>2:
         name+=" with %s"%plotargs[2]
     filter=""
-    if len(linefilter)>0 and linefilter[0]!="All":
-        filter+="type==%s"%linefilter[0]
-        name=("%s "%linefilter[0])+name
-    if len(linefilter)>1:
-        x=linefilter[1]
+    if len(linefilter)>0 and linefilter['type']!="All":
+        filter+="type==%s"%linefilter['type']
+        name=("%s "%linefilter['type'])+name
+    if linefilter['attr']:
+        filter+=" containing %s"%linefilter['attr']
+        name+=" having %s"%linefilter['attr']
+    if linefilter['check']:
+        x=linefilter['check']
         if x.startswith("q."):
             x=x[2:]
         filter+=" and %s"%x
