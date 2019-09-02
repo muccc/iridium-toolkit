@@ -5,7 +5,7 @@ if [ ! -d binutils-gdb ] ; then
 fi
 cd binutils-gdb
 ./configure --target=c54x
-for a in bfd opcodes libiberty zlib binutils ; do
+for a in bfd opcodes libiberty zlib libctf binutils ; do
 	(
 	cd $a
 	sed -i '/^SUBDIRS/s/doc//' Makefile.in
