@@ -422,7 +422,7 @@ class IridiumMessage(Message):
                 self.payload=[int(x,2) for x in slice(self.descrambled, 6)]
                 self.descramble_extra=data[312:]
             else: # Need to check what other ft are
-                self.msgtype="UK"
+                self.msgtype="U%d"%self.ft
                 self.descrambled=data[:312]
                 self.descramble_extra=data[312:]
 
