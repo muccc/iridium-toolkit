@@ -15,7 +15,7 @@ import datetime
 from itertools import izip
 from math import sqrt,atan2,pi
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:ps', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'verbose',
                                                          'good',
                                                          'confidence=',
@@ -66,7 +66,7 @@ for opt, arg in options:
         interesting = True
     elif opt in ('-p', '--perfect'):
         perfect = True
-    elif opt in ('--errorfree'):
+    elif opt in ('-e', '--errorfree'):
         errorfree = True
     elif opt in ('-s', '--satclass'):
         dosatclass = True
