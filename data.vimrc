@@ -28,11 +28,16 @@ map ,s mx:call DoSort()`x
 
 function! DoCol() range abort
   let col = col(".")
-"  if &colorcolumn != ''
-"    setlocal colorcolumn&
-"  else
-    let &l:colorcolumn = col
-"  endif
+  let &l:colorcolumn = col
+  echo "marking" col
 endfunction
 
-map ,c mx:call DoCol()`x
+function! DoVisCol() range abort
+  let [lnum1, col1] = getpos("'<")[1:2]
+  let [lnum2, col2] = getpos("'>")[1:2]
+  let &l:colorcolumn = join(range(col1,999,col2-col1+1),',')
+  echo "start @" col1 "repeat" (col2-col1+1)
+endfunction
+
+nnoremap ,c :call DoCol()<CR>
+vnoremap ,c mx:call DoVisCol()<CR>`x
