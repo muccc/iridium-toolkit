@@ -4,7 +4,10 @@ import sys
 import matplotlib.pyplot as plt
 import collections
 
-f = open(sys.argv[1])
+if len(sys.argv)<2:
+    f = open("/dev/stdin")
+else:
+    f = open(sys.argv[1])
 
 f.readline()
 
