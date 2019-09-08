@@ -13,7 +13,7 @@ min_f = None
 min_ts = None
 max_ts = None
 
-colors =['#cab2d6','#33a02c','#fdbf6f','#ffff99','#6a3d9a','#e31a1c','#ff7f00','#fb9a99','#b2df8a','#1f78b4','#aaaaaa', '#a6cee3']
+colors =['#cab2d6','#33a02c','#fdbf6f','#ffff99','#6a3d9a','#e31a1c','#ff7f00','#fb9a99','#b2df8a','#1f78b4','#aaaaaa', '#a6cee3', '#dddd77']
 
 frames = collections.OrderedDict()
 frames['IMS'] = [colors[ 0], 'x', 1]
@@ -39,6 +39,7 @@ frames['IIQ'] = [colors[ 8], 'o', 1]
 frames['VOC'] = [colors[11], 'o', 1]
 frames['VOD'] = [colors[ 1], 'x', 1]
 frames['VDA'] = [colors[ 2], 'o', 1]
+frames['VO6'] = [colors[12], 'o', 1]
 
 frames['IRI'] = ['purple',   'x', 0]
 frames['RAW'] = ['grey',     'x', 0]
