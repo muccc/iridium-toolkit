@@ -73,6 +73,7 @@ for t in frames:
     data[t][2]= plt.scatter(y=data[t][1], x=data[t][0], c=f[0], label=t, alpha=1, edgecolors=f[0], marker=f[1], s=20)
 
 leg=plt.legend(loc='upper right')
+leg.draggable()
 
 # Get to the legend entries
 pat=leg.get_children()
@@ -114,6 +115,8 @@ fig=plt.gcf()
 def onpick(event):
     # on pick event toggle the visibility
     x=event.artist
+    if type(event.artist).__name__ == 'Legend':
+        return
     leg_item = event.artist
     legend_set(event.artist,-1)
     fig.canvas.draw()
