@@ -47,7 +47,7 @@ for t in frames:
 
 for line in f:
     line = line.strip().split()
-    type = line[0][:-1]
+    ftype = line[0][:-1]
     #ts_base = int(line[1].split('-')[1].split('.')[0])
     ts_base = 0
     ts = ts_base + float(line[2])/1000.
@@ -64,9 +64,9 @@ for line in f:
     if min_ts == None or min_ts > ts:
         min_ts = ts
 
-    if type in data:
-        data[type][0].append(ts)
-        data[type][1].append(f)
+    if ftype in data:
+        data[ftype][0].append(ts)
+        data[ftype][1].append(f)
 
 for t in frames:
     f = frames[t]
