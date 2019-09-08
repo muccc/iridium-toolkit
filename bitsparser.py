@@ -1066,7 +1066,10 @@ class IridiumIPMessage(IridiumLCWMessage):
                     self.idata=msg[0:-2]
                 else:
                     self.itype="IIQ"
-                    self.idata=msg
+                    val=struct.unpack("<H",msg[:2])[0]
+                    self.flags=val&7
+                    self.counter=val>>3
+                    self.idata=msg[2:]
             else:
                 self.itype="IIU"
     def upgrade(self):
@@ -1102,17 +1105,16 @@ class IridiumIPMessage(IridiumLCWMessage):
             s+= " FCS:OK/%06x"%(self.ip_cksum)
             if len(data)>0 and self.ip_hdr!=1:
                 ip_data = ' IP: '
-                for c in data:
-                    if( c>=32 and c<127):
-                        ip_data+=chr(c)
-                    else:
-                        ip_data+="."
+                ip_data += to_ascii(data, dot=True)
                 s += ip_data
         elif self.itype=="IIQ":
-            s+= " ["+" ".join(["%02x"%x for x in self.idata])+"]"
-            s+= " C=%04x"%self.iiqcsum
+            s+= " f:%d c:%04x"%(self.flags,self.counter)
+            s+= " ["+myhex(self.idata," ")+"]"
+            ip_data = ' IP: '
+            ip_data += to_ascii(self.idata, dot=True)
+            s += ip_data
         elif self.itype=="IIR":
-            s+= " ["+" ".join(["%02x"%x for x in self.idata])+"]"
+            s+= " ["+myhex(self.idata," ")+"]"
         else:
             s+= " ["+" ".join(["%s"%x for x in self.descrambled])+"]"
 
