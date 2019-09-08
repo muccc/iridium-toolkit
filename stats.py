@@ -51,6 +51,7 @@ data=collections.OrderedDict()
 for t in frames:
     data[t]=[[],[],None]
 
+newtypes=[]
 for line in f:
     line = line.strip().split()
     ftype = line[0][:-1]
@@ -73,6 +74,10 @@ for line in f:
     if ftype in data:
         data[ftype][0].append(ts)
         data[ftype][1].append(f)
+    else:
+        if not ftype in newtypes:
+            print "unhandled frame type:",ftype
+            newtypes.append(ftype)
 
 for t in frames:
     f = frames[t]
