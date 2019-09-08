@@ -16,30 +16,34 @@ max_ts = None
 colors =['#cab2d6','#33a02c','#fdbf6f','#ffff99','#6a3d9a','#e31a1c','#ff7f00','#fb9a99','#b2df8a','#1f78b4','#aaaaaa', '#a6cee3']
 
 frames = collections.OrderedDict()
-frames['IMS'] = [colors[0], 'x', [], [], []]
-frames['MSG'] = [colors[1], 'o', [], [], []]
+frames['IMS'] = [colors[ 0], 'x', 1]
+frames['MSG'] = [colors[ 1], 'o', 1]
 
-frames['IRA'] = [colors[2], 'x', [], [], []]
+frames['IRA'] = [colors[ 2], 'x', 1]
 
-frames['ISY'] = [colors[3], 'o', [], []]
+frames['ISY'] = [colors[ 3], 'o', 1]
 
-frames['IBC'] = [colors[4], 'o', [], []]
+frames['IBC'] = [colors[ 4], 'o', 1]
 
-frames['IU3'] = [colors[5], 'o', [], []]
+frames['IU3'] = [colors[ 5], 'o', 1]
 
-frames['IDA'] = [colors[6], 'o', [], []]
+frames['IDA'] = [colors[ 6], 'o', 1]
 
-frames['IIU'] = [colors[7], 'o', [], [], []]
-frames['IIR'] = [colors[10], 'o', [], [], []]
-frames['IIP'] = [colors[9], 'o', [], [], []]
-frames['IIQ'] = [colors[8], 'o', [], [], []]
+frames['IIU'] = [colors[ 7], 'o', 1]
+frames['IIR'] = [colors[10], 'o', 1]
+frames['IIP'] = [colors[ 9], 'o', 1]
+frames['IIQ'] = [colors[ 8], 'o', 1]
 
-frames['VOC'] = [colors[11], 'o', [], []]
-frames['VOD'] = [colors[1], 'x', [], []]
-frames['VDA'] = [colors[2], 'o', [], []]
+frames['VOC'] = [colors[11], 'o', 1]
+frames['VOD'] = [colors[ 1], 'x', 1]
+frames['VDA'] = [colors[ 2], 'o', 1]
 
-#frames['IRI'] = ['purple', 'x', [], []]
-#frames['RAW'] = ['grey', 'x', [], []]
+frames['IRI'] = ['purple',   'x', 0]
+frames['RAW'] = ['grey',     'x', 0]
+
+data=collections.OrderedDict()
+for t in frames:
+    data[t]=[[],[]]
 
 for line in f:
     line = line.strip().split()
@@ -60,13 +64,15 @@ for line in f:
     if min_ts == None or min_ts > ts:
         min_ts = ts
 
-    if type in frames:
-        frames[type][2].append(ts)
-        frames[type][3].append(f)
+    if type in data:
+        data[type][0].append(ts)
+        data[type][1].append(f)
 
 for t in frames:
     f = frames[t]
-    plt.scatter(y=f[3], x=f[2], c=f[0], label=t, alpha=1, edgecolors=f[0], marker=f[1], s=20)
+    if f[2]==0:
+        continue
+    plt.scatter(y=data[t][1], x=data[t][0], c=f[0], label=t, alpha=1, edgecolors=f[0], marker=f[1], s=20)
 
 #plt.colorbar()
 #plt.ylim([min_f, max_f])
