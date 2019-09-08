@@ -136,6 +136,7 @@ ax.set_title('Click on legend line to toggle line on/off')
 #ax.ticklabel_format(useOffset=False)
 #ax.set_axis_bgcolor('white')
 
+plt.subplots_adjust(left=0.1, right=0.95, top=0.95, bottom=0.05)
 
 plt.xlim([min_ts, max_ts])
 #plt.ylim([min_ts, max_ts])
