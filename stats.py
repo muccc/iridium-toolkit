@@ -21,6 +21,8 @@ frames['MSG'] = [colors[ 1], 'o', 1]
 
 frames['IRA'] = [colors[ 2], 'x', 1]
 
+frames['ITL'] = [colors[ 9], 'x', 1]
+
 frames['ISY'] = [colors[ 3], 'o', 1]
 
 frames['IBC'] = [colors[ 4], 'o', 1]
