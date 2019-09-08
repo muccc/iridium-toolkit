@@ -43,7 +43,7 @@ frames['RAW'] = ['grey',     'x', 0]
 
 data=collections.OrderedDict()
 for t in frames:
-    data[t]=[[],[]]
+    data[t]=[[],[],None]
 
 for line in f:
     line = line.strip().split()
@@ -70,9 +70,55 @@ for line in f:
 
 for t in frames:
     f = frames[t]
-    if f[2]==0:
-        continue
-    plt.scatter(y=data[t][1], x=data[t][0], c=f[0], label=t, alpha=1, edgecolors=f[0], marker=f[1], s=20)
+    data[t][2]= plt.scatter(y=data[t][1], x=data[t][0], c=f[0], label=t, alpha=1, edgecolors=f[0], marker=f[1], s=20)
+
+leg=plt.legend(loc='upper right')
+
+# Get to the legend entries
+pat=leg.get_children()
+#print "pat:",pat
+#print "c:",pat[0].get_children()
+#print "cc:",pat[0].get_children()[1].get_children()
+#print "ccc:",pat[0].get_children()[1].get_children()[0].get_children()
+leg_items=pat[0].get_children()[1].get_children()[0].get_children()
+
+def legend_set(leg_item,onoff):
+    # find orig plot collection corresponding to the legend item line
+    ft=leg_map[leg_item]
+    item=data[ft][2]
+    if onoff==-1:
+        onoff = not item.get_visible()
+    item.set_visible(onoff)
+
+    dots,txts=leg_item.get_children()
+    dot=dots.get_children()[0]
+    txt=txts.get_children()[0]
+
+    if onoff:
+        txt.set_alpha(1.0)
+        dot.set_alpha(1.0)
+    else:
+        txt.set_alpha(0.2)
+        dot.set_alpha(0.2)
+
+leg_map=dict()
+for i, ft in enumerate(data):
+    # Make legend items pickable and save references to plot collection object
+    leg_items[i].set_picker(5)  # 5 pts tolerance
+    leg_map[leg_items[i]]=ft
+    if frames[ft][2]==0:
+        legend_set(leg_items[i],0)
+
+fig=plt.gcf()
+
+def onpick(event):
+    # on pick event toggle the visibility
+    x=event.artist
+    leg_item = event.artist
+    legend_set(event.artist,-1)
+    fig.canvas.draw()
+
+fig.canvas.mpl_connect('pick_event', onpick)
 
 #plt.colorbar()
 #plt.ylim([min_f, max_f])
@@ -80,7 +126,8 @@ for t in frames:
 #plt.ylim([1616e6, 1627e6])
 plt.ylim([1618e6, 1626.7e6])
 #plt.xlim([1618e6, 1626.7e6])
-#ax = plt.gca()
+ax = plt.gca()
+ax.set_title('Click on legend line to toggle line on/off')
 #ax.ticklabel_format(useOffset=False)
 #ax.set_axis_bgcolor('white')
 
@@ -88,6 +135,5 @@ plt.ylim([1618e6, 1626.7e6])
 plt.xlim([min_ts, max_ts])
 #plt.ylim([min_ts, max_ts])
 
-plt.legend()
 plt.show()
 
