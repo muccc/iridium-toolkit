@@ -844,6 +844,7 @@ class IridiumDAMessage(IridiumECCMessage):
             self.the_crc=the_crc
             self.crc_ok=(the_crc==0)
         else:
+            self.crc_ok=False
             self.da_ta=[int(x,2) for x in slice(self.bitstream_bch[20:11*20],8)]
 
         self.zero2=int(self.bitstream_bch[9*20+16:],2)
