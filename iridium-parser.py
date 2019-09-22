@@ -1195,7 +1195,8 @@ class IridiumMSMessage(IridiumECCMessage):
             raise ParserError("Not enough BCH blocks in header")
 
         if len(self.bitstream_messaging) < self.bch_blocks * 40:
-            self._new_error("Incorrect amount of data received. Need %d, got %d" % (self.bch_blocks * 40, len(self.bitstream_messaging)))
+            self._new_error("Incorrect amount of data received.")
+            self._new_error("Need %d, got %d" % (self.bch_blocks * 40, len(self.bitstream_messaging)))
 
         rest = self.bitstream_messaging[:self.bch_blocks * 40]
         self.oddbits = self.oddbits[:self.bch_blocks * 2]
