@@ -231,7 +231,7 @@ class ReassembleIDALAP(ReassembleIDA):
             return
         lapdm=data
         try:
-            olvl=10*math.log(level,10)
+            olvl=int(10*math.log(level,10))
         except:
             olvl=0
         if olvl>127:
