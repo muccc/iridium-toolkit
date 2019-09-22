@@ -32,6 +32,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'format=',
                                                          'errorfile=',
                                                          'errorstats',
+                                                         'forcetype=',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -57,6 +58,7 @@ plotargs=["time", "frequency"]
 vdumpfile=None
 errorfile=None
 errorstats=None
+forcetype=None
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
@@ -93,6 +95,8 @@ for opt, arg in options:
         errorfile=arg
     elif opt in ('--errorstats'):
         errorstats={}
+    elif opt in ('--forcetype'):
+        forcetype=arg
     elif opt in ('--format'):
         ofmt=arg.split(',');
     else:
@@ -303,7 +307,10 @@ class IridiumMessage(Message):
             if len(data)<64:
                 raise ParserError("Iridium message too short")
             else:
-                raise ParserError("unknown Iridium message type")
+                if forcetype == None:
+                    raise ParserError("unknown Iridium message type")
+                else:
+                    self.msgtype=forcetype
 
         if self.msgtype=="MS":
             hdrlen=32
