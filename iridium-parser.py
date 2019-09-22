@@ -382,6 +382,9 @@ class IridiumMessage(Message):
             (e3,self.lcw3,bch)= bch_repair( 41,o_lcw3)
             self.ft=int(self.lcw1,2) # Frame type
             if e1<0 or e2<0 or e3<0:
+                self._new_error("LCW decode failed")
+                self.header="LCW(%s %s/%02d E%d,%s %sx/%03d E%d,%s %s/%02d E%d)"%(o_lcw1[:3],o_lcw1[3:],ndivide(29,o_lcw1),e1,o_lcw2[:6],o_lcw2[6:],ndivide(465,o_lcw2+'0'),e2,o_lcw3[:21],o_lcw3[21:],ndivide(41,o_lcw3),e3)
+            else:
 # LCW:=xx[type] yyyy[code]
 # 0: maint
 #    6: geoloc
@@ -401,9 +404,6 @@ class IridiumMessage(Message):
 #    3: handoff resp. [cand[%c[0=P,1=S::0xb,1]], denied[0xc,1], ref[xd,1], slot[xf,2]+1, subband up[x11,5], subband down[x16,5], access[x1b,3]+1]
 #    *: reserved
 # 3: reserved
-                self._new_error("LCW decode failed")
-                self.header="LCW(%s %s/%02d E%d,%s %sx/%03d E%d,%s %s/%02d E%d)"%(o_lcw1[:3],o_lcw1[3:],ndivide(29,o_lcw1),e1,o_lcw2[:6],o_lcw2[6:],ndivide(465,o_lcw2+'0'),e2,o_lcw3[:21],o_lcw3[21:],ndivide(41,o_lcw3),e3)
-            else:
 #                self.header="LCW(%d,%s,%s E%d)"%(self.ft,self.lcw2,self.lcw3,e1+e2+e3)
                 self.lcw_ft=int(self.lcw2[:2],2)
                 self.lcw_code=int(self.lcw2[2:],2)
