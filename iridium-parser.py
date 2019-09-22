@@ -29,6 +29,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'filter=',
                                                          'voice-dump=',
                                                          'format=',
+                                                         'errorfile=',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -52,6 +53,7 @@ ofmt= None
 linefilter={ 'type': 'All', 'attr': None, 'check': None }
 plotargs=["time", "frequency"]
 vdumpfile=None
+errorfile=None
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
@@ -84,6 +86,8 @@ for opt, arg in options:
         input=arg
     elif opt in ('-o', '--output'):
         output=arg
+    elif opt in ('--errorfile'):
+        errorfile=arg
     elif opt in ('--format'):
         ofmt=arg.split(',');
     else:
@@ -99,6 +103,9 @@ if dosatclass == True:
 
 if vdumpfile != None:
     vdumpfile=open(vdumpfile,"wb")
+
+if errorfile != None:
+    errorfile=open(errorfile,"w")
 
 class ParserError(Exception):
     pass
@@ -122,6 +129,8 @@ class Message(object):
         self.error_msg=[]
         p=re.compile('(RAW|RWA): ([^ ]*) (\d+) (\d+) A:(\w+) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
         m=p.match(line)
+        if(errorfile != None):
+            self.line=line
         if(not m):
             self._new_error("Couldn't parse: "+line)
             self.parse_error=True
@@ -1403,6 +1412,10 @@ def perline(q):
         if("bitstream_messaging" in q.__dict__): del q.bitstream_messaging
         if("descrambled" in q.__dict__): del q.descrambled
         del q.descramble_extra
+    if q.error:
+        if errorfile != None:
+            print >>errorfile, q.line+" ERR:"+", ".join(q.error_msg)
+            return
     if perfect:
         if q.error or ("fixederrs" in q.__dict__ and q.fixederrs>0):
             return
