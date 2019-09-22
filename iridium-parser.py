@@ -365,9 +365,20 @@ class IridiumMessage(Message):
             lcwlen=46
             (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
             (e1,self.lcw1,bch)= bch_repair( 29,o_lcw1)
-            (e2,self.lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit error expected
-            if e2==1:
-                (e2,self.lcw2,bch)= bch_repair(465,o_lcw2+'1')  # Other bit flip?
+            (e2a,lcw2a,bch)= bch_repair(465,o_lcw2+'0')  # One bit error expected
+            (e2b,lcw2b,bch)= bch_repair(465,o_lcw2+'1')  # Other bit flip?
+            if e2b<0:
+                e2=e2a
+                self.lcw2=lcw2a
+            elif e2a<0:
+                e2=e2b
+                self.lcw2=lcw2b
+            elif e2a<e2b:
+                e2=e2a
+                self.lcw2=lcw2a
+            else:
+                e2=e2b
+                self.lcw2=lcw2b
             (e3,self.lcw3,bch)= bch_repair( 41,o_lcw3)
             self.ft=int(self.lcw1,2) # Frame type
             if e1<0 or e2<0 or e3<0:
