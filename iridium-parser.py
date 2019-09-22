@@ -12,6 +12,7 @@ import getopt
 import types
 import copy
 import datetime
+import collections
 from itertools import izip
 from math import sqrt,atan2,pi
 
@@ -30,6 +31,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'voice-dump=',
                                                          'format=',
                                                          'errorfile=',
+                                                         'errorstats',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -54,6 +56,7 @@ linefilter={ 'type': 'All', 'attr': None, 'check': None }
 plotargs=["time", "frequency"]
 vdumpfile=None
 errorfile=None
+errorstats=None
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
@@ -88,6 +91,8 @@ for opt, arg in options:
         output=arg
     elif opt in ('--errorfile'):
         errorfile=arg
+    elif opt in ('--errorstats'):
+        errorstats={}
     elif opt in ('--format'):
         ofmt=arg.split(',');
     else:
@@ -1413,6 +1418,12 @@ def perline(q):
         if("descrambled" in q.__dict__): del q.descrambled
         del q.descramble_extra
     if q.error:
+        if isinstance(errorstats, collections.Mapping):
+            msg=q.error_msg[0]
+            if(msg in errorstats):
+                errorstats[msg]+=1
+            else:
+                errorstats[msg]=1
         if errorfile != None:
             print >>errorfile, q.line+" ERR:"+", ".join(q.error_msg)
             return
@@ -1489,6 +1500,13 @@ if output == "sat":
         print "Sat: %02d"%s
         for m in selected:
             if m.satno == s: print m.pretty()
+
+if isinstance(errorstats, collections.Mapping):
+    total=0
+    for (msg,count) in sorted(errorstats.iteritems()):
+        total+=count
+        print >> sys.stderr, "%7d: %s"%(count, msg)
+    print >> sys.stderr, "%7d: %s"%(total, "Total")
 
 if output == "err":
     print "### "
