@@ -38,6 +38,8 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
 uplink_access= "110011000011110011111100" # BPSK: 0xc4b
+UW_DOWNLINK = [0,2,2,2,2,0,0,0,2,0,0,2]
+UW_UPLINK   = [2,2,0,0,0,2,0,0,2,0,2,2]
 iridium_lead_out="100101111010110110110011001111"
 header_messaging="00110011111100110011001111110011" # 0x9669 in BPSK
 messaging_bch_poly=1897
@@ -205,8 +207,25 @@ class Message(object):
         elif(self.bitstream_raw.startswith(uplink_access)):
             self.uplink=1
         else:
-            self._new_error("Access code missing")
-            return self
+            if harder:
+                access=[]
+                map=[0,1,3,2]
+                # back into bpsk symbols
+                for x in xrange(0,len(iridium_access)-1,2):
+                    access.append(map[int(self.bitstream_raw[x+0])*2 + int(self.bitstream_raw[x+1])])
+                # undo differential decoding
+                for c in xrange(1,len(access)-1):
+                    access[c]=(access[c-1]+access[c])%4
+
+                if bitdiff(access,UW_DOWNLINK) <4:
+                    self.uplink=0
+                elif bitdiff(access,UW_UPLINK) <4:
+                    self.uplink=1
+                else:
+                    self._new_error("Access code distance too big: %d/%d "%(bitdiff(access,UW_DOWNLINK),bitdiff(access,UW_UPLINK)))
+            if("uplink" not in self.__dict__):
+                self._new_error("Access code missing")
+                return self
         try:
             return IridiumMessage(self).upgrade()
         except ParserError,e:
@@ -1505,6 +1524,9 @@ def perline(q):
     else:
         print "Unknown output mode."
         exit(1)
+
+def bitdiff(a, b):
+    return len(filter ((lambda (x,y):x!=y),izip(a, b)))
 
 do_input(input)
 
