@@ -443,7 +443,7 @@ class IridiumMessage(Message):
                 return IridiumLCW3Message(self).upgrade()
             elif self.msgtype=="TL":
                 return IridiumSTLMessage(self).upgrade()
-            elif self.msgtype=="UK":
+            elif self.msgtype.startswith("U"):
                 return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
         except ParserError,e:
