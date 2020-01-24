@@ -426,6 +426,7 @@ class IridiumMessage(Message):
 #                self.header="LCW(%d,%s,%s E%d)"%(self.ft,self.lcw2,self.lcw3,e1+e2+e3)
                 self.lcw_ft=int(self.lcw2[:2],2)
                 self.lcw_code=int(self.lcw2[2:],2)
+                lcw3bits=self.lcw3
                 if self.lcw_ft == 0:
                     ty="maint"
                     if self.lcw_code == 6:
@@ -435,38 +436,44 @@ class IridiumMessage(Message):
                     elif self.lcw_code == 12:
                         code="maint[1]"
                         code+="[lqi:%d,power:%d]"%(int(self.lcw3[19:21],2),int(self.lcw3[16:19],2))
+                        lcw3bits="%s"%(self.lcw3[:16])
                     elif self.lcw_code == 0:
                         code="sync"
                         code+="[status:%d,dtoa:%d,dfoa:%d]"%(int(self.lcw3[1:2],2),int(self.lcw3[3:13],2),int(self.lcw3[13:21],2))
+                        lcw3bits="%s|%s"%(self.lcw3[0],self.lcw3[2])
                     elif self.lcw_code == 3:
                         code="maint[2]"
                         code+="[lqi:%d,power:%d,f_dtoa:%d,f_dfoa:%d]"%(int(self.lcw3[1:3],2),int(self.lcw3[3:6],2),int(self.lcw3[6:13],2),int(self.lcw3[13:20],2))
+                        lcw3bits="%s|%s"%(self.lcw3[0],self.lcw3[20:])
                     elif self.lcw_code == 1:
                         code="switch"
                         code+="[dtoa:%d,dfoa:%d]"%(int(self.lcw3[3:13],2),int(self.lcw3[13:21],2))
+                        lcw3bits="%s"%(self.lcw3[0:3])
                     else:
-                        code="rsrvd"
+                        code="rsrvd(%d)"%(self.lcw_code)
                 elif self.lcw_ft == 1:
                     ty="acchl"
                     if self.lcw_code == 1:
                         code="acchl"
                     else:
-                        code="rsrvd"
+                        code="rsrvd(%d)"%(self.lcw_code)
                 elif self.lcw_ft == 2:
                     ty="hndof"
                     if self.lcw_code == 12:
                         code="handoff_cand"
+                        lcw3bits="%03x,%03x,%s"%(int(self.lcw3[:11],2),int(self.lcw3[11:],2),lcw3bits)
                     elif self.lcw_code == 3:
                         code="handoff_resp"
-                        code+="[cand:%d,denied:%d,ref:%d,slot:%d,sband_up:%d,sband_dn:%d,access:%d]"%(int(self.lcw3[2:3],2),int(self.lcw3[3:4],2),int(self.lcw3[4:5],2),1+int(self.lcw3[6:8],2),int(self.lcw3[8:13],2),int(self.lcw3[13:18],2),1+int(self.lcw3[18:21],2))
+                        code+="[cand:%s,denied:%d,ref:%d,slot:%d,sband_up:%d,sband_dn:%d,access:%d]"%(['P','S'][int(self.lcw3[2:3],2)],int(self.lcw3[3:4],2),int(self.lcw3[4:5],2),1+int(self.lcw3[6:8],2),int(self.lcw3[8:13],2),int(self.lcw3[13:18],2),1+int(self.lcw3[18:21],2))
+                        lcw3bits="%s"%(self.lcw3[0:2])
                     elif self.lcw_code == 15:
                         code="<silent>"
                     else:
-                        code="rsrvd"
+                        code="rsrvd(%d)"%(self.lcw_code)
                 elif self.lcw_ft == 3:
                     ty="rsrvd"
-                    code="<>"
-                self.header="LCW(%d,T:%s,C:%s(%s),%s E%d)"%(self.ft,ty,code,int(self.lcw2,2),int(self.lcw3,2),e1+e2+e3)
+                    code="<%d>"%(self.lcw_code)
+                self.header="LCW(%d,T:%s,C:%s,%s E%d)"%(self.ft,ty,code,lcw3bits,e1+e2+e3)
                 self.header="%-110s "%self.header
             self.descrambled=[]
             self.payload_r=[]
