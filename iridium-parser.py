@@ -781,10 +781,19 @@ class IridiumIPMessage(IridiumMessage):
             self.crcval=crc24(bytearray([int(x,2) for x in self.descrambled]))
             if self.crcval==0:
                 self.itype="IIP"
-                self.ip_hdr=self.descrambled[0]
-                self.ip_ctr1=int(self.descrambled[1],2)
-                self.ip_uk1=self.descrambled[2]
-                self.ip_ctr2=int(self.descrambled[3],2)
+                self.ip_hdr=int(self.descrambled[0],2)
+                            #  106099 01: ACK / IDLE
+                            #  458499 04: Data
+                            #    2476 0b:
+                            #     504 0f:
+                            #     173 14:
+                            #    1477 11:
+                self.ip_seq=int(self.descrambled[1],2)
+                self.ip_ack=int(self.descrambled[2],2)
+                self.ip_cs= int(self.descrambled[3],2)
+                self.ip_cs_ok=self.ip_hdr+self.ip_seq+self.ip_ack+self.ip_cs
+                while (self.ip_cs_ok>255):
+                    self.ip_cs_ok-=255
                 self.ip_len= int(self.descrambled[4],2)
                 if self.ip_len>31:
                     #self._new_error("Invalid ip_len")
@@ -802,7 +811,7 @@ class IridiumIPMessage(IridiumMessage):
     def pretty(self):
         s= self.itype+": "+self._pretty_header()
         if self.itype=="IIP":
-            s+= " %s c1=%03d %s c2=%03d len=%03d"%(self.ip_hdr,self.ip_ctr1,self.ip_uk1,self.ip_ctr2,self.ip_len)
+            s+= " type:%02x seq=%03d ack=%03d cs=%03d/%s len=%03d"%(self.ip_hdr,self.ip_seq,self.ip_ack,self.ip_cs,["no","OK"][(self.ip_cs_ok==255)],self.ip_len)
             s+= " ["+".".join(["%02x"%x for x in self.ip_data])+"]"
             s+= " %06x/%06x"%(int("".join(self.ip_cksum),2),self.crcval)
             s+=" FCS:OK"
