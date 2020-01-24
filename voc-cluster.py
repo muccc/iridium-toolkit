@@ -32,13 +32,13 @@ for line in open(sys.argv[1]):
             calls.insert(0,[frame])
 
 call_id = 0
-for call in calls:
+for call in calls[::-1]:
     if abs(call[0].ts - call[-1].ts) < 1: 
         continue
 
     samples = [frame.line for frame in call]
 
-    filename = "call-%d.parsed" % call_id
+    filename = "call-%04d.parsed" % call_id
     open(filename, "w").writelines(samples)
     is_voice = os.system('check-sample ' + filename) == 0
 
