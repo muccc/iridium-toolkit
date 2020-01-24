@@ -475,7 +475,7 @@ class IridiumMessage(Message):
 
             if self.ft<=3 and len(data)<312:
                     self._new_error("Not enough data in data packet")
-            if self.ft==0: # Voice
+            if self.ft==0: # Voice - Mission data - voice
                 self.msgtype="VO"
                 for x in slice(data[:312],8):
                     self.descrambled+=[x]
@@ -483,12 +483,12 @@ class IridiumMessage(Message):
                     self.payload_r+=[int(x[::-1],2)]
                 self.payload_6=[int(x,2) for x in slice(data[:312], 6)]
                 self.descramble_extra=data[312:]
-            elif self.ft==1: # IP via PPP
+            elif self.ft==1: # IP via PPP - Mission data - data
                 self.msgtype="IP"
                 for x in slice(data[:312],8):
                     self.descrambled+=[x[::-1]]
                 self.descramble_extra=data[312:]
-            elif self.ft==2: # DAta (SBD)
+            elif self.ft==2: # DAta (SBD) - Mission control data - ISU/SV
                 self.descramble_extra=data[124*2+64:]
                 data=data[:124*2+64]
                 blocks=slice(data,124)
@@ -504,10 +504,14 @@ class IridiumMessage(Message):
                 self.descrambled=data[:312]
                 self.sync=[int(x,2) for x in slice(self.descrambled, 8)]
                 self.descramble_extra=data[312:]
-            elif self.ft==3: # Unknown data
+            elif self.ft==3: # Mission control data - inband sig
                 self.msgtype="U3"
                 self.descrambled=data[:312]
                 self.payload=[int(x,2) for x in slice(self.descrambled, 6)]
+                self.descramble_extra=data[312:]
+            elif self.ft==6: # "PT=,"
+                self.msgtype="U6"
+                self.descrambled=data[:312]
                 self.descramble_extra=data[312:]
             else: # Need to check what other ft are
                 self.msgtype="U%d"%self.ft
