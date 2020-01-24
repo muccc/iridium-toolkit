@@ -1027,14 +1027,14 @@ class IridiumBCMessage(IridiumECCMessage):
             self.sv_id = int(data1[0:7], 2)
             self.beam_id = int(data1[7:13], 2)
             self.unknown01 = data1[13:14]
-            self.timeslot = int(data1[14:15], 2)
-            self.sv_blocking = int(data1[15:16], 2)
+            self.slot = int(data1[14:15], 2) # previously: timeslot
+            self.sv_blocking = int(data1[15:16], 2) # aka: Acq
             self.acqu_classes = data1[16:21] + data2[0:11]
             self.acqu_subband = int(data2[11:16], 2)
             self.acqu_channels = int(data2[16:19], 2)
             self.unknown02 = data2[19:21]
 
-            self.readable += 'sat:%02d cell:%02d %s ts:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.timeslot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
+            self.readable += 'sat:%02d cell:%02d %s slot:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.slot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
 
             blocks = blocks[2:]
 
@@ -1074,15 +1074,15 @@ class IridiumBCMessage(IridiumECCMessage):
             if(data1 + data2 != '111000000000000000000000000000000000000000'):
                 # Channel Assignment
                 unknown1 = data1[0:3]
-                unknown2 = data1[3:11]
-                timeslot = int(data1[11:13], 2)
+                random_id = int(data1[3:11], 2)
+                timeslot = 1+int(data1[11:13], 2)
                 uplink_subband = int(data1[13:18], 2)
                 downlink_subband = int(data1[18:21] + data2[0:2], 2)
-                unknown3 = data2[2:5]
+                access = 1+int(data2[2:5], 2)
                 dtoa = int(data2[5:13], 2)
                 dfoa = int(data2[13:19], 2)
                 unknown4 = data2[19:21]
-                result = ' %s %s ts:%d ul_sb:%02d dl_sb:%02d %s dtoa:%03d dfoa:%02d %s' % (unknown1, unknown2, timeslot, uplink_subband, downlink_subband, unknown3, dtoa, dfoa, unknown4)
+                result = ' %s Rid:%d ts:%d ul_sb:%02d dl_sb:%02d access:%d dtoa:%03d dfoa:%02d %s' % (unknown1, random_id, timeslot, uplink_subband, downlink_subband, access, dtoa, dfoa, unknown4)
             return result
 
         while len(blocks) > 1:
