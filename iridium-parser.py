@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # vim: set ts=4 sw=4 tw=0 et pm=:
+from __future__ import print_function
 import sys
 import re
 import struct
@@ -191,7 +192,7 @@ class Message(object):
             self.globaltime=ts
             return
         if not tswarning:
-            print "Warning: no timestamp found in filename"
+            print("Warning: no timestamp found in filename")
             tswarning=True
         ts=tsoffset+float(self.timestamp)/1000
         if ts<maxts:
@@ -1475,7 +1476,7 @@ def do_input(type):
         except EOFError:
             pass
     else:
-        print "Unknown input mode."
+        print("Unknown input mode.")
         exit(1)
 
 def perline(q):
@@ -1497,7 +1498,7 @@ def perline(q):
             else:
                 errorstats[msg]=1
         if errorfile != None:
-            print >>errorfile, q.line+" ERR:"+", ".join(q.error_msg)
+            print(q.line+" ERR:"+", ".join(q.error_msg), file=errorfile)
             return
     if perfect:
         if q.error or ("fixederrs" in q.__dict__ and q.fixederrs>0):
@@ -1534,16 +1535,16 @@ def perline(q):
         selected.append(q)
     elif output == "line":
         if (q.error):
-            print q.pretty()+" ERR:"+", ".join(q.error_msg)
+            print(q.pretty()+" ERR:"+", ".join(q.error_msg))
         else:
             if not ofmt:
-                print q.pretty()
+                print(q.pretty())
             else:
-                print " ".join([str(q.__dict__[x]) for x in ofmt])
+                print(" ".join([str(q.__dict__[x]) for x in ofmt]))
     elif output == "rxstats":
-        print "RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__
+        print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
     else:
-        print "Unknown output mode."
+        print("Unknown output mode.")
         exit(1)
 
 def bitdiff(a, b):
@@ -1552,7 +1553,7 @@ def bitdiff(a, b):
 do_input(input)
 
 if output == "sat":
-    print "SATs:"
+    print("SATs:")
     sats=[]
     for m in selected:
         f=m.frequency
@@ -1572,21 +1573,21 @@ if output == "sat":
             m.fdiff=0
         m.satno=no
     for s in xrange(len(sats)):
-        print "Sat: %02d"%s
+        print("Sat: %02d"%s)
         for m in selected:
-            if m.satno == s: print m.pretty()
+            if m.satno == s: print(m.pretty())
 
 if isinstance(errorstats, collections.Mapping):
     total=0
     for (msg,count) in sorted(errorstats.iteritems()):
         total+=count
-        print >> sys.stderr, "%7d: %s"%(count, msg)
-    print >> sys.stderr, "%7d: %s"%(total, "Total")
+        print("%7d: %s"%(count, msg), file=sys.stderr)
+    print("%7d: %s"%(total, "Total"), file=sys.stderr)
 
 if output == "err":
-    print "### "
-    print "### Error listing:"
-    print "### "
+    print("### ")
+    print("### Error listing:")
+    print("### ")
     sort={}
     for m in selected:
         msg=m.error_msg[0]
@@ -1595,9 +1596,9 @@ if output == "err":
         else:
             sort[msg]=[m]
     for msg in sort:
-        print msg+":"
+        print(msg+":")
         for m in sort[msg]:
-            print "- "+m.pretty()
+            print("- "+m.pretty())
 
 if output == "msg":
     buf={}
@@ -1617,7 +1618,7 @@ if output == "msg":
         ts=m.globaltime
         if id in buf:
             if buf[id].msg_checksum != m.msg_checksum:
-                print "Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%(id,buf[id].globaltime,buf[id].msg_checksum,m.globaltime,m.msg_checksum)
+                print("Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%(id,buf[id].globaltime,buf[id].msg_checksum,m.globaltime,m.msg_checksum))
                 # "Wrap around" to not miss the changed packet.
                 ricseq[m.msg_ric][0]+=62
                 id="%07d[%03d]"%(m.msg_ric,(m.msg_seq+ricseq[m.msg_ric][0]))
@@ -1636,7 +1637,7 @@ if output == "msg":
         str+= " %3d"%buf[b].msg_checksum
         str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
         str+= ": %s"%(msg)
-        print str
+        print(str)
 
 def plotsats(plt, _s, _e):
     for ts in range(int(_s),int(_e),10):
@@ -1693,4 +1694,4 @@ def objprint(q):
             continue
         if isinstance(attr, types.MethodType):
             continue
-        print "%s: %s"%(i,attr)
+        print("%s: %s"%(i,attr))
