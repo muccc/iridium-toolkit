@@ -228,7 +228,7 @@ class Message(object):
                 return self
         try:
             return IridiumMessage(self).upgrade()
-        except ParserError,e:
+        except ParserError as e:
             self._new_error(str(e))
             return self
     def _new_error(self,msg):
@@ -546,7 +546,7 @@ class IridiumMessage(Message):
             elif self.msgtype.startswith("U"):
                 return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
-        except ParserError,e:
+        except ParserError as e:
             self._new_error(str(e))
             return self
         return self
@@ -889,7 +889,7 @@ class IridiumECCMessage(IridiumMessage):
                 return IridiumDAMessage(self).upgrade()
             else:
                 self._new_error("Unknown message type")
-        except ParserError,e:
+        except ParserError as e:
             self._new_error(str(e))
             return self
         return self
@@ -969,7 +969,7 @@ class IridiumDAMessage(IridiumECCMessage):
         if self.error: return self
         try:
             return self
-        except ParserError,e:
+        except ParserError as e:
             self._new_error(str(e))
             return self
         return self
@@ -1105,7 +1105,7 @@ class IridiumBCMessage(IridiumECCMessage):
         if self.error: return self
         try:
             return self
-        except ParserError,e:
+        except ParserError as e:
             self._new_error(str(e))
             return self
         return self
@@ -1165,7 +1165,7 @@ class IridiumRAMessage(IridiumECCMessage):
         if self.error: return self
         try:
             return self
-        except ParserError,e:
+        except ParserError as e:
             self._new_error(str(e))
             return self
         return self
@@ -1276,7 +1276,7 @@ class IridiumMSMessage(IridiumECCMessage):
                     return IridiumMessagingUnknown(self).upgrade()
                 else:
                     self._new_error("unknown msg_format")
-        except ParserError,e:
+        except ParserError as e:
             self._new_error(str(e))
             return self
         return self
