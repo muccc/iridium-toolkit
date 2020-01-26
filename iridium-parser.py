@@ -1740,7 +1740,7 @@ def perline(q):
         exit(1)
 
 def bitdiff(a, b):
-    return len(filter ((lambda (x,y):x!=y),izip(a, b)))
+    return sum(x != y for x, y in zip(a, b))
 
 do_input(input)
 
