@@ -192,7 +192,7 @@ class Message(object):
             self.globaltime=ts
             return
         if not tswarning:
-            print("Warning: no timestamp found in filename")
+            print("Warning: no timestamp found in filename", file=sys.stderr)
             tswarning=True
         ts=tsoffset+float(self.timestamp)/1000
         if ts<maxts:
@@ -1476,7 +1476,7 @@ def do_input(type):
         except EOFError:
             pass
     else:
-        print("Unknown input mode.")
+        print("Unknown input mode.", file=sys.stderr)
         exit(1)
 
 def perline(q):
@@ -1544,7 +1544,7 @@ def perline(q):
     elif output == "rxstats":
         print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
     else:
-        print("Unknown output mode.")
+        print("Unknown output mode.", file=sys.stderr)
         exit(1)
 
 def bitdiff(a, b):
