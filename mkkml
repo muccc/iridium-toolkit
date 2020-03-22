@@ -255,6 +255,8 @@ sub print_track{
 	my $s=shift;
 	for my $st (@{$s}){
 		print "<gx:Track>\n";
+		print emit( altitudeMode => "absolute" );
+#		print emit( extrude => 1 );
 		for my $p (@{$st}){
 			my ($x,$y,$h,$t)=@{$p};
 			print emit("when", strftime("%Y-%m-%dT%H:%M:%SZ",localtime($t)));
@@ -278,7 +280,6 @@ sub do_tracks{
 		print emit( name => "S$id" );
 		print emit( description => "Satellite $id track" );
 		print "<gx:MultiTrack>\n";
-		print emit( altitudeMode => "absolute" );
 		print_track($ref->{$id});
 		print "</gx:MultiTrack>\n";
 		print "</Placemark>\n";
@@ -302,7 +303,6 @@ sub do_beams{
 			print emit( name => "S$sid B$bid" );
 			print emit( description => "Satellite $sid Beam $bid track" );
 			print "<gx:MultiTrack>\n";
-			print emit( altitudeMode => "absolute" );
 			print_track($ref->{$sid}{$bid});
 			print "</gx:MultiTrack>\n";
 			print "</Placemark>\n";
