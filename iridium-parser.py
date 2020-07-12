@@ -1046,7 +1046,7 @@ class IridiumBCMessage(IridiumECCMessage):
             self.acqu_channels = int(data2[16:19], 2)
             self.unknown02 = data2[19:21]
 
-            self.readable += 'sat:%02d cell:%02d %s slot:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.slot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
+            self.readable += 'sat:%03d cell:%02d %s slot:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.slot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
 
             blocks = blocks[2:]
 
@@ -1177,7 +1177,7 @@ class IridiumRAMessage(IridiumECCMessage):
         return super(IridiumRAMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IRA: "+self._pretty_header()
-        str+= " sat:%02d"%self.ra_sat
+        str+= " sat:%03d"%self.ra_sat
         str+= " beam:%02d"%self.ra_cell
 #        str+= " aps=(%04d,%04d,%04d)"%(self.ra_pos_x,self.ra_pos_y,self.ra_pos_z)
         str+= " pos=(%+06.2f/%+07.2f)"%(self.ra_lat,self.ra_lon)
@@ -1574,7 +1574,7 @@ if output == "sat":
             m.fdiff=0
         m.satno=no
     for s in xrange(len(sats)):
-        print("Sat: %02d"%s)
+        print("Sat: %03d"%s)
         for m in selected:
             if m.satno == s: print(m.pretty())
 
