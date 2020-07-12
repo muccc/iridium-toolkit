@@ -143,6 +143,7 @@ class Message(object):
         self.parse_error=False
         self.error=False
         self.error_msg=[]
+        self.lineno=fileinput.lineno()
         p=re.compile('(RAW|RWA): ([^ ]*) (\d+) (\d+) A:(\w+) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
         m=p.match(line)
         if(errorfile != None):
