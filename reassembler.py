@@ -331,8 +331,8 @@ class ReassembleIRA(Reassemble):
             else:
                 q.sat=  int(m.group(1))
                 q.beam= int(m.group(2))
-                q.posx= m.group(3)
-                q.posy= m.group(4)
+                q.lat=float(m.group(3))
+                q.lon=float(m.group(4))
                 q.alt=  int(m.group(5))
                 p=re.compile('PAGE\(tmsi:([0-9a-f]+) msc_id:([0-9]+)\)')
                 q.pages=p.findall(m.group(6))
