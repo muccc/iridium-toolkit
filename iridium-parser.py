@@ -1541,6 +1541,8 @@ def perline(q):
             if not ofmt:
                 print(q.pretty())
             else:
+                q.globaltime="%.3f"%(q.globaltime)
+                q.iri_time_diff="%.3f"%(q.iri_time_diff)
                 print(" ".join([str(q.__dict__[x]) for x in ofmt]))
     elif output == "rxstats":
         print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
