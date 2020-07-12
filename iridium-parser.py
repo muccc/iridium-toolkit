@@ -1068,7 +1068,7 @@ class IridiumBCMessage(IridiumECCMessage):
                 # 1996-06-01T00:00:11Z :  833587211 the original one
                 self.iri_time_ux = float(self.iri_time)*90/1000+1399818235
                 self.iri_time_diff = self.iri_time_ux-self.globaltime
-                self.readable += ' %s time:%sZ' % (self.unknown21, datetime.datetime.fromtimestamp(self.iri_time_ux,tz=Z).strftime("%Y-%m-%dT%H:%M:%S"))
+                self.readable += ' %s time:%sZ' % (self.unknown21, datetime.datetime.fromtimestamp(self.iri_time_ux,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}".format((self.iri_time_ux%1)*100)))
             elif self.type == 2:
                 self.unknown31 = data1[6:10]
                 self.tmsi_expiry = int(data1[10:21] + data2[0:21], 2)
