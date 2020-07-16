@@ -5,6 +5,5 @@
 *.swp
 *.swo
 .mailmap
-tracking/iridium.txt
 epochseconds
 __pycache__
