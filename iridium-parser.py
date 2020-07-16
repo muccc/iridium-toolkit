@@ -144,7 +144,7 @@ class Message(object):
         self.error=False
         self.error_msg=[]
         self.lineno=fileinput.lineno()
-        p=re.compile('(RAW|RWA): ([^ ]*) (\d+) (\d+) A:(\w+) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
+        p=re.compile('(RAW|RWA): ([^ ]*) ([\d.]+) (\d+) A:(\w+) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
         m=p.match(line)
         if(errorfile != None):
             self.line=line
@@ -156,7 +156,7 @@ class Message(object):
         self.filename=m.group(2)
         if self.filename=="/dev/stdin":
             self.filename="-";
-        self.timestamp=int(m.group(3))
+        self.timestamp=float(m.group(3))
         self.frequency=int(m.group(4))
 #        self.access_ok=(m.group(5)=="OK")
 #        self.leadout_ok=(m.group(6)=="OK")
@@ -239,7 +239,7 @@ class Message(object):
         if not self.error_msg or self.error_msg[-1] != msg:
             self.error_msg.append(msg)
     def _pretty_header(self):
-        return "%s %09d %010d %3d%% %7.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
+        return "%s %013.3f %010d %3d%% %7.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
     def _pretty_trailer(self):
         return ""
     def pretty(self):
@@ -1541,8 +1541,8 @@ def perline(q):
             if not ofmt:
                 print(q.pretty())
             else:
-                q.globaltime="%.3f"%(q.globaltime)
-                q.iri_time_diff="%.3f"%(q.iri_time_diff)
+                q.globaltime="%.6f"%(q.globaltime)
+                q.iri_time_diff="%.6f"%(q.iri_time_diff)
                 print(" ".join([str(q.__dict__[x]) for x in ofmt]))
     elif output == "rxstats":
         print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
