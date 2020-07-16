@@ -1,0 +1,5 @@
+#!/bin/sh
+vod-stitcher.py $1 /tmp/voice.dfs
+ir77_ambe_decode /tmp/voice.dfs /tmp/voice.wav
+ambe -w /tmp/voice.dfs
+mplayer /tmp/voice.wav
