@@ -1,5 +1,10 @@
+DATE=`date -Iseconds`
+
 rm iridium.txt
 wget http://www.celestrak.com/NORAD/elements/iridium.txt
-DATE=`date -Iseconds`
 cp iridium.txt tle/iridium-$DATE.txt
+
+rm iridium-NEXT.txt
+wget http://www.celestrak.com/NORAD/elements/iridium-NEXT.txt
+cp iridium-NEXT.txt tle/iridium-NEXT-$DATE.txt
 
