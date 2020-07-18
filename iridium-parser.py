@@ -1542,7 +1542,7 @@ def perline(q):
                 print(q.pretty())
             else:
                 q.globaltime="%.6f"%(q.globaltime)
-                q.iri_time_diff="%.6f"%(q.iri_time_diff)
+                if( "iri_time_diff" in q.__dict__): q.iri_time_diff="%.6f"%(q.iri_time_diff)
                 print(" ".join([str(q.__dict__[x]) for x in ofmt]))
     elif output == "rxstats":
         print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
