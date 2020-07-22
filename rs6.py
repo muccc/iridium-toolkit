@@ -23,6 +23,6 @@ def rs_fix(data):
 	r=range(len(data)-elen,len(data))
 	try:
 		(cmsg,crs)=reedsolo6.rs_correct_msg(data,nsym,fcr,generator,r)
-	except:
+	except reedsolo6.ReedSolomonError:
 		return (False,None,None)
 	return (True,cmsg,crs)
