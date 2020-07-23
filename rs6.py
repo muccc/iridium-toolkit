@@ -25,4 +25,6 @@ def rs_fix(data):
 		(cmsg,crs)=reedsolo6.rs_correct_msg(data,nsym,fcr,generator,r)
 	except reedsolo6.ReedSolomonError:
 		return (False,None,None)
+	except ZeroDivisionError:
+		return (False,None,None)
 	return (True,cmsg,crs)
