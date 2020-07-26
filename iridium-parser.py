@@ -251,8 +251,10 @@ class Message(object):
 
                 if bitdiff(access,UW_DOWNLINK) <4:
                     self.uplink=0
+                    self.ec_uw=bitdiff(access,UW_DOWNLINK)
                 elif bitdiff(access,UW_UPLINK) <4:
                     self.uplink=1
+                    self.ec_uw=bitdiff(access,UW_UPLINK)
                 else:
                     self._new_error("Access code distance too big: %d/%d "%(bitdiff(access,UW_DOWNLINK),bitdiff(access,UW_UPLINK)))
             if("uplink" not in self.__dict__):
@@ -344,8 +346,13 @@ class IridiumMessage(Message):
                     (e2b,lcw2,bch)=bch_repair(465,o_lcw2+'1')
                     (e3 ,lcw3,bch)=bch_repair( 41,o_lcw3)     # BCH(26,21)
 
-                    if e1>=0 and (e2a>=0 or e2b>=0) and e3>=0:
+                    e2=e2a
+                    if (e2b>=0 and e2b<e2a) or (e2a<0):
+                        e2=e2b
+
+                    if e1>=0 and e2>=0 and e3>=0:
                         self.msgtype="DA"
+                        self.ec_lcw=(e1+e2+e3)
                 else:
                     (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
                     if ndivide( 29,o_lcw1)==0:
