@@ -66,7 +66,7 @@ def fixtime(n,t):
         (crap,ts,fnord)=n.split("-",3)
         return (float(ts)+int(t)/1000)
     except:
-        return int(t)/1000
+        return float(t)/1000
 
 class MyObject(object):
     pass
@@ -92,7 +92,7 @@ class Reassemble(object):
             q=MyObject()
             q.typ,q.name,q.time,q.frequency,q.confidence,q.level,q.symbols,q.uldl,q.data=line.split(None,8)
             q.frequency=int(q.frequency)
-            q.time=int(q.time)
+            q.time=float(q.time)
             q.level=float(q.level)
             return q
         except:

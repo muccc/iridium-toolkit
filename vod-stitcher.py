@@ -62,7 +62,7 @@ for line in fileinput.input(infile):
     if line[0] == 'VOD:':
         if int(line[6]) < 179:
             continue
-        ts = int(line[2])
+        ts = float(line[2])
         data = line[10]
         content=bytearray()
         for pos in xrange(1,len(data),3):

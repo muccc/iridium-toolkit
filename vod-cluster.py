@@ -16,7 +16,7 @@ calls = []
 for line in open(sys.argv[1]):
     if 'VOD: ' in line:
         sl = line.split()
-        ts = int(sl[2])/1000. # seconds
+        ts = float(sl[2])/1000. # seconds
         f = int(sl[3])/1000. # kHz
         frame = Frame(f, 0, ts, line)
 

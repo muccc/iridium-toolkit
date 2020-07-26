@@ -24,7 +24,7 @@ def filter_voc(t_start = None, t_stop = None, f_min = None, f_max = None):
             oknok=['red','orange','green'][oknok]
             #ts_base = int(line[1].split('-')[1].split('.')[0])
             ts_base = 0
-            ts = ts_base + int(line_split[2])/1000.
+            ts = ts_base + float(line_split[2])/1000.
             f = int(line_split[3])/1000.
             if ((not t_start or t_start <= ts) and
                     (not t_stop or ts <= t_stop) and
