@@ -20,6 +20,7 @@ from math import sqrt,atan2,pi
 options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'verbose',
                                                          'good',
+                                                         'uw-ec',
                                                          'harder',
                                                          'confidence=',
                                                          'input=',
@@ -58,6 +59,7 @@ perfect = False
 errorfree = False
 interesting = False
 good = False
+uwec = False
 harder = False
 dosatclass = False
 input= "raw"
@@ -78,6 +80,8 @@ for opt, arg in options:
     elif opt in ('-g','--good'):
         good = True
         min_confidence=90
+    elif opt in ('--uw-ec'):
+        uwec = True
     elif opt in ('--harder'):
         harder = True
     elif opt in ('--confidence'):
@@ -239,7 +243,7 @@ class Message(object):
         elif(self.bitstream_raw.startswith(uplink_access)):
             self.uplink=1
         else:
-            if harder:
+            if uwec:
                 access=[]
                 map=[0,1,3,2]
                 # back into bpsk symbols
