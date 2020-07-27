@@ -304,10 +304,10 @@ class IridiumMessage(Message):
             if len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
                 if harder:
                     (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
-                    (e1 ,lcw1,bch)=bch_repair( 29,o_lcw1)
-                    (e2a,lcw2,bch)=bch_repair(465,o_lcw3+'0')
-                    (e2b,lcw2,bch)=bch_repair(465,o_lcw3+'1')
-                    (e3 ,lcw3,bch)=bch_repair( 41,o_lcw2)
+                    (e1 ,lcw1,bch)=bch_repair( 29,o_lcw1)     # BCH(7,3)
+                    (e2a,lcw2,bch)=bch_repair(465,o_lcw2+'0') # BCH(13,16)
+                    (e2b,lcw2,bch)=bch_repair(465,o_lcw2+'1')
+                    (e3 ,lcw3,bch)=bch_repair( 41,o_lcw3)     # BCH(26,21)
 
                     if e1>=0 and (e2a>=0 or e2b>=0) and e3>=0:
                         self.msgtype="DA"
