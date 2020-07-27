@@ -272,6 +272,23 @@ class Message(object):
             self.error_msg.append(msg)
     def _pretty_header(self):
         flags=""
+        if uwec:
+            if("ec_uw" in self.__dict__):
+                flags+="-UW:%d"%self.ec_uw
+            else:
+                flags+="-UW:0"
+
+        if harder:
+            if("ec_lcw" in self.__dict__):
+                flags+="-LCW:%s"%self.ec_lcw
+            else:
+                flags+="-LCW:0"
+
+        if not perfect:
+            if("fixederrs" in self.__dict__ and self.fixederrs>0):
+                flags+="-FIX:%d"%self.fixederrs
+            else:
+                flags+="-FIX:0"
         if globaltime:
             hdr="j%s %16.6f"%(flags,self.globaltime)
         else:
