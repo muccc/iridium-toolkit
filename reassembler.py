@@ -92,6 +92,7 @@ class Reassemble(object):
             q=MyObject()
             q.typ,q.name,q.time,q.frequency,q.confidence,q.level,q.symbols,q.uldl,q.data=line.split(None,8)
             q.frequency=int(q.frequency)
+            q.confidence=int(q.confidence.strip("%"))
             q.time=float(q.time)
             q.level=float(q.level)
             return q
@@ -101,6 +102,56 @@ class Reassemble(object):
 
     def end(self):
         print "Kept %d/%d (%3.1f%%) lines"%(self.stat_filter,self.stat_line,100.0*self.stat_filter/self.stat_line)
+
+class ReassemblePPM(Reassemble):
+    qqq=None
+    def __init__(self):
+        pass
+
+    r1=re.compile('.* slot:(\d)')
+    r2=re.compile('.* time:([0-9:T-]+(\.\d+)?)Z')
+
+    def filter(self,line):
+        q=super(ReassemblePPM,self).filter(line)
+        if q==None: return None
+        if q.typ!="IBC:": return None
+        if q.confidence<95: return None
+
+
+        m=self.r1.match(q.data)
+        if not m: return
+        q.slot=int(m.group(1))
+
+        m=self.r2.match(q.data)
+        if not m: return
+        if m.group(2):
+            q.itime = datetime.datetime.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S.%f')
+        else:
+            q.itime = datetime.datetime.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S')
+        return q
+
+    def process(self,q):
+        q.globaltime=fixtime(q.name,q.time)
+        q.uxtime=datetime.datetime.utcfromtimestamp(q.globaltime)
+
+        # correct for slot
+        q.itime+=datetime.timedelta(seconds=q.slot*(3 * float(8.28 + 0.1))/1000)
+
+        q.timediff=q.uxtime-q.itime # missing correction for sat travel time
+
+        return [[q.timediff.total_seconds(),q.itime]]
+
+    ini=None
+    fin=None
+    def consume(self,to):
+        if self.ini is None:
+            self.ini=to
+        self.fin=to
+
+    def end(self):
+        ppm=(self.fin[0]-self.ini[0])/(self.fin[1]-self.ini[1]).total_seconds()*1000000
+        print "rec.ppm %.3f"%(ppm)
+        gt=(self.fin[1]-self.ini[1]).total_seconds()
 
 class ReassembleIDA(Reassemble):
     def __init__(self):
@@ -399,5 +450,7 @@ elif mode == "page":
     zx=ReassembleIRA()
 elif mode == "msg":
     zx=ReassembleMSG()
+elif mode == "ppm":
+    zx=ReassemblePPM()
 
 zx.run(fileinput.input(ifile))
