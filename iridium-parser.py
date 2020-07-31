@@ -686,13 +686,7 @@ class IridiumVOMessage(IridiumMessage):
         self.crcval=crc24(bytearray(self.payload_r))
         if self.crcval==0:
             self.vtype="VDA"
-            self.crc=struct.unpack(">L",bytearray([0]+self.payload_r[-3:]))
-            self.vdata=self.payload_r[5:-3]
-            self.vstype=self.payload_r[0]
-            self.vctr1=self.payload_r[1]
-            self.vuk1 =self.payload_r[2]
-            self.vctr2=self.payload_r[3]
-            self.vlen =self.payload_r[4]
+            return
         else:
             (ok,msg,csum)=rs6.rs_fix(self.payload_6)
             self.rs6p=False
@@ -714,6 +708,10 @@ class IridiumVOMessage(IridiumMessage):
                 self.vdata=self.payload_f
 
     def upgrade(self):
+        if self.vtype=="VDA":
+            new= IridiumIPMessage(self).upgrade()
+            new.itype="VDA"
+            return new
         return self
     def _pretty_header(self):
         return super(IridiumVOMessage,self)._pretty_header()
@@ -814,7 +812,7 @@ class IridiumIPMessage(IridiumMessage):
         return super(IridiumIPMessage,self)._pretty_trailer()
     def pretty(self):
         s= self.itype+": "+self._pretty_header()
-        if self.itype=="IIP":
+        if self.itype=="IIP" or self.itype=="VDA":
             s+= " type:%02x seq=%03d ack=%03d cs=%03d/%s len=%03d"%(self.ip_hdr,self.ip_seq,self.ip_ack,self.ip_cs,["no","OK"][(self.ip_cs_ok==255)],self.ip_len)
             s+= " ["+".".join(["%02x"%x for x in self.ip_data])+"]"
             s+= " %06x/%06x"%(self.ip_cksum,self.crcval)
