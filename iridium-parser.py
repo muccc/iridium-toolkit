@@ -497,6 +497,8 @@ class IridiumMessage(Message):
                 self.msgtype="IP"
                 for x in slice(data[:312],8):
                     self.descrambled+=[x[::-1]]
+                    self.payload_f+=[int(x,2)]
+                    self.payload_r+=[int(x[::-1],2)]
                 self.descramble_extra=data[312:]
             elif self.ft==2: # DAta (SBD) - Mission control data - ISU/SV
                 self.descramble_extra=data[124*2+64:]
@@ -756,7 +758,6 @@ class IridiumVOMessage(IridiumMessage):
 class IridiumIPMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        self.payload_f=[int(x[::-1],2) for x in self.descrambled]
         (ok,msg,rsc)=rs.rs_fix(self.payload_f)
         if ok:
             self.itype="IIQ"
@@ -781,28 +782,28 @@ class IridiumIPMessage(IridiumMessage):
                self.itype="IIR"
                self.idata=self.idata[0:-2]
         else:
-            self.crcval=crc24(bytearray([int(x,2) for x in self.descrambled]))
+            self.crcval=crc24(bytearray(self.payload_r))
             if self.crcval==0:
                 self.itype="IIP"
-                self.ip_hdr=int(self.descrambled[0],2)
+                self.ip_hdr=self.payload_r[0]
                             #  106099 01: ACK / IDLE
                             #  458499 04: Data
                             #    2476 0b:
                             #     504 0f:
                             #     173 14:
                             #    1477 11:
-                self.ip_seq=int(self.descrambled[1],2)
-                self.ip_ack=int(self.descrambled[2],2)
-                self.ip_cs= int(self.descrambled[3],2)
+                self.ip_seq=self.payload_r[1]
+                self.ip_ack=self.payload_r[2]
+                self.ip_cs= self.payload_r[3]
                 self.ip_cs_ok=self.ip_hdr+self.ip_seq+self.ip_ack+self.ip_cs
                 while (self.ip_cs_ok>255):
                     self.ip_cs_ok-=255
-                self.ip_len= int(self.descrambled[4],2)
+                self.ip_len= self.payload_r[4]
                 if self.ip_len>31:
                     #self._new_error("Invalid ip_len")
                     pass
-                self.ip_data=[int(x,2) for x in self.descrambled[5:31+5]] # XXX: only len bytes?
-                self.ip_cksum= self.descrambled[31+5:]
+                self.ip_data=self.payload_r[5:31+5] # XXX: only len bytes?
+                self.ip_cksum= struct.unpack(">L", bytearray([0]+self.payload_r[31+5:]))[0]
             else:
                 self.itype="IIU"
     def upgrade(self):
@@ -816,7 +817,7 @@ class IridiumIPMessage(IridiumMessage):
         if self.itype=="IIP":
             s+= " type:%02x seq=%03d ack=%03d cs=%03d/%s len=%03d"%(self.ip_hdr,self.ip_seq,self.ip_ack,self.ip_cs,["no","OK"][(self.ip_cs_ok==255)],self.ip_len)
             s+= " ["+".".join(["%02x"%x for x in self.ip_data])+"]"
-            s+= " %06x/%06x"%(int("".join(self.ip_cksum),2),self.crcval)
+            s+= " %06x/%06x"%(self.ip_cksum,self.crcval)
             s+=" FCS:OK"
             ip_data = ' IP: '
             for c in self.ip_data:
