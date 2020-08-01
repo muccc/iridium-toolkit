@@ -1028,39 +1028,35 @@ class IridiumDAMessage(IridiumECCMessage):
 class IridiumBCMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        blocks, _ =slice_extra(self.bitstream_bch,21)
+        blocks, _ =slice_extra(self.bitstream_bch,42)
 
         self.readable = ''
-        if len(blocks) > 1 and self.bc_type == 0:
-            data1 = blocks[0]
-            data2 = blocks[1]
+        if blocks and self.bc_type == 0:
+            data = blocks.pop(0)
 
-            self.sv_id = int(data1[0:7], 2)
-            self.beam_id = int(data1[7:13], 2)
-            self.unknown01 = data1[13:14]
-            self.slot = int(data1[14:15], 2) # previously: timeslot
-            self.sv_blocking = int(data1[15:16], 2) # aka: Acq
-            self.acqu_classes = data1[16:21] + data2[0:11]
-            self.acqu_subband = int(data2[11:16], 2)
-            self.acqu_channels = int(data2[16:19], 2)
-            self.unknown02 = data2[19:21]
+            self.sv_id = int(data[0:7], 2)
+            self.beam_id = int(data[7:13], 2)
+            self.unknown01 = data[13:14]
+            self.slot = int(data[14:15], 2) # previously: timeslot
+            self.sv_blocking = int(data[15:16], 2) # aka: Acq
+            self.acqu_classes = data[16:32]
+            self.acqu_subband = int(data[32:37], 2)
+            self.acqu_channels = int(data[37:40], 2)
+            self.unknown02 = data[40:42]
 
             self.readable += 'sat:%03d cell:%02d %s slot:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.slot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
 
-            blocks = blocks[2:]
+        if blocks and self.bc_type == 0:
+            data = blocks.pop(0)
 
-        if len(blocks) > 1 and self.bc_type == 0:
-            data1 = blocks[0]
-            data2 = blocks[1]
-
-            self.type = int(data1[0:6], 2)
+            self.type = int(data[0:6], 2)
             if self.type == 0:
-                self.unknown11 = data1[6:21] + data2[0:15]
-                self.max_uplink_pwr = int(data2[15:21], 2)
+                self.unknown11 = data[6:36]
+                self.max_uplink_pwr = int(data[36:42], 2)
                 self.readable += ' %s max_uplink_pwr:%02d' % (self.unknown11, self.max_uplink_pwr)
             elif self.type == 1:
-                self.unknown21 = data1[6:10]
-                self.iri_time = int(data1[10:21]+data2[0:21], 2)
+                self.unknown21 = data[6:10]
+                self.iri_time = int(data[10:42], 2)
                 # Different Iridium epochs that we know about:
                 # 2014-05-11T14:23:55Z : 1399818235 current one
                 # 2007-03-08T03:50:21Z : 1173325821
@@ -1069,38 +1065,34 @@ class IridiumBCMessage(IridiumECCMessage):
                 self.iri_time_diff = self.iri_time_ux-self.globaltime
                 self.readable += ' %s time:%sZ' % (self.unknown21, datetime.datetime.fromtimestamp(self.iri_time_ux,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}".format((self.iri_time_ux%1)*100)))
             elif self.type == 2:
-                self.unknown31 = data1[6:10]
-                self.tmsi_expiry = int(data1[10:21] + data2[0:21], 2)
+                self.unknown31 = data[6:10]
+                self.tmsi_expiry = int(data[10:43], 2)
                 self.readable += ' %s tmsi_expiry:%02d' % (self.unknown31, self.tmsi_expiry)
             elif self.type == 4:
-                if data1+data2 != "000100000000100001110000110000110011110000":
-                    self.readable += ' type:%02d %s%s' % (self.type, data1, data2)
+                if data != "000100000000100001110000110000110011110000":
+                    self.readable += ' type:%02d %s' % (self.type, data)
             else: # Unknown Type
-                self.readable += ' type:%02d %s%s' % (self.type, data1, data2)
+                self.readable += ' type:%02d %s' % (self.type, data)
 #                raise ParserError("unknown BC Type %s"%self.type)
-            blocks = blocks[2:]
 
-        def parse_assignment(data1, data2):
+        def parse_assignment(data):
             result = ''
-            if(data1 + data2 != '111000000000000000000000000000000000000000'):
+            if(data != '111000000000000000000000000000000000000000'):
                 # Channel Assignment
-                unknown1 = data1[0:3]
-                random_id = int(data1[3:11], 2)
-                timeslot = 1+int(data1[11:13], 2)
-                uplink_subband = int(data1[13:18], 2)
-                downlink_subband = int(data1[18:21] + data2[0:2], 2)
-                access = 1+int(data2[2:5], 2)
-                dtoa = int(data2[5:13], 2)
-                dfoa = int(data2[13:19], 2)
-                unknown4 = data2[19:21]
+                unknown1 = data[0:3]
+                random_id = int(data[3:11], 2)
+                timeslot = 1+int(data[11:13], 2)
+                uplink_subband = int(data[13:18], 2)
+                downlink_subband = int(data[18:23], 2)
+                access = 1+int(data[23:26], 2)
+                dtoa = int(data[26:34], 2)
+                dfoa = int(data[34:40], 2)
+                unknown4 = data[40:42]
                 result = ' %s Rid:%d ts:%d ul_sb:%02d dl_sb:%02d access:%d dtoa:%03d dfoa:%02d %s' % (unknown1, random_id, timeslot, uplink_subband, downlink_subband, access, dtoa, dfoa, unknown4)
             return result
 
-        while len(blocks) > 1:
-            data1 = blocks[0]
-            data2 = blocks[1]
-            self.readable += parse_assignment(data1, data2)
-            blocks = blocks[2:]
+        while blocks:
+            self.readable += parse_assignment(blocks.pop(0))
 
     def upgrade(self):
         if self.error: return self
