@@ -62,6 +62,8 @@ if verbose:
     print "basen",basename
 
 def fixtime(n,t):
+    if (n.startswith("j")):
+        return float(t)
     try:
         (crap,ts,fnord)=n.split("-",3)
         return (float(ts)+int(t)/1000)
