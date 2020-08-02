@@ -35,6 +35,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'errorfile=',
                                                          'errorstats',
                                                          'forcetype=',
+                                                         'globaltime',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -64,6 +65,7 @@ vdumpfile=None
 errorfile=None
 errorstats=None
 forcetype=None
+globaltime=False
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
@@ -106,6 +108,8 @@ for opt, arg in options:
         forcetype=arg
     elif opt in ('--format'):
         ofmt=arg.split(',');
+    elif opt in ('--globaltime'):
+        globaltime=True;
     else:
         raise Exception("unknown argument?")
 
@@ -239,7 +243,12 @@ class Message(object):
         if not self.error_msg or self.error_msg[-1] != msg:
             self.error_msg.append(msg)
     def _pretty_header(self):
-        return "%s %013.3f %010d %3d%% %7.3f"%(self.filename,self.timestamp,self.frequency,self.confidence,self.level)
+        flags=""
+        if globaltime:
+            hdr="j%s %16.6f"%(flags,self.globaltime)
+        else:
+            hdr="%s %013.3f"%(self.filename,self.timestamp)
+        return "%s %010d %3d%% %7.3f"%(hdr,self.frequency,self.confidence,self.level)
     def _pretty_trailer(self):
         return ""
     def pretty(self):
