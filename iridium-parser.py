@@ -36,6 +36,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'errorstats',
                                                          'forcetype=',
                                                          'globaltime',
+                                                         'channelize',
                                                          ])
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
@@ -48,6 +49,8 @@ messaging_bch_poly=1897
 ringalert_bch_poly=1207
 acch_bch_poly=3545 # 1207 also works?
 hdr_poly=29
+base_freq=1616e6
+channel_width=41667
 
 verbose = False
 perfect = False
@@ -66,6 +69,7 @@ errorfile=None
 errorstats=None
 forcetype=None
 globaltime=False
+channelize=False
 
 for opt, arg in options:
     if opt in ('-v', '--verbose'):
@@ -106,6 +110,8 @@ for opt, arg in options:
         errorstats={}
     elif opt in ('--forcetype'):
         forcetype=arg
+    elif opt in ('--channelize'):
+        channelize=True
     elif opt in ('--format'):
         ofmt=arg.split(',');
     elif opt in ('--globaltime'):
@@ -162,6 +168,15 @@ class Message(object):
             self.filename="-";
         self.timestamp=float(m.group(3))
         self.frequency=int(m.group(4))
+
+        if channelize:
+            fbase=self.frequency-base_freq
+            self.fchan=int(fbase/channel_width)
+            self.foff=fbase%channel_width
+            self.freq_print="%3d|%05d"%(self.fchan,self.foff)
+        else:
+            self.freq_print="%010d"%(self.frequency)
+
 #        self.access_ok=(m.group(5)=="OK")
 #        self.leadout_ok=(m.group(6)=="OK")
         self.confidence=int(m.group(7))
@@ -248,7 +263,7 @@ class Message(object):
             hdr="j%s %16.6f"%(flags,self.globaltime)
         else:
             hdr="%s %013.3f"%(self.filename,self.timestamp)
-        return "%s %010d %3d%% %7.3f"%(hdr,self.frequency,self.confidence,self.level)
+        return "%s %s %3d%% %7.3f"%(hdr,self.freq_print,self.confidence,self.level)
     def _pretty_trailer(self):
         return ""
     def pretty(self):

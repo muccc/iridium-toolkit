@@ -14,6 +14,8 @@ verbose = False
 ifile= None
 ofile= None
 mode= "undef"
+base_freq=1616e6
+channel_width=41667
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:m:', [
                                                          'verbose',
@@ -93,7 +95,11 @@ class Reassemble(object):
         try:
             q=MyObject()
             q.typ,q.name,q.time,q.frequency,q.confidence,q.level,q.symbols,q.uldl,q.data=line.split(None,8)
-            q.frequency=int(q.frequency)
+            if "|" in q.frequency:
+                chan, off=q.frequency.split('|')
+                q.frequency=base_freq+channel_width*int(chan)+int(off)
+            else:
+                q.frequency=int(q.frequency)
             q.confidence=int(q.confidence.strip("%"))
             q.time=float(q.time)
             q.level=float(q.level)
