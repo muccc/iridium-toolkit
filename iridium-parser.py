@@ -149,6 +149,16 @@ Z=Zulu()
 tswarning=False
 tsoffset=0
 maxts=0
+
+def fmt_iritime(iritime):
+    # Different Iridium epochs that we know about:
+    # 2014-05-11T14:23:55Z : 1399818235 current one
+    # 2007-03-08T03:50:21Z : 1173325821
+    # 1996-06-01T00:00:11Z :  833587211 the original one
+    uxtime= float(iritime)*90/1000+1399818235
+    strtime=datetime.datetime.fromtimestamp(uxtime,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}Z".format((uxtime%1)*100))
+    return (uxtime, strtime)
+
 class Message(object):
     def __init__(self,line):
         self.parse_error=False
@@ -1082,13 +1092,9 @@ class IridiumBCMessage(IridiumECCMessage):
             elif self.type == 1:
                 self.unknown21 = data[6:10]
                 self.iri_time = int(data[10:42], 2)
-                # Different Iridium epochs that we know about:
-                # 2014-05-11T14:23:55Z : 1399818235 current one
-                # 2007-03-08T03:50:21Z : 1173325821
-                # 1996-06-01T00:00:11Z :  833587211 the original one
-                self.iri_time_ux = float(self.iri_time)*90/1000+1399818235
+                (self.iri_time_ux, self.iri_time_str)= fmt_iritime(self.iri_time)
                 self.iri_time_diff = self.iri_time_ux-self.globaltime
-                self.readable += ' %s time:%sZ' % (self.unknown21, datetime.datetime.fromtimestamp(self.iri_time_ux,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}".format((self.iri_time_ux%1)*100)))
+                self.readable += ' %s time:%s' % (self.unknown21, self.iri_time_str)
             elif self.type == 2:
                 self.unknown31 = data[6:10]
                 self.tmsi_expiry = int(data[10:43], 2)
