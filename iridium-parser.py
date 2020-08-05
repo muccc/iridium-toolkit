@@ -356,29 +356,14 @@ class IridiumMessage(Message):
 
         if "msgtype" not in self.__dict__:
             if len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
-                if harder:
-                    (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
-                    (e1 ,lcw1,bch)=bch_repair( 29,o_lcw1)     # BCH(7,3)
-                    (e2a,lcw2,bch)=bch_repair(465,o_lcw2+'0') # BCH(13,16)
-                    (e2b,lcw2,bch)=bch_repair(465,o_lcw2+'1')
-                    (e3 ,lcw3,bch)=bch_repair( 41,o_lcw3)     # BCH(26,21)
-
-                    e2=e2a
-                    if (e2b>=0 and e2b<e2a) or (e2a<0):
-                        e2=e2b
-
-                    if e1>=0 and e2>=0 and e3>=0:
-                        self.msgtype="DA"
-                        self.ec_lcw=(e1+e2+e3)
-                else:
-                    (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
-                    if ndivide( 29,o_lcw1)==0:
-                        if ndivide( 41,o_lcw3)==0:
-                            (e2,lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit missing, so we guess
-                            if (e2==1): # Maybe the other one...
-                                (e2,lcw2,bch)= bch_repair(465,o_lcw2+'1')
-                            if e2==0:
-                                self.msgtype="DA"
+                (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
+                if ndivide( 29,o_lcw1)==0:
+                    if ndivide( 41,o_lcw3)==0:
+                        (e2,lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit missing, so we guess
+                        if (e2==1): # Maybe the other one...
+                            (e2,lcw2,bch)= bch_repair(465,o_lcw2+'1')
+                        if e2==0:
+                            self.msgtype="DA"
 
         if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumDAMessage":
             self._new_error("filtered message")
@@ -396,6 +381,24 @@ class IridiumMessage(Message):
         if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumRAMessage":
             self._new_error("filtered message")
             return
+
+        if "msgtype" not in self.__dict__:
+            if harder:
+                # try for LCW (IDA)
+                if len(data)>=64:
+                    (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
+                    (e1 ,lcw1,bch)=bch_repair( 29,o_lcw1)     # BCH(7,3)
+                    (e2a,lcw2,bch)=bch_repair(465,o_lcw2+'0') # BCH(13,16)
+                    (e2b,lcw2,bch)=bch_repair(465,o_lcw2+'1')
+                    (e3 ,lcw3,bch)=bch_repair( 41,o_lcw3)     # BCH(26,21)
+
+                    e2=e2a
+                    if (e2b>=0 and e2b<e2a) or (e2a<0):
+                        e2=e2b
+
+                    if e1>=0 and e2>=0 and e3>=0:
+                        self.msgtype="DA"
+                        self.ec_lcw=(e1+e2+e3)
 
         if "msgtype" not in self.__dict__:
             if len(data)<64:
