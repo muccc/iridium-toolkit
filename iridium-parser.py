@@ -1098,7 +1098,8 @@ class IridiumBCMessage(IridiumECCMessage):
             elif self.type == 2:
                 self.unknown31 = data[6:10]
                 self.tmsi_expiry = int(data[10:43], 2)
-                self.readable += ' %s tmsi_expiry:%02d' % (self.unknown31, self.tmsi_expiry)
+                (self.tmsi_expiry_ux, tmsi_expiry_str)= fmt_iritime(self.tmsi_expiry)
+                self.readable += ' %s tmsi_expiry:%s' % (self.unknown31, tmsi_expiry_str)
             elif self.type == 4:
                 if data != "000100000000100001110000110000110011110000":
                     self.readable += ' type:%02d %s' % (self.type, data)
