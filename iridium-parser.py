@@ -388,6 +388,19 @@ class IridiumMessage(Message):
 
         if "msgtype" not in self.__dict__:
             if harder:
+                # try IBC
+                if len(data)>=70:
+                    hdrlen=6
+                    blocklen=64
+                    (e1,_,_)=bch_repair(hdr_poly,data[:hdrlen])
+                    (o_bc1,o_bc2)=de_interleave(data[hdrlen:hdrlen+blocklen])
+                    (e2,d2,b2)=bch_repair(ringalert_bch_poly,o_bc1[:31])
+                    (e3,d3,b3)=bch_repair(ringalert_bch_poly,o_bc2[:31])
+                    if e1>=0 and e2>=0 and e3>=0:
+                        if ((d2+b2+o_bc1[31]).count('1') % 2)==0:
+                            if ((d3+b3+o_bc2[31]).count('1') % 2)==0:
+                                self.msgtype="BC"
+
                 # try for LCW (IDA)
                 if len(data)>=64:
                     (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
@@ -444,6 +457,7 @@ class IridiumMessage(Message):
                 self.header="bc:%d" % self.bc_type
             else:
                 self.header="%s/E%d"%(self.header,e)
+                self._new_error("IBC header error")
             self.descrambled=[]
 
             (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
