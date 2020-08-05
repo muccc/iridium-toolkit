@@ -923,24 +923,27 @@ class IridiumECCMessage(IridiumMessage):
         self.bitstream_bch=""
         self.oddbits=""
         self.fixederrs=0
+        parity=None
         for block in self.descrambled:
-            if len(block)!=32 and len(block)!=31:
+            if len(block)==32: # contains parity bit
+                parity=block[31:]
+                block=block[:31]
+            if len(block)!=31:
                 raise ParserError("unknown BCH block len:%d"%len(block))
-            if len(block)==32:
-                bits=block[:31]
-            else:
-                bits=block
-            (errs,data,bch)=bch_repair(self.poly, bits)
+
+            (errs,data,bch)=bch_repair(self.poly, block)
+            if(errs<0):
+                if len(self.bitstream_bch) == 0: self._new_error("BCH decode failed")
+                break
+
+            if parity:
+                if ((data+bch+parity).count('1') % 2)==1:
+                    if len(self.bitstream_bch) == 0: self._new_error("Parity error")
+                    break
+
             if errs>0:
                 self.fixederrs+=1
-            if(errs<0):
-                if len(self.bitstream_bch) == 0:
-                    self._new_error("BCH decode failed")
-                break
-            parity=(data+bch).count('1') % 2
-            if len(block)==32:
-                self.parity=(int(block[31])+parity)%2
-                if self.parity==1: raise ParserError("Parity error")
+
             self.bitstream_bch+=data
             self.bitstream_messaging+=data[1:]
             self.oddbits+=data[0]
