@@ -1107,6 +1107,14 @@ class IridiumBCMessage(IridiumECCMessage):
         blocks, _ =slice_extra(self.bitstream_bch,42)
 
         self.readable = ''
+        self.trailer = ''
+
+        if len(blocks)>4: # IBC is exactly 4 "blocks" long
+            blocks=blocks[:4]
+            self.trailer=' {LONG}'
+        elif len(blocks)<4:
+            self.trailer=' {SHORT}'
+
         if blocks and self.bc_type == 0:
             data = blocks.pop(0)
 
@@ -1148,8 +1156,7 @@ class IridiumBCMessage(IridiumECCMessage):
                 self.readable += ' type:%02d %s' % (self.type, data)
 #                raise ParserError("unknown BC Type %s"%self.type)
 
-        def parse_assignment(data):
-            result = ''
+        for data in blocks: # Parse assignments (if any)
             if(data != '111000000000000000000000000000000000000000'):
                 # Channel Assignment
                 unknown1 = data[0:3]
@@ -1161,11 +1168,9 @@ class IridiumBCMessage(IridiumECCMessage):
                 dtoa = int(data[26:34], 2)
                 dfoa = int(data[34:40], 2)
                 unknown4 = data[40:42]
-                result = ' %s Rid:%d ts:%d ul_sb:%02d dl_sb:%02d access:%d dtoa:%03d dfoa:%02d %s' % (unknown1, random_id, timeslot, uplink_subband, downlink_subband, access, dtoa, dfoa, unknown4)
-            return result
-
-        while blocks:
-            self.readable += parse_assignment(blocks.pop(0))
+                self.readable += ' [%s Rid:%03d ts:%d ul_sb:%02d dl_sb:%02d access:%d dtoa:%03d dfoa:%02d %s]' % (unknown1, random_id, timeslot, uplink_subband, downlink_subband, access, dtoa, dfoa, unknown4)
+            else:
+                self.readable += ' []'
 
     def upgrade(self):
         if self.error: return self
@@ -1178,7 +1183,7 @@ class IridiumBCMessage(IridiumECCMessage):
     def _pretty_header(self):
         return super(IridiumBCMessage,self)._pretty_header()
     def _pretty_trailer(self):
-        return super(IridiumBCMessage,self)._pretty_trailer()
+        return self.trailer + super(IridiumBCMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IBC: "+self._pretty_header() + ' ' + self.readable
         str+=self._pretty_trailer()
