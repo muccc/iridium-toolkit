@@ -347,7 +347,7 @@ class ReassembleIRA(Reassemble):
                 return q
     def process(self,q):
         for x in q.pages:
-            return ["%02d %02d %s %s %03d : %s %s"%(q.sat,q.beam,q.posx,q.posy,q.alt,x[0],x[1])]
+            return ["%02d %02d %s %s %03d : %s %s"%(q.sat,q.beam,q.lat,q.lon,q.alt,x[0],x[1])]
     def consume(self,q):
         print >> outfile, q
 
