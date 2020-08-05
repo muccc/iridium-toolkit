@@ -45,10 +45,11 @@ UW_DOWNLINK = [0,2,2,2,2,0,0,0,2,0,0,2]
 UW_UPLINK   = [2,2,0,0,0,2,0,0,2,0,2,2]
 iridium_lead_out="100101111010110110110011001111"
 header_messaging="00110011111100110011001111110011" # 0x9669 in BPSK
+header_time_location="11"+"0"*94
 messaging_bch_poly=1897
 ringalert_bch_poly=1207
 acch_bch_poly=3545 # 1207 also works?
-hdr_poly=29
+hdr_poly=29 # IBC header
 base_freq=1616e6
 channel_width=41667
 
@@ -303,7 +304,7 @@ class IridiumMessage(Message):
             return
 
         if "msgtype" not in self.__dict__:
-            if data[:2] =="11" and data[2:96]=="0"*94:
+            if data[:96]==header_time_location:
                 self.msgtype="TL"
 
         if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumSTLMessage":
