@@ -986,7 +986,7 @@ class IridiumECCMessage(IridiumMessage):
     def _pretty_trailer(self):
         return super(IridiumECCMessage,self)._pretty_trailer()
     def pretty(self):
-        str= "IME: "+self._pretty_header()+" "
+        str= "IME: "+self._pretty_header()+" "+self.msgtype+" "
         for block in xrange(len(self.descrambled)):
             b=self.descrambled[block]
             if len(b)==31:
