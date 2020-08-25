@@ -18,8 +18,9 @@ mode= "undef"
 base_freq=1616e6
 channel_width=41667
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vi:o:m:', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:', [
                                                          'verbose',
+                                                         'help',
                                                          'input=',
                                                          'output=',
                                                          'mode=',
@@ -34,6 +35,10 @@ for opt, arg in options:
         ofile=arg
     elif opt in ('-m', '--mode'):
         mode=arg
+    elif opt in ('-h', '--help'):
+        print >> sys.stderr, "Usage:"
+        print >> sys.stderr, "\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|lap|page|msg|sat] [--output foo.parsed]"
+        exit(1)
     else:
         raise Exception("unknown argument?")
 
