@@ -74,7 +74,7 @@ def fixtime(n,t):
         return float(t)
     try:
         (crap,ts,fnord)=n.split("-",3)
-        return (float(ts)+int(t)/1000)
+        return (float(ts)+float(t)/1000)
     except:
         return float(t)/1000
 
@@ -174,6 +174,7 @@ class ReassembleIDA(Reassemble):
         q=super(ReassembleIDA,self).filter(line)
         if q==None: return None
         if q.typ=="IDA:":
+            q.time=fixtime(q.name,q.time)
             qqq=re.compile('.* CRC:OK')
             if not qqq.match(q.data):
                 return
@@ -277,7 +278,7 @@ class ReassembleIDA(Reassemble):
                 str+=c
             else:
                 str+="."
-        print >>outfile, "%09d %s %s | %s"%(time,ul," ".join("%02x"%ord(x) for x in data),str)
+        print >>outfile, "%15.6f %s %s | %s"%(time,ul," ".join("%02x"%ord(x) for x in data),str)
 
 class ReassembleIDALAP(ReassembleIDA):
     first=True
@@ -337,7 +338,7 @@ class ReassembleIDALAP(ReassembleIDA):
                 ul="UL"
             else:
                 ul="DL"
-            print "%09d %.3f %s %s"%(time,level,ul,".".join("%02x"%ord(x) for x in data))
+            print "%15.6f %.3f %s %s"%(time,level,ul,".".join("%02x"%ord(x) for x in data))
 
 class ReassembleIDALAPPCAP(ReassembleIDALAP):
     first=True
@@ -378,7 +379,7 @@ class ReassembleIDALAPPCAP(ReassembleIDALAP):
         else:
             eth=struct.pack("!BBBBBBBBBBBBH",0x10,0x22,0x33,0x44,0x55,0x66,0xaa,0xbb,0xcc,0xdd,0xee,0xff,0x800)+ip
 
-        pcap=struct.pack("<IIII",time/1000,1000*(time%1000),len(eth),len(eth))+eth
+        pcap=struct.pack("<IIII",time,1000000*(time%1),len(eth),len(eth))+eth
         outfile.write(pcap)
 
 class ReassembleIRA(Reassemble):
