@@ -37,7 +37,7 @@ for opt, arg in options:
         mode=arg
     elif opt in ('-h', '--help'):
         print >> sys.stderr, "Usage:"
-        print >> sys.stderr, "\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|lap|page|msg|sat] [--output foo.parsed]"
+        print >> sys.stderr, "\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|lap|sbd|page|msg|sat] [--output foo.parsed]"
         exit(1)
     else:
         raise Exception("unknown argument?")
@@ -297,6 +297,66 @@ class ReassembleIDA(Reassemble):
                 str+="."
         print >>outfile, "%15.6f %s %s | %s"%(time,ul," ".join("%02x"%ord(x) for x in data),str)
 
+class ReassembleIDASBD(ReassembleIDA):
+    def consume(self,q):
+        (data,time,ul,_,_)=q
+        if ord(data[0])!=0x76:
+            return
+        if len(data)<=2:
+            return
+        if ord(data[1])==5:
+            return
+
+        if ul:
+            ul="UL"
+        else:
+            ul="DL"
+
+        typ="%02x%02x"%(ord(data[0]),ord(data[1]))
+        data=data[2:]
+
+        prehdr=""
+        if typ=="7608":
+            # <26:44:9a:01:00:ba:85>
+            # 1: always? 26
+            # 2+3: sequence number (MTMSN)
+            # 4: number of packets in message
+            # 5: number of messages waiting to be delivered / backlog
+            # 6+7: unknown / maybe MOMSN?
+            prehdr=data[:7]
+            data=data[7:]
+            prehdr="<"+":".join("%02x"%ord(x) for x in prehdr)+">"
+
+        # UL <50:0b:65>
+        # 1: always 50 (nothing to send / message received)
+        # 2+3: MOMSN mirror
+
+        # <10:87:01>
+        # 1: always 10 (message follows)
+        # 2: length in bytes of message
+        # 3: number of packet
+        hdr=data[:3]
+        data=data[3:]
+
+        # skip empty messages
+        if len(data)==0: return
+
+        hdr=":".join("%02x"%ord(x) for x in hdr)
+
+        str=""
+        for c in data:
+            if( ord(c)>=32 and ord(c)<127):
+                str+=c
+            elif ord(c)>127+32 and ord(c)<255:
+                str+=chr(ord(c)-128)
+            else:
+                str+="."
+
+        append="| "+" ".join("%02x"%ord(x) for x in data)
+#        append=""
+
+        print >>outfile, "%s %s [%s] {%02x} %-22s %-10s %-200s %s"%(datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),ul,typ,len(data),prehdr,"<"+hdr+">",str,append)
+
 class ReassembleIDALAP(ReassembleIDA):
     first=True
     sock = None
@@ -530,6 +590,8 @@ elif mode == "lap":
         ofile="%s.%s" % (basename, "pcap")
         outfile=open(ofile,"w")
     zx=ReassembleIDALAPPCAP()
+if mode == "sbd":
+    zx=ReassembleIDASBD()
 elif mode == "page":
     zx=ReassembleIRA()
 elif mode == "msg":

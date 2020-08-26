@@ -79,4 +79,5 @@ Supported modes are currently:
 * `lap` - GSM-compatible L3 messages as GSMtap compatible `.pcap`
 * `page` - paging requests (Ring Alert Channel)
 * `msg` - Pager messages
+* `sbd` - Short Burst Data messages
 
