@@ -5,7 +5,6 @@ import sys
 import re
 import struct
 from bch import ndivide, nrepair, bch_repair
-from crc import crc24
 import crcmod
 import rs
 import rs6
@@ -750,7 +749,7 @@ class IridiumLCW3Message(IridiumMessage):
 class IridiumVOMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        self.crcval=crc24(bytearray(self.payload_r))
+        self.crcval=iip_crc24( [chr(x) for x in self.payload_r])
         if self.crcval==0:
             self.vtype="VDA"
             return
@@ -820,6 +819,8 @@ class IridiumVOMessage(IridiumMessage):
         str+=self._pretty_trailer()
         return str
 
+# Poly from GSM 04.64 / check value (reversed) is 0xC91B6
+iip_crc24=crcmod.mkCrcFun(poly=0x1BBA1B5,initCrc=0xffffff^0x0c91b6,rev=True,xorOut=0x0c91b6)
 class IridiumIPMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
@@ -847,7 +848,7 @@ class IridiumIPMessage(IridiumMessage):
                self.itype="IIR"
                self.idata=self.idata[0:-2]
         else:
-            self.crcval=crc24(bytearray(self.payload_r))
+            self.crcval=iip_crc24( [chr(x) for x in self.payload_r])
             if self.crcval==0:
                 self.itype="IIP"
                 self.ip_hdr=self.payload_r[0]
