@@ -429,6 +429,21 @@ class IridiumMessage(Message):
                         self.msgtype="LW"
                         self.ec_lcw=(e1+e2+e3)
 
+                # try for IRA
+                firstlen=3*32
+                if len(data)>=firstlen:
+                    (o_ra1,o_ra2,o_ra3)=de_interleave3(data[:firstlen])
+
+                    (e1,d1,b1)=bch_repair(ringalert_bch_poly,o_ra1[:31])
+                    (e2,d2,b2)=bch_repair(ringalert_bch_poly,o_ra2[:31])
+                    (e3,d3,b3)=bch_repair(ringalert_bch_poly,o_ra3[:31])
+
+                    if e1>=0 and e2>=0 and e3>=0:
+                        if ((d1+b1+o_ra1[31]).count('1') % 2)==0:
+                            if ((d2+b2+o_ra2[31]).count('1') % 2)==0:
+                                if ((d3+b3+o_ra3[31]).count('1') % 2)==0:
+                                    self.msgtype="RA"
+
         if "msgtype" not in self.__dict__:
             if len(data)<64:
                 raise ParserError("Iridium message too short")
