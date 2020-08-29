@@ -181,7 +181,7 @@ class ReassembleIDA(Reassemble):
             # 0010 0 ctr=000 000 len=02 0:0000 [06.3a]                                                       7456/0000 CRC:OK 0000
             # 0000 0 ctr=000 000 len=00 0:0000 [8a.ed.09.b2.e0.a9.e7.0b.06.78.c9.49.0d.9b.60.6f.c0.07.fc.00.00.00.00]  ---    0000
 
-            p=re.compile('.* cont=(\d) (\d) ctr=(\d+) \d+ len=(\d+) 0:0000 \[([0-9a-f.!]*)\]\s+..../.... CRC:OK')
+            p=re.compile('.* cont=(\d) (\d) ctr=(\d+) \d+ len=(\d+) 0:.000 \[([0-9a-f.!]*)\]\s+..../.... CRC:OK')
             m=p.match(q.data)
             if(not m):
                 print >> sys.stderr, "Couldn't parse IDA: ",q.data

@@ -993,20 +993,20 @@ class IridiumDAMessage(IridiumECCMessage):
         self.flags1=self.bitstream_bch[:4]
         self.flag1b=self.bitstream_bch[4:5]
         self.da_ctr=int(self.bitstream_bch[5:8],2)
-        self.flags2=self.bitstream_bch[8:12]
-        self.flags3=self.bitstream_bch[12:16]
-        self.zero1=int(self.bitstream_bch[16:20],2)
+        self.flags2=self.bitstream_bch[8:11]
+        self.da_len=int(self.bitstream_bch[11:16],2)
+        self.flags3=int(self.bitstream_bch[16:17],2)
+        self.zero1=int(self.bitstream_bch[17:20],2)
         if self.zero1 != 0:
             self._new_error("zero1 not 0")
 
         if len(self.bitstream_bch) < 9*20+16:
             raise ParserError("Not enough data in data packet")
 
-        self.da_len=int(self.bitstream_bch[11:16],2)
         if self.da_len>0:
             self.da_crc=int(self.bitstream_bch[9*20:9*20+16],2)
             self.da_ta=[int(x,2) for x in slice(self.bitstream_bch[20:9*20],8)]
-            crcstream=self.bitstream_bch[:16]+"0"*12+self.bitstream_bch[16:-4]
+            crcstream=self.bitstream_bch[:20]+"0"*12+self.bitstream_bch[20:-4]
             the_crc=ida_crc16([chr(int(x,2)) for x in slice(crcstream,8)])
             self.the_crc=the_crc
             self.crc_ok=(the_crc==0)
