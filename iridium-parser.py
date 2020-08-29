@@ -6,6 +6,7 @@ import re
 import struct
 from bch import ndivide, nrepair, bch_repair
 from crc import crc24
+import crcmod
 import rs
 import rs6
 import fileinput
@@ -984,6 +985,7 @@ class IridiumECCMessage(IridiumMessage):
         str+=self._pretty_trailer()
         return str
 
+ida_crc16=crcmod.predefined.mkPredefinedCrcFun("crc-ccitt-false")
 class IridiumDAMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
@@ -997,17 +999,6 @@ class IridiumDAMessage(IridiumECCMessage):
         if self.zero1 != 0:
             self._new_error("zero1 not 0")
 
-        def crc16(data): # 0x1021 / 0xffff unreflected
-            crc = 0xffff
-            for byte in data:
-                crc=crc^ord(byte)
-                for bit in range(0, 8):
-                    if (crc&0x1):
-                        crc = ((crc >> 1) ^ 0x8408)
-                    else:
-                        crc = crc >> 1
-            return crc ^ 0xdf9d
-
         if len(self.bitstream_bch) < 9*20+16:
             raise ParserError("Not enough data in data packet")
 
@@ -1015,8 +1006,8 @@ class IridiumDAMessage(IridiumECCMessage):
         if self.da_len>0:
             self.da_crc=int(self.bitstream_bch[9*20:9*20+16],2)
             self.da_ta=[int(x,2) for x in slice(self.bitstream_bch[20:9*20],8)]
-            crcstream=self.bitstream_bch[:16]+"0"*12+self.bitstream_bch[16:]
-            the_crc=crc16("".join([chr(int(x,2)) for x in crcstream]))
+            crcstream=self.bitstream_bch[:16]+"0"*12+self.bitstream_bch[16:-4]
+            the_crc=ida_crc16([chr(int(x,2)) for x in slice(crcstream,8)])
             self.the_crc=the_crc
             self.crc_ok=(the_crc==0)
         else:
