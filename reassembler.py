@@ -1030,100 +1030,188 @@ class ReassembleIDAPP(ReassembleIDA):
             print("", file=outfile)
         return
 
+verb2=False
 class ReassembleIDASBD(ReassembleIDA):
+    multi=[]
+    sbd_short=0
+    sbd_single=0
+    sbd_cnt=0
+    sbd_multi=0
+    sbd_assembled=0
+    sbd_broken=0
+
+    def __init__(self):
+        if 'debug' in args:
+            global verb2
+            verb2=True
+            print("DEBUG ENABLED")
+
     def consume(self,q):
-        (data,time,ul,_,_)=q
+        zz=self.process_l2(q)
+        if zz is not None:
+            self.consume_l2(zz)
+
+    def process_l2(self,q):
+        (data,time,ul,_,_)=q # level, freq
+
+        # check for SBD
         if data[0]==0x76:
             pass
-        elif data[0]==0x06 and data[1]==0 and (data[2]==0x20 or data[2]==0x10) and len(data)>0x1a+5:
+        elif data[0]==0x06 and data[1]==0:
             pass
         else:
             return
-        if len(data)<=2:
-            return
-        if data[1]==5:
+
+        # corrupt / no data
+        if len(data)<5:
             return
 
-        if ul:
-            ul="UL"
-        else:
-            ul="DL"
+        # uninteresing (unclear)
+        if data[0]==0x76 and data[1]==5:
+            return
 
+        if data[0]==0x76:
+            if ul:
+                if data[1]<0x0c or data[1]>0x0e:
+                    print("WARN: SBD: ul pkt with unclear type",data.hex(":"), file=sys.stderr)
+                    return
+            else:
+                if data[1]<0x08 or data[1]>0x0b:
+                    print("WARN: SBD: dl pkt with unclear type",data.hex(":"), file=sys.stderr)
+                    return
+
+        if data[0]==0x06:
+            if data[1]!=0x00:
+                print("WARN: SBD: HELLO pkt with unclear type",data.hex(":"), file=sys.stderr)
+                return
+            elif data[2] not in (0x10,0x20,0x40,0x70):
+                print("WARN: SBD: HELLO pkt with unclear sub-type",data.hex(":"), file=sys.stderr)
+                return
+
+        self.sbd_cnt+=1
         typ="%02x%02x"%(data[0],data[1])
         data=data[2:]
 
-        prehdr=""
-        if typ=="7608":
-            # <26:44:9a:01:00:ba:85>
-            # 1: always? 26
-            # 2+3: sequence number (MTMSN)
-            # 4: number of packets in message
-            # 5: number of messages waiting to be delivered / backlog
-            # 6+7: unknown / maybe MOMSN?
-            prehdr=data[:7]
-            data=data[7:]
-            prehdr="<"+prehdr.hex(":")+">"
-
-        if typ=="0600" and data[0]==0x20 and (data[5]&0xf)==5:
-            # > 0600 / 20:13:f0:10:02 imei[8] + momsn[2] + msgcnt[1] + 0x?C + len[1] + bytes[7] + time[4] + (len>0: msg)
-            prehdr=data[:5]
-            prehdr="["+prehdr.hex(":")+"]"
-            imei=[x for x in data[5:5+8]]
-            phdr=data[5+8:5+8+16]
-            data=data[5+8+16:]
-            n1=imei[0]>>4
-            hdr="imei:"
-            hdr+="%x"%n1
-            hdr+="".join("%x%x"%((x)&0xf,(x)>>4) for x in imei[1:])
-            hdr+=" "+"".join("%02x"%(x) for x in phdr[0:2])
-            hdr+=","+("%02x"%phdr[2])
-            hdr+=" "+("%02x"%phdr[3])
-            hdr+=" "+("%02x"%phdr[4])
-            hdr+=" "+":".join("%02x"%(x) for x in phdr[5:12])
-            hdr+=","+"".join("%02x"%(x) for x in phdr[12:16])
-        elif typ=="0600" and (data[0])==0x10:
-            prehdr=data[:5]
-            prehdr="["+prehdr.hex(":")+"]"
-            imei=[(x) for x in data[5:5+8]]
-            phdr=data[5+8:5+8+16]
-            data=data[5+8+16:]
-            hdr=""
-            hdr+=" "+"".join("%02x"%(x) for x in imei)
-            hdr+=" "+"".join("%02x"%(x) for x in phdr[0:2])
-            hdr+=","+("%02x"%(phdr[2]))
-            hdr+=" "+("%02x"%(phdr[3]))
-            hdr+=" "+("%02x"%(phdr[4]))
-            hdr+=" "+":".join("%02x"%(x) for x in phdr[5:12])
-            hdr+=","+"".join("%02x"%(x) for x in phdr[12:16])
+        if typ=="0600":
+            prehdr=data[:29]
+            data=data[29:]
+            msgcnt=prehdr[15]
+            msgno=1
+            if msgcnt==0:
+                msgno=0
+            hdr=bytes()
         else:
-        # UL <50:0b:65>
-        # 1: always 50 (nothing to send / message received)
-        # 2+3: MOMSN mirror
-
-        # <10:87:01>
-        # 1: always 10 (message follows)
-        # 2: length in bytes of message
-        # 3: number of packet
-            hdr=data[:3]
-            data=data[3:]
-
-            hdr=hdr.hex(":")
-
-        str=""
-        for c in data:
-            if( (c)>=32 and (c)<127):
-                str+=chr(c)
-            elif (c)>127+32 and (c)<255:
-                str+=chr((c)-128)
+            if typ=="7608":
+                if data[0]==0x26:
+                    prehdr=data[:7]
+                    data=data[7:]
+                elif data[0]==0x20:
+                    prehdr=data[:5]
+                    data=data[5:]
+                else:
+                    print("WARN: SBD: DL pkt with unclear header",data.hex(":"), file=sys.stderr)
+                    prehdr=data[:7]
+                    data=data[7:]
+                msgcnt=prehdr[3]
             else:
-                str+="."
+                prehdr=bytes()
+                msgcnt=-1
 
-        append="| "+data.hex(" ")
-#        append=""
+            if ul and len(data)>=3 and data[0]==0x50:
+                prehdr=data[:3] # remove
+                data=data[3:]
 
-        hdr="%-10s"%("<"+hdr+">")+" "
-        print("%s %s [%s] {%02x} %-22s %-211s %s"%(datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),ul,typ,len(data),prehdr,hdr+str,append), file=outfile)
-        if len(data)==0: return
+            if len(data)==0:
+                hdr=bytes()
+                msgno=0
+            elif len(data)>3 and data[0]==0x10:
+                hdr=data[:3] # hdr: 0x10 len msg-cnt
+                data=data[3:]
+                msgno=hdr[2]
+
+                if len(data)<hdr[1]:
+                    if verb2:
+                        print("SBD: Pkt too short", end=" ")
+                        print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), data.hex(":")))
+                    return
+                elif len(data)>hdr[1]:
+                    if verb2:
+                        print("SBD: Pkt too long", end=" ")
+                        print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), data.hex(":")))
+                    data=data[:hdr[1]]
+            else:
+                hdr=bytes()
+                msgno=0
+                if verb2:
+                    print("SBD: Pkt weird:", end=" ")
+                    print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), data.hex(":")))
+
+        pkt=[typ, time, ul, prehdr, data]
+
+        if verb2 and (msgno>1 or msgcnt>1):
+            print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), ascii(data, escape=True)))
+
+        for (idx,(_,_,_,t)) in reversed(list(enumerate(self.multi[:]))):
+            if t+5<time:
+                if verb2:
+                    print("Expired one:",idx)
+                self.sbd_broken+=1
+                self.multi.pop(idx)
+
+        if msgno==0: # mboxcheck
+            self.sbd_short+=1
+            return pkt
+        elif msgcnt==1 and msgno==1: # single-message
+            self.sbd_single+=1
+            return pkt
+        elif msgcnt>1: # first new multi-packet
+            self.multi.append([msgno,msgcnt,pkt,time])
+            self.sbd_assembled+=1
+            return None
+        elif msgno>1: # addon
+            ok=False
+            for (idx,(no,cnt,p,t)) in reversed(list(enumerate(self.multi[:]))):
+                if msgno==no+1 and msgno < cnt and p[2] == ul: # could check if "typ" seems right.
+                    self.multi[idx][2][4]+=data
+                    ok=True
+                    self.sbd_assembled+=1
+                    if verb2:
+                        print("Merged: %f s"%(time-t))
+                    return None
+                elif msgno==no+1 and msgno == cnt and p[2] == ul: # could check if "typ" seems right.
+                    p[4]+=data
+                    p[0]+=typ
+                    self.multi.pop(idx)
+                    if verb2:
+                        print("Merged & finished: %f s"%(time-t))
+                    self.sbd_assembled+=1
+                    self.sbd_multi+=1
+                    return p
+            self.sbd_broken+=1
+            if verb2:
+                print("Couldn't attach subpkt.")
+            return None
+        else:
+            raise Exception("Shouldn't happen:"+str(msgno)+str(msgcnt)+str(pkt))
+
+    def end(self):
+        super().end()
+        print("SBD: %d short & %d single messages. (%1.1f%%)."%(self.sbd_short,self.sbd_single,(100*(float)(self.sbd_short+self.sbd_single)/(self.sbd_cnt or 1))))
+#        print("SBD: %d fragments"%(self.sbd_cnt))
+        print("SBD: %d successful multi-pkt messages."%(self.sbd_multi))
+        print("SBD: %d/%d fragments could not be assembled. (%1.1f%%)."%(self.sbd_broken,self.sbd_assembled,(100*(float)(self.sbd_broken)/(self.sbd_assembled or 1))))
+
+    def consume_l2(self,q):
+        (typ,time,ul,prehdr,data)=q
+
+        if ul:
+            ult="UL"
+        else:
+            ult="DL"
+
+        print("%s %s <%-20s> %s"%(
+                    datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),
+                    ult,prehdr.hex(":"),ascii(data, escape=True)))
 
 class ReassembleIDALAP(ReassembleIDA):
     first=True
@@ -1404,7 +1492,7 @@ class ReassembleMSG(Reassemble):
                 q.msg_msgdata = ''.join(["{0:08b}".format(int(q.msg_hex[i:i+2], 16)) for i in range(0, len(q.msg_hex), 2)])
                 q.msg_msgdata+=q.msg_brest
 
-                # convert to 7bit thingies 
+                # convert to 7bit thingies
                 m=re.compile(r'(\d{7})').findall(q.msg_msgdata)
                 q.msg_ascii=""
                 q.msg=[]
@@ -1506,6 +1594,7 @@ elif mode == "lap":
     outfile=open(ofile,"wb")
     zx=ReassembleIDALAPPCAP()
 elif mode == "sbd":
+    validargs=('perfect', 'debug')
     zx=ReassembleIDASBD()
 elif mode == "page":
     zx=ReassembleIRA()
