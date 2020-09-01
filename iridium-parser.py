@@ -749,7 +749,7 @@ class IridiumLCW3Message(IridiumMessage):
 class IridiumVOMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        self.crcval=iip_crc24( [chr(x) for x in self.payload_r])
+        self.crcval=iip_crc24( "".join([chr(x) for x in self.payload_r]))
         if self.crcval==0:
             self.vtype="VDA"
             return
@@ -848,7 +848,7 @@ class IridiumIPMessage(IridiumMessage):
                self.itype="IIR"
                self.idata=self.idata[0:-2]
         else:
-            self.crcval=iip_crc24( [chr(x) for x in self.payload_r])
+            self.crcval=iip_crc24( "".join([chr(x) for x in self.payload_r]))
             if self.crcval==0:
                 self.itype="IIP"
                 self.ip_hdr=self.payload_r[0]
@@ -1008,7 +1008,7 @@ class IridiumDAMessage(IridiumECCMessage):
             self.da_crc=int(self.bitstream_bch[9*20:9*20+16],2)
             self.da_ta=[int(x,2) for x in slice(self.bitstream_bch[20:9*20],8)]
             crcstream=self.bitstream_bch[:20]+"0"*12+self.bitstream_bch[20:-4]
-            the_crc=ida_crc16([chr(int(x,2)) for x in slice(crcstream,8)])
+            the_crc=ida_crc16("".join([chr(int(x,2)) for x in slice(crcstream,8)]))
             self.the_crc=the_crc
             self.crc_ok=(the_crc==0)
         else:
