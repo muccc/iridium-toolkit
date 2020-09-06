@@ -166,6 +166,14 @@ tswarning=False
 tsoffset=0
 maxts=0
 
+# Workaround for python < 3.8 (i.e. pypy3)
+try:
+    bytes.hex(bytes(0),":")
+    myhex=bytes.hex
+except TypeError:
+    def myhex(data, sep):
+        return sep.join(["%02x"%(x) for x in data])
+
 def fmt_iritime(iritime):
     # Different Iridium epochs that we know about:
     # ERA2: 2014-05-11T14:23:55Z : 1399818235 active since 2015-03-03T18:00:00Z
@@ -938,11 +946,7 @@ class IridiumIPMessage(IridiumMessage):
             self.ip_cs_ok=self.ip_hdr+self.ip_seq+self.ip_ack+self.ip_cs
             while (self.ip_cs_ok>255):
                 self.ip_cs_ok-=255
-            self.ip_len= self.payload_r[4]
-            if self.ip_len>31:
-                #self._new_error("Invalid ip_len")
-                pass
-            self.ip_data=self.payload_r[5:31+5] # XXX: only len bytes?
+            self.ip_data=self.payload_r[4:31+5]
             self.ip_cksum, = struct.unpack(">L", bytearray([0]+self.payload_r[31+5:]))
         else:
             (ok,msg,rsc)=rs.rs_fix(self.payload_f)
@@ -968,17 +972,40 @@ class IridiumIPMessage(IridiumMessage):
     def pretty(self):
         s= self.itype+": "+self._pretty_header()
         if self.itype=="IIP" or self.itype=="VDA":
-            s+= " type:%02x seq=%03d ack=%03d cs=%03d/%s len=%03d"%(self.ip_hdr,self.ip_seq,self.ip_ack,self.ip_cs,["no","OK"][(self.ip_cs_ok==255)],self.ip_len)
-            s+= " ["+".".join(["%02x"%x for x in self.ip_data])+"]"
-            s+= " %06x/%06x"%(self.ip_cksum,self.crcval)
-            s+=" FCS:OK"
-            ip_data = ' IP: '
-            for c in self.ip_data:
-                if( c>=32 and c<127):
-                    ip_data+=chr(c)
-                else:
-                    ip_data+="."
-            s += ip_data
+            s+= " type:%02x seq=%03d ack=%03d cs=%03d/%s "%(self.ip_hdr,self.ip_seq,self.ip_ack,self.ip_cs,["no","OK"][(self.ip_cs_ok==255)])
+            if self.ip_hdr==4: # DATA
+                self.ip_len=self.ip_data[0]
+                self.ip_data=self.ip_data[1:]
+                s+= " len=%03d"%(self.ip_len)
+                if all([x==0 for x in self.ip_data[self.ip_len+1:]]):
+                    data=self.ip_data[:self.ip_len]
+                    mstr= " ["+myhex(data,".")+"]"
+                else: # rest is not zero as it should be
+                    data=self.ip_data
+                    mstr= " ["+myhex(data,".")+"]"
+                    if self.ip_len>0 and self.ip_len<31:
+                        mstr=mstr[:3*self.ip_len-1]+'!'+mstr[3*self.ip_len:]
+                s+= "%-95s"%(mstr)
+            elif self.ip_hdr==1: # ACK?
+                s+= "      "
+                data=self.ip_data
+                while data and data[-1] == 0:
+                    data.pop()
+                s+= "%-97s"%(myhex(data,"."))
+            else: # UNKNOWN
+                s+= "      "
+                data=self.ip_data
+                s+= "["+myhex(data,".")+"]"
+
+            s+= " FCS:OK/%06x"%(self.ip_cksum)
+            if len(data)>0 and self.ip_hdr!=1:
+                ip_data = ' IP: '
+                for c in data:
+                    if( c>=32 and c<127):
+                        ip_data+=chr(c)
+                    else:
+                        ip_data+="."
+                s += ip_data
         elif self.itype=="IIQ":
             s+= " ["+" ".join(["%02x"%x for x in self.idata])+"]"
             s+= " C=%04x"%self.iiqcsum
