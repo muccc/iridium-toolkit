@@ -1171,7 +1171,8 @@ class IridiumRAMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
         # Decode stuff from self.bitstream_bch
-        if len(self.bitstream_bch)<64:
+        # 3 blocks (63 bits) fixed "header".
+        if len(self.bitstream_bch)<63:
             raise ParserError("RA content too short")
         self.ra_sat=   int(self.bitstream_bch[0:7],2)   # sv_id
         self.ra_cell=  int(self.bitstream_bch[7:13],2)  # beam_id
@@ -1188,7 +1189,14 @@ class IridiumRAMessage(IridiumECCMessage):
         self.ra_alt = sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4
         self.ra_msg= False
         ra_msg=self.bitstream_bch[63:]
+
+        # Up to 12 PAGEs(@ 42 bits) for max 432 symbol frame
+        # PAGEs end with an all-1 page.
+        # Frame may be longer, in that case it is padded with "FILL" pattern
+        # (not necessarily to an exact PAGE size)
         self.paging=[]
+        page_end=None
+        page_sane=True
         while len(ra_msg)>=42:
             paging={
                 'tmsi':  int(ra_msg[ 0:32],2),
@@ -1198,18 +1206,33 @@ class IridiumRAMessage(IridiumECCMessage):
                 'raw': ra_msg[:42],
             }
             if ra_msg[:42]=="111111111111111111111111111111111111111111":
-                paging['none']=True
-                paging['fill']=False
+                paging['str']="NONE"
+                if page_end is None:
+                    page_end=len(self.paging)
+                else:
+                    page_sane=False
             elif ra_msg[:42]=="101000100111001110111010101000100010111000":
-                paging['none']=True
-                paging['fill']=True
+                paging['str']="FILL"
+                if page_end is None:
+                    page_sane=False
             else:
-                paging['none']=False
+                paging['str'] = "tmsi:%08x"%paging['tmsi']
+                if paging['zero1']!=0: paging['str']+= " 0:%d"%paging['zero1']
+                paging['str']+= " msc_id:%02d"%paging['msc_id']
+                if paging['zero2']!=0: paging['str']+= " 0:%d"%paging['zero2']
+                if page_end is not None:
+                    page_sane=False
             self.paging.append(paging)
             ra_msg=ra_msg[42:]
-        self.ra_extra=ra_msg
-        if len(ra_msg)!=0:
-            self._new_error("RA content length unexpected:%d"%len(ra_msg))
+
+        if page_sane==False:
+            self.page_len=None
+            self.ra_extra=ra_msg
+        else:
+            self.page_len=page_end
+            self.ra_extra=""
+            self.descramble_extra=""
+
     def upgrade(self):
         if self.error: return self
         try:
@@ -1233,19 +1256,18 @@ class IridiumRAMessage(IridiumECCMessage):
         str+= " ?%d%d"%(self.ra_ts,self.ra_eip)
         str+= " bc_sb:%02d"%self.ra_bc_sb
 
-        for p in self.paging:
-            str+= " PAGE("
-            if p['none']:
-                if p['fill']:
-                    str+="FILL"
-                else:
-                    str+="NONE"
+        if self.page_len is None:
+            for p in self.paging:
+                str+= " PAGE(%s)"%p['str']
+            if "NONE" in [x['str'] for x in self.paging]:
+                str+=" CORRUPT"
             else:
-                str+= "tmsi:%08x"%p['tmsi']
-                if p['zero1']!=0: str+= " 0:%d"%p['zero1']
-                str+= " msc_id:%02d"%p['msc_id']
-                if p['zero2']!=0: str+= " 0:%d"%p['zero2']
-            str+= ")"
+                str+=" INCOMPLETE"
+        else:
+            for p in self.paging[:self.page_len]:
+                str+= " PAGE(%s)"%p['str']
+            if len(self.paging)-self.page_len>1:
+                str+=" FILL=%d"%(len(self.paging)-self.page_len-1)
 
         if self.ra_extra:
             str+= " +%s"%" ".join(slice(self.ra_extra,21))
