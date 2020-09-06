@@ -296,7 +296,7 @@ class Message(object):
         if globaltime:
             hdr="j%s %16.6f"%(flags,self.globaltime)
         else:
-            hdr="%s %013.3f"%(self.filename,self.timestamp)
+            hdr="%s %014.4f"%(self.filename,self.timestamp)
         return "%s %s %3d%% %7.3f"%(hdr,self.freq_print,self.confidence,self.level)
     def _pretty_trailer(self):
         return ""
