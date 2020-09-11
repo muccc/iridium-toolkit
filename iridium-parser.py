@@ -835,27 +835,7 @@ class IridiumVOMessage(IridiumMessage):
     def pretty(self):
         str= self.vtype+": "+self._pretty_header()
         if self.vtype=="VDA":
-            if self.vstype==4:
-                str+= " type=%02x ct1=%03d ?=%02x ct2=%03d len=%03d "%(self.vstype,self.vctr1,self.vuk1,self.vctr2,self.vlen)
-                str+= "["
-                str+= ".".join(["%02x"%x for x in self.vdata[:self.vlen]])
-                str+= "]"
-                err=any(self.vdata[self.vlen:])
-                if err:
-                    str+=" ERR"
-                str+= "   "*(31-self.vlen)
-            else:
-                str+= " type=%02x ct1=%03d ?=%02x ct2=%03d "%(self.vstype,self.vctr1,self.vuk1,self.vctr2)
-                str+= "     ["
-                str+= "%02x."%self.vlen
-                str+= ".".join(["%02x"%x for x in self.vdata])
-                str+= "]"
-            str+=" crc=%06x "%(self.crc)
-            for c in self.vdata:
-                if( c>=32 and c<127):
-                    str+=chr(c)
-                else:
-                    str+="."
+            raise ParserError("VDA handled in IIP(canthappen)")
         elif self.vtype=="VO6":
             v="".join(["{0:06b}".format(x) for x in self.rs6m ])
             if self.rs6p:
