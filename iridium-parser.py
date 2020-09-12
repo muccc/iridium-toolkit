@@ -934,8 +934,6 @@ class IridiumIPMessage(IridiumMessage):
         elif self.itype=="IIQ":
             s+= " ["+" ".join(["%02x"%x for x in self.idata])+"]"
             s+= " C=%04x"%self.iiqcsum
-            if (self.iiqcsum == self.idata[-2]*256+self.idata[-1]):
-               s+=" OK"
         elif self.itype=="IIR":
             s+= " ["+" ".join(["%02x"%x for x in self.idata])+"]"
         else:
