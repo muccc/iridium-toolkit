@@ -860,31 +860,18 @@ class IridiumIPMessage(IridiumMessage):
                 #self._new_error("Invalid ip_len")
                 pass
             self.ip_data=self.payload_r[5:31+5] # XXX: only len bytes?
-            self.ip_cksum= struct.unpack(">L", bytearray([0]+self.payload_r[31+5:]))[0]
+            self.ip_cksum, = struct.unpack(">L", bytearray([0]+self.payload_r[31+5:]))
         else:
             (ok,msg,rsc)=rs.rs_fix(self.payload_f)
             if ok:
-                self.itype="IIQ"
-                self.idata=msg
-                csum1=0
-                csum2=0
-                for x in xrange(0,len(self.idata)-3,2):
-                    csum1+=self.idata[x]
-                    if csum1>255:
-                        csum1=csum1&0xff
-                        csum2+=1
-                    csum2+=self.idata[x+1]
-                    if csum2>255:
-                        csum2=csum2&0xff
-                        csum1+=1
-                csum1+=self.idata[-3] # Unclear if ever not=0
-                if csum1>255:
-                    csum1=csum1&0xff
-                    csum2+=1
-                self.iiqcsum=0xffff^(256*csum1+csum2)
-                if (self.iiqcsum == self.idata[-2]*256+self.idata[-1]):
-                   self.itype="IIR"
-                   self.idata=self.idata[0:-2]
+                self.iiqcsum=checksum_16(msg[0:-3],msg[-2:])
+                self.oddbyte=msg[-3]
+                if self.iiqcsum == 0:
+                    self.itype="IIR"
+                    self.idata=msg[0:-2]
+                else:
+                    self.itype="IIQ"
+                    self.idata=msg
             else:
                 self.itype="IIU"
     def upgrade(self):
@@ -1524,6 +1511,11 @@ def messagechecksum(msg):
     for x in re.findall(".",msg):
         csum=(csum+ord(x))%128
     return (~csum)%128
+
+def checksum_16(msg, csum):
+    csum=sum(struct.unpack("15H",msg+csum))
+    csum=((csum&0xffff) + (csum>>16))
+    return csum^0xffff
 
 def group(string,n): # similar to grouped, but keeps rest at the end
     string=re.sub('(.{%d})'%n,'\\1 ',string)
