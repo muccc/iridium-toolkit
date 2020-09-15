@@ -129,6 +129,9 @@ if dosatclass == True:
     import satclass
     satclass.init()
 
+if (linefilter['type'] != 'All') and harder:
+    raise Exception("--harder and --filter (except type=Any) can't be use at the same time")
+
 if vdumpfile != None:
     vdumpfile=open(vdumpfile,"wb")
 
@@ -666,6 +669,8 @@ class IridiumMessage(Message):
             self._new_error("No data to descramble")
 
     def upgrade(self):
+        if linefilter['type']=='IridiumLCW3Message' and self.msgtype!="U3":
+            self._new_error("filtered message")
         if self.error: return self
         try:
             if self.msgtype=="VO":
