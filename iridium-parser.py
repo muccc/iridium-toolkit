@@ -599,7 +599,8 @@ class IridiumMessage(Message):
             elif self.ft==3: # Mission control data - inband sig
                 self.msgtype="U3"
                 self.descrambled=data[:312]
-                self.payload=[int(x,2) for x in slice(self.descrambled, 6)]
+                self.payload6=[int(x,2) for x in slice(self.descrambled, 6)]
+                self.payload8=[int(x,2) for x in slice(self.descrambled, 8)]
                 self.descramble_extra=data[312:]
             elif self.ft==6: # "PT=,"
                 self.msgtype="U6"
@@ -703,15 +704,36 @@ class IridiumSTLMessage(IridiumMessage):
 class IridiumLCW3Message(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        (ok,msg,csum)=rs6.rs_fix(self.payload)
+
+        self.utype="IU3"
+        self.rs8p=False
         self.rs6p=False
-        self.rs6=ok
+        self.fixederrs=0
+
+        (ok,msg,csum)=rs.rs_fix(self.payload8)
+        self.rs8=ok
         if ok:
-            if bytearray(self.payload)==msg+csum:
-                self.rs6p=True
-            self.rs6m=msg
-            self.rs6c=csum
-#            self.payload=msg
+            self.utype="I38"
+            if bytearray(self.payload8)==msg+csum:
+                self.rs8p=True
+            else:
+                self.fixederrs+=1
+            self.rs8m=msg
+            self.rs8c=csum
+            self.csum=checksum_16(self.rs8m[0:-3],self.rs8m[-2:])
+            self.oddbyte=self.rs8m[-3]
+        else:
+            (ok,msg,csum)=rs6.rs_fix(self.payload6)
+            self.rs6=ok
+            if ok:
+                self.utype="I36"
+                if bytearray(self.payload6)==msg+csum:
+                    self.rs6p=True
+                else:
+                    self.fixederrs+=1
+                self.rs6m=msg
+                self.rs6c=csum
+
     def upgrade(self):
         return self
     def _pretty_header(self):
@@ -719,43 +741,56 @@ class IridiumLCW3Message(IridiumMessage):
     def _pretty_trailer(self):
         return super(IridiumLCW3Message,self)._pretty_trailer()
     def pretty(self):
-        str= "IU3: "+self._pretty_header()
-        if self.rs6:
-            if self.rs6p:
-                str+=" RS=OK"
+        str= self.utype+": "+self._pretty_header()
+        if self.utype=='I38':
+            if self.rs8p:
+                str+=" RS8=OK"
             else:
-                str+=" RS=ok"
-        else:
-            str+=" RS=no"
-        if self.rs6:
+                str+=" RS8=ok"
+            if self.oddbyte!=0:
+                str+=" ODD:%d"%self.oddbyte
+            if self.csum==0:
+               str+=" CS=OK"
+               self.rs8m=self.rs8m[0:-3]
+               remove_zeros(self.rs8m)
+            else:
+               str+=" CS=no"
+            str+= " ["
+            str+=" ".join(["%02x"%(x) for x in self.rs8m ])
+            str+= "]"
+        elif self.utype=='I36':
+            if self.rs6p:
+                str+=" RS6=OK"
+            else:
+                str+=" RS6=ok"
             str+=" {%02d}"%self.rs6m[0]
             str+= " ["
-            v="".join(["{0:06b}".format(x) for x in self.rs6m ])
+
+            num=None
+            v="".join(["{0:06b}".format(x) for x in self.rs6m[1:] ])
             if self.rs6m[0]==0:
-                str+=v[:8]+"| "+group(v[8:],10)
+                str+=v[:2]+"| "+group(v[2:],10)
             elif self.rs6m[0]==6:
-                str+=group(v,8)
-            elif self.rs6m[0]==32:
-                str+=group(v,6)
+                str+=v[:2]+"| "+group(v[2:],24)
+                num=[int(x,2) for x in slice(v[2:],24)]
+                remove_zeros(num)
+            elif self.rs6m[0]==32 or self.rs6m[0]==34:
+                str+=v[:2]+"| "+group(v[2:],24)
+                num=[int(x,2) for x in slice(v[2:-4],24)]
+                if int(v[-4:],2)!=0:
+                    num+=int(v[-4:],2)
+                while len(num)>0 and num[-1]==0x7ffff:
+                    num=num[:-1]
             else:
                 str+=group(v,6)
-#            if not self.rs6p:
-#                str+=" - "
-#                str+=".".join(["%02x"%x for x in self.rs6c ])
             str+="]"
-            if self.rs6m[0]==6:
-                v="".join(["{0:06b}".format(x) for x in self.rs6m ])
-                w=[]
-                for x in xrange(8,len(v),24):
-                    w+=[int(v[x:x+24],2)]
-                while len(w)>0 and w[-1]==0:
-                    w=w[:-1]
-                str+=" <"+" ".join(["%06x"%x for x in w])+">"
+
+            if num is not None:
+                str+=" <"+" ".join(["%06x"%x for x in num])+">"
         else:
+            str+=" RS=no"
             str+= " ["
-            v="".join(["{0:08b}".format(x) for x in self.payload ])
-            str+=group(v,24)
-            #str+=".".join(["%02x"%x for x in self.payload ])
+            str+=group(self.descrambled,8)
             str+="]"
         str+=self._pretty_trailer()
         return str
@@ -1516,6 +1551,13 @@ def checksum_16(msg, csum):
     csum=sum(struct.unpack("15H",msg+csum))
     csum=((csum&0xffff) + (csum>>16))
     return csum^0xffff
+
+def remove_zeros(l):
+    for ele in reversed(l):
+        if not ele:
+            del l[-1]
+        else:
+            break
 
 def group(string,n): # similar to grouped, but keeps rest at the end
     string=re.sub('(.{%d})'%n,'\\1 ',string)
