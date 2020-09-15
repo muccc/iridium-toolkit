@@ -367,9 +367,9 @@ class IridiumMessage(Message):
                         if (e2==1): # Maybe the other one...
                             (e2,lcw2,bch)= bch_repair(465,o_lcw2+'1')
                         if e2==0:
-                            self.msgtype="DA"
+                            self.msgtype="LW"
 
-        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumDAMessage":
+        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumLCWMessage":
             self._new_error("filtered message")
             return
 
@@ -401,7 +401,7 @@ class IridiumMessage(Message):
                             if ((d3+b3+o_bc2[31]).count('1') % 2)==0:
                                 self.msgtype="BC"
 
-                # try for LCW (IDA)
+                # try for LCW
                 if len(data)>=64:
                     (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
                     (e1 ,lcw1,bch)=bch_repair( 29,o_lcw1)     # BCH(7,3)
@@ -414,7 +414,7 @@ class IridiumMessage(Message):
                         e2=e2b
 
                     if e1>=0 and e2>=0 and e3>=0:
-                        self.msgtype="DA"
+                        self.msgtype="LW"
                         self.ec_lcw=(e1+e2+e3)
 
         if "msgtype" not in self.__dict__:
@@ -463,7 +463,7 @@ class IridiumMessage(Message):
             (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
-        elif self.msgtype=="DA":
+        elif self.msgtype=="LW":
             lcwlen=46
             (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
             (e1,self.lcw1,bch)= bch_repair( 29,o_lcw1)
@@ -581,6 +581,7 @@ class IridiumMessage(Message):
                     self.payload_r+=[int(x[::-1],2)]
                 self.descramble_extra=data[312:]
             elif self.ft==2: # DAta (SBD) - Mission control data - ISU/SV
+                self.msgtype="DA"
                 self.descramble_extra=data[124*2+64:]
                 data=data[:124*2+64]
                 blocks=slice(data,124)
@@ -975,7 +976,7 @@ class IridiumECCMessage(IridiumMessage):
             elif self.msgtype == "BC":
                 return IridiumBCMessage(self).upgrade()
             elif self.msgtype == "DA":
-                return IridiumDAMessage(self).upgrade()
+                return IridiumLCWMessage(self).upgrade()
             else:
                 self._new_error("Unknown message type")
         except ParserError as e:
@@ -1007,7 +1008,7 @@ class IridiumECCMessage(IridiumMessage):
         return str
 
 ida_crc16=crcmod.predefined.mkPredefinedCrcFun("crc-ccitt-false")
-class IridiumDAMessage(IridiumECCMessage):
+class IridiumLCWMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
         # Decode stuff from self.bitstream_bch
@@ -1053,9 +1054,9 @@ class IridiumDAMessage(IridiumECCMessage):
             return self
         return self
     def _pretty_header(self):
-        return super(IridiumDAMessage,self)._pretty_header()
+        return super(IridiumLCWMessage,self)._pretty_header()
     def _pretty_trailer(self):
-        return super(IridiumDAMessage,self)._pretty_trailer()
+        return super(IridiumLCWMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IDA: "+self._pretty_header()
         str+= " "+self.bitstream_bch[:3]
