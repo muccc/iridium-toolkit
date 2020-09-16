@@ -420,11 +420,12 @@ class IridiumMessage(Message):
         if "msgtype" not in self.__dict__:
             if len(data)<64:
                 raise ParserError("Iridium message too short")
-            else:
-                if forcetype == None:
-                    raise ParserError("unknown Iridium message type")
-                else:
-                    self.msgtype=forcetype
+
+        if forcetype:
+            self.msgtype=forcetype
+
+        if "msgtype" not in self.__dict__:
+            raise ParserError("unknown Iridium message type")
 
         if self.msgtype=="MS":
             hdrlen=32
