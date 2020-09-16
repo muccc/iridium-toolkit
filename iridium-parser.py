@@ -778,7 +778,7 @@ class IridiumLCW3Message(IridiumMessage):
                 str+=v[:2]+"| "+group(v[2:],24)
                 num=[int(x,2) for x in slice(v[2:-4],24)]
                 if int(v[-4:],2)!=0:
-                    num+=int(v[-4:],2)
+                    num+=[int(v[-4:],2)]
                 while len(num)>0 and num[-1]==0x7ffff:
                     num=num[:-1]
             else:
