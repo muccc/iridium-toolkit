@@ -27,6 +27,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'input=',
                                                          'output=',
                                                          'perfect',
+                                                         'disable-freqclass',
                                                          'errorfree',
                                                          'interesting',
                                                          'satclass',
@@ -54,6 +55,13 @@ hdr_poly=29 # IBC header
 base_freq=1616e6
 channel_width=41667
 
+f_doppler= 36e3  # maximum doppler_shift
+f_jitter=   1e3  # iridium-extractor precision
+sdr_ppm=  100e-6 # SDR freq offset
+
+f_simplex = (1626104e3 - f_doppler - f_jitter ) * (1- sdr_ppm) # lower bound for simplex channel
+f_duplex  = (1625979e3 + f_doppler + f_jitter ) * (1+ sdr_ppm) # upper bound for duplex cannel
+
 verbose = False
 perfect = False
 errorfree = False
@@ -72,6 +80,7 @@ errorfile=None
 errorstats=None
 forcetype=None
 channelize=False
+freqclass=True
 
 for opt, arg in options:
     if opt in ['-v', '--verbose']:
@@ -90,6 +99,8 @@ for opt, arg in options:
         interesting = True
     elif opt in ['-p', '--perfect']:
         perfect = True
+    elif opt in ['--disable-freqclass']:
+        freqclass = False
     elif opt in ['-e', '--errorfree']:
         errorfree = True
     elif opt in ['-s', '--satclass']:
@@ -357,8 +368,9 @@ class IridiumMessage(Message):
             data=self.bitstream_raw[len(iridium_access):]
 
         # Try to detect packet type.
-        # XXX: will not detect packets with correctable bit errors at the beginning
-        if "msgtype" not in self.__dict__:
+        # Will not detect packets with correctable bit errors at the beginning
+        # unless '--harder' is specifed
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex):
             if data[:32] == header_messaging:
                 self.msgtype="MS"
 
@@ -366,7 +378,7 @@ class IridiumMessage(Message):
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__:
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex):
             if data[:96]==header_time_location:
                 self.msgtype="TL"
 
@@ -374,7 +386,7 @@ class IridiumMessage(Message):
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__:
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency < f_duplex):
             hdrlen=6
             blocklen=64
             if len(data)>hdrlen+blocklen:
@@ -388,7 +400,7 @@ class IridiumMessage(Message):
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__:
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency < f_duplex):
             if len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
                 (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
                 if ndivide( 29,o_lcw1)==0:
@@ -403,7 +415,7 @@ class IridiumMessage(Message):
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__:
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex):
             firstlen=3*32
             if len(data)>=3*32:
                 (o_ra1,o_ra2,o_ra3)=de_interleave3(data[:firstlen])

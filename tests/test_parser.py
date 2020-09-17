@@ -45,6 +45,7 @@ def test_bits_without_header(expected, bits):
     line=frame_to_line(bits)
     with patch('fileinput.lineno', return_value = '0'):
         with patch('parser.IridiumMessage._pretty_header', return_value = '-'):
+            parser.freqclass=False
             p=parser.Message(line).upgrade()
             assert p.pretty().strip() == expected
 
