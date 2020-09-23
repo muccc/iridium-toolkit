@@ -253,6 +253,111 @@ class StatsPKT(Reassemble):
 
         self.printstats(self.timeslot, self.stats, skip=True)
 
+import json
+class LiveMap(Reassemble):
+    intvl=60
+    exptime=60*8
+    timeslot=None
+
+    def __init__(self):
+        self.positions={}
+        self.ground={}
+        pass
+
+    r1=re.compile('UW:0-LCW:0-FIX:0')
+    r2=re.compile(' *sat:(\d+) beam:(\d+) (?:rps=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+).*')
+
+    def filter(self,line):
+        q=super(LiveMap,self).filter(line)
+
+        if q==None: return None
+        if q.typ!="IRA:": return None
+        if 'perfect' in args:
+            m=self.r1.search(q.name)
+            if not m: return None
+
+        return q
+
+    def process(self,q):
+        # Parse out IRA info
+        m=self.r2.match(q.data)
+        if not m: return None
+        q.sat=  int(m.group(1))
+        q.beam= int(m.group(2))
+        q.lat=float(m.group(3))
+        q.lon=float(m.group(4))
+        q.alt=  int(m.group(5))
+
+        rv=None
+        q.enrich()
+        maptime=q.time-(q.time%self.intvl)
+
+        if maptime > self.timeslot:
+            # expire
+            for sat in self.positions:
+                eidx=0
+                for idx,el in enumerate(self.positions[sat]):
+                    if el['time']+self.exptime < q.time:
+                        eidx=idx+1
+                    else:
+                        break
+                del self.positions[sat][:eidx]
+            for sat in self.ground:
+                eidx=0
+                for idx,el in enumerate(self.ground[sat]):
+                    if el['time']+self.exptime/2 < q.time:
+                        eidx=idx+1
+                    else:
+                        break
+                del self.ground[sat][:eidx]
+
+            #cleanup
+            for sat in self.positions.keys():
+                if len(self.positions[sat])==0:
+                    del self.positions[sat]
+            for sat in self.ground.keys():
+                if len(self.ground[sat])==0:
+                    del self.ground[sat]
+
+            # send to output
+            if self.timeslot is not None:
+                rv=[[self.timeslot, { "sats": deepcopy(self.positions), "beam": deepcopy(self.ground)}]]
+            self.timeslot=maptime
+
+        if q.sat not in self.positions:
+            self.positions[q.sat]=[]
+
+        if q.sat not in self.ground:
+            self.ground[q.sat]=[]
+
+        if q.alt>700 and q.alt<800: # Sat positions
+            dupe=False
+            if len(self.positions[q.sat])>0:
+                lastpos=self.positions[q.sat][-1]
+                if lastpos['lat']==q.lat and lastpos['lon']==q.lon:
+                    dupe=True
+            if not dupe:
+                self.positions[q.sat].append({"lat": q.lat, "lon": q.lon, "alt": q.alt, "time": q.time})
+        elif q.alt<100: # Ground positions
+            self.ground[q.sat].append({"lat": q.lat, "lon": q.lon, "alt": q.alt, "beam": q.beam, "time": q.time})
+
+        return rv
+
+    def printstats(self, timeslot, stats):
+        ts=timeslot+self.intvl
+        print("# @ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
+        stats["time"]=ts
+        with open("sats.json.new", "w") as f:
+            print(json.dumps(stats, separators=(',', ':')), file=f)
+        os.rename("sats.json.new", "sats.json")
+
+    def consume(self,to):
+        (ts,stats)=to
+        self.printstats(ts, stats)
+
+    def end(self):
+        self.printstats(self.timeslot, {"sats": self.positions, "beam": self.ground} )
+
 class ReassemblePPM(Reassemble):
     def __init__(self):
         self.idx=None
@@ -975,6 +1080,9 @@ elif mode == "msg":
 elif mode == "stats":
     validargs=('perfect','state')
     zx=StatsPKT()
+elif mode == "live-map":
+    validargs=('perfect')
+    zx=LiveMap()
 elif mode == "ppm":
     validargs=('perfect','grafana','tdelta')
     zx=ReassemblePPM()
