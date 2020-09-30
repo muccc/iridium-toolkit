@@ -172,7 +172,7 @@ class Message(object):
         self.error=False
         self.error_msg=[]
         self.lineno=fileinput.lineno()
-        p=re.compile('(RAW|RWA): ([^ ]*) ([\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
+        p=re.compile('(RAW|RWA): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
         m=p.match(line)
         if(errorfile != None):
             self.line=line
@@ -185,6 +185,8 @@ class Message(object):
         if self.filename=="/dev/stdin":
             self.filename="-";
         self.timestamp=float(m.group(3))
+        if self.timestamp<0 or self.timestamp>1000*60*60*24*999: # 999d
+            self._new_error("Timestamp out of range")
         self.frequency=int(m.group(4))
 
         if channelize:
