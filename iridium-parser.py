@@ -990,8 +990,11 @@ class IridiumECCMessage(IridiumMessage):
 
             if parity:
                 if ((data+bch+parity).count('1') % 2)==1:
-                    if len(self.bitstream_bch) == 0: self._new_error("Parity error")
-                    break
+                    if harder:
+                        errs+=1
+                    else:
+                        if len(self.bitstream_bch) == 0: self._new_error("Parity error")
+                        break
 
             if errs>0:
                 self.fixederrs+=1
