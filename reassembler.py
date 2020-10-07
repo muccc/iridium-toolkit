@@ -110,7 +110,7 @@ class Reassemble(object):
             q.time=float(q.time)
             q.level=float(q.level)
             return q
-        except:
+        except ValueError:
             print >> sys.stderr, "Couldn't parse input line: ",line,
             return None
 
