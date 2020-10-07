@@ -214,21 +214,21 @@ class Message(object):
             month, day, year, hour, minute, second = map(int, mm.groups())
             ts=datetime.datetime(year,month,day,hour,minute,second)
             ts=(ts- datetime.datetime(1970,1,1)).total_seconds()
-            ts+=float(self.timestamp)/1000
-            self.globaltime=ts
+            self.startts=ts
+            self.globaltime=self.startts+float(self.timestamp)/1000
             return
         mm=re.match("i-(\d+(?:\.\d+)?)-[vbsrtl]1.([a-z])([a-z])",self.filename)
         if mm:
-            b26=(ord(mm.group(2))-ord('a'))*26+ ord(mm.group(3))-ord('a')
-            self.b26=b26
-            ts=float(mm.group(1))+float(self.timestamp)/1000+b26*600
-            self.globaltime=ts
+            self.b26=(ord(mm.group(2))-ord('a'))*26+ ord(mm.group(3))-ord('a')
+            self.startts=float(mm.group(1))+self.b26*600
+            self.globaltime=self.startts+float(self.timestamp)/1000
             return
         mm=re.match("i-(\d+(?:\.\d+)?)-[vbsrtl]1(?:-o[+-]\d+)?$",self.filename)
         if mm:
-            ts=float(mm.group(1))+float(self.timestamp)/1000
-            self.globaltime=ts
+            self.startts=float(mm.group(1))
+            self.globaltime=self.startts+float(self.timestamp)/1000
             return
+        self.startts=self.filename.replace("-",".")
         if not tswarning:
             print("Warning: no timestamp found in filename", file=sys.stderr)
             tswarning=True
@@ -297,7 +297,7 @@ class Message(object):
             else:
                 flags+="-FIX:0"
         if globaltime:
-            hdr="j%s %16.6f"%(flags,self.globaltime)
+            hdr="j-%d%s %16.6f"%(self.startts,flags,self.globaltime)
         else:
             hdr="%s %014.4f"%(self.filename,self.timestamp)
         return "%s %s %3d%% %7.3f"%(hdr,self.freq_print,self.confidence,self.level)
