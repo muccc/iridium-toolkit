@@ -153,19 +153,36 @@ class ReassemblePPM(Reassemble):
 
         q.timediff=q.uxtime-q.itime # missing correction for sat travel time
 
-        return [[q.timediff.total_seconds(),q.itime]]
+        return [[q.timediff.total_seconds(),q.itime,q.starttime]]
 
     ini=None
-    fin=None
-    def consume(self,to):
+    def consume(self, data):
         if self.ini is None:
-            self.ini=to
-        self.fin=to
+            self.ini=[data]
+            self.fin=[data]
+            self.idx=0
+        if data[2]!=self.ini[self.idx][2]:
+            self.idx += 1
+            self.ini.append(data)
+            self.fin.append(data)
+        self.fin[-1]=data
 
     def end(self):
-        ppm=(self.fin[0]-self.ini[0])/(self.fin[1]-self.ini[1]).total_seconds()*1000000
-        print "rec.ppm %.3f"%(ppm)
-        gt=(self.fin[1]-self.ini[1]).total_seconds()
+        alltime=0
+        delta=0
+        for ppms in range(1+self.idx):
+            td=(self.fin[ppms][1]-self.ini[ppms][1]).total_seconds()
+            toff=(self.fin[ppms][0]-self.ini[ppms][0])
+            ppm=toff/td*1000000
+            if False:
+                print "Blob %d:"%ppms
+                print "- Start time  : %s"%(self.ini[ppms][1])
+                print "- End   time  : %s"%(self.fin[ppms][1])
+                print "- Runtime     : %.2fh"%(td/60/60)
+                print "- PPM         : %.3f"%(ppm)
+            alltime += td
+            delta += toff
+        print "rec.ppm %.3f"%(delta/alltime*1000000)
 
 class ReassembleIDA(Reassemble):
     def __init__(self):
