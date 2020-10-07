@@ -91,9 +91,8 @@ class MyObject(object):
         if (self.name.startswith("j")):
             return float(self.time)
         try:
-            (crap,ts,fnord)=self.name.split("-",3)
-            return (float(ts)+float(self.time)/1000)
-        except ValueError:
+            return (float(self.starttime)+float(self.time)/1000)
+        except AttributeError:
             return float(self.time)/1000
     pass
 
@@ -122,6 +121,7 @@ class Reassemble(object):
                 q.frequency=base_freq+channel_width*int(chan)+int(off)
             else:
                 q.frequency=int(q.frequency)
+            q.starttime, _, q.attr = q.name[1+q.name.index('-'):].partition('-')
             q.confidence=int(q.confidence.strip("%"))
             q.time=float(q.time)
             q.level=float(q.level)
@@ -153,7 +153,7 @@ class StatsPKT(Reassemble):
                 self.default[k][x]=0
         pass
 
-    r1=re.compile('j-UW:0-LCW:0-FIX:0')
+    r1=re.compile('UW:0-LCW:0-FIX:0')
 
     def filter(self,line):
         q=super(StatsPKT,self).filter(line)
@@ -163,7 +163,7 @@ class StatsPKT(Reassemble):
         if q.typ=="RAW:": return None
         if q.typ=="IME:": return None
         if 'perfect' in args:
-            m=self.r1.match(q.name)
+            m=self.r1.match(q.attr)
             if not m: return None
 
         return q
