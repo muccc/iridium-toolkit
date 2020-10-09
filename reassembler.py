@@ -497,7 +497,7 @@ class ReassembleIDALAP(ReassembleIDA):
         #        int8_t signal_dbm;      /* signal level in dBm */                 olvl
         #        int8_t snr_db;          /* signal/noise ratio in dB */            0 ?
         #        uint32_t frame_number;  /* GSM Frame Number (FN) */               freq??
-        #        uint8_t sub_type;       /* Type of burst/channel, see above */    7
+        #        uint8_t sub_type;       /* Type of burst/channel, see above */    1 (BCCH) / 7 (?)
         #        uint8_t antenna_nr;     /* Antenna Number */                      0 ?
         #        uint8_t sub_slot;       /* sub-slot within timeslot */            0 ?
         #        uint8_t res;            /* reserved for future use (RFU) */       0 ?
