@@ -69,16 +69,15 @@ if verbose:
     print "ofile",ofile
     print "basen",basename
 
-def fixtime(n,t):
-    if (n.startswith("j")):
-        return float(t)
-    try:
-        (crap,ts,fnord)=n.split("-",3)
-        return (float(ts)+float(t)/1000)
-    except:
-        return float(t)/1000
-
 class MyObject(object):
+    def fixtime(self):
+        if (self.name.startswith("j")):
+            return float(self.time)
+        try:
+            (crap,ts,fnord)=self.name.split("-",3)
+            return (float(ts)+float(self.time)/1000)
+        except ValueError:
+            return float(self.time)/1000
     pass
 
 class Reassemble(object):
@@ -145,7 +144,7 @@ class ReassemblePPM(Reassemble):
         return q
 
     def process(self,q):
-        q.globaltime=fixtime(q.name,q.time)
+        q.globaltime=q.fixtime()
         q.uxtime=datetime.datetime.utcfromtimestamp(q.globaltime)
 
         # correct for slot
@@ -191,7 +190,7 @@ class ReassembleIDA(Reassemble):
         q=super(ReassembleIDA,self).filter(line)
         if q==None: return None
         if q.typ=="IDA:":
-            q.time=fixtime(q.name,q.time)
+            q.time=q.fixtime()
             qqq=re.compile('.* CRC:OK')
             if not qqq.match(q.data):
                 return
@@ -506,7 +505,7 @@ class ReassembleMSG(Reassemble):
                 q.msg_checksum=int(m.group(6),16)
                 q.msg_hex=         m.group(7)
                 q.msg_brest=       m.group(8)
-                q.time=        fixtime(q.name,q.time)
+                q.time=        q.fixtime()
 
 
                 q.msg_msgdata = ''.join(["{0:08b}".format(int(q.msg_hex[i:i+2], 16)) for i in range(0, len(q.msg_hex), 2)])
