@@ -438,6 +438,143 @@ class ReassembleIDA(Reassemble):
 
         print >>outfile, "%15.6f %s %s %s | %s"%(time,freq_print,ul," ".join("%02x"%ord(x) for x in data),str)
 
+class ReassembleIDAPP(ReassembleIDA):
+    def consume(self,q):
+        (data,time,ul,_,freq)=q
+        if len(data)<=2:
+            return
+
+        fbase=freq-base_freq
+        fchan=int(fbase/channel_width)
+        foff =fbase%channel_width
+        freq_print="%3d|%05d"%(fchan,foff)
+
+        if ul:
+            ul="UL"
+        else:
+            ul="DL"
+
+        tmaj="%02x"%(ord(data[0]))
+        tmin="%02x%02x"%(ord(data[0]),ord(data[1]))
+        data=data[2:]
+        majmap={
+            "03": "CC",
+            "05": "MM",
+            "06": "06",
+            "08": "08",
+            "09": "SMS",
+            "76": "SBD",
+        }
+        minmap={
+            "0305": "Setup",
+            "030f": "Connect Acknowledge",
+            "0325": "Disconnect",
+            "032a": "Release Complete",
+            "032d": "Release",
+            "0502": "Location Updating Accept",
+            "0504": "Location Updating Reject",
+            "0508": "Location Updating Request",
+            "0512": "Authentication Request",
+            "0514": "Authentication Response",
+            "0518": "Identity request",
+            "0519": "Identity response",
+            "051a": "TMSI Reallocation Command",
+            "0600": "Register/Hello?",
+            "0901": "CP-DATA",
+            "0904": "CP-ACK",
+            "0910": "CP-ERROR",
+            "7605": "7605",
+            "7608": "downlink initial",
+            "7609": "downlink part#2",
+            "760a": "downlink part#3+",
+            "760c": "uplink initial",
+        }
+
+        if tmin in minmap:
+            tstr="["+majmap[tmaj]+": "+minmap[tmin]+"]"
+        else:
+            if tmaj in majmap:
+                tstr="["+majmap[tmaj]+": ?]"
+            else:
+                tstr="[?]"
+
+        typ=tmin
+        print >>outfile, "%15.6f %s %s [%s] %-36s"%(time,freq_print,ul,typ,tstr),
+
+        if tmaj=="76" and int(typ[2:],16)>=8:
+            prehdr=""
+            if typ=="7608":
+                # <26:44:9a:01:00:ba:85>
+                # 1: always? 26
+                # 2+3: sequence number (MTMSN)
+                # 4: number of packets in message
+                # 5: number of messages waiting to be delivered / backlog
+                # 6+7: unknown / maybe MOMSN?
+                prehdr=data[:7]
+                data=data[7:]
+                prehdr="<"+":".join("%02x"%ord(x) for x in prehdr)+">"
+
+            # <10:87:01>
+            # 1: always 10
+            # 2: length in bytes of message
+            # 3: number of packet
+            hdr=data[:3]
+            data=data[3:]
+
+            hdr="<"+":".join("%02x"%ord(x) for x in hdr)+">"
+
+            print >>outfile, "%-22s %-10s "%(prehdr,hdr),
+# > 0600 / 10:13:f0:10: tmsi+lac+lac+00 +bytes
+# < 0605 ?
+# > 0508 Location Updating Request
+#  < 0512 Authentication Request
+#  > 0514 Authentication Response
+#  < 051a TMSI reallocation command [09 f1 30](MCC/MNC/LAC) + [08 f4]TMSI
+#  < 0518 Identity request 02: IMEI
+#  > 0519 Identity response (IMEI)
+# < 0502 Location Updating Accept (MCC/MNC/LAC)
+
+# > 0600 / 20:13:f0:10: imei +bytes
+# < 7608 <sbd_id> 0 messages
+# > 760c <50:xx:xx> MOMSN echoback
+# < 7605 ?
+        if typ=="0600":
+            hdr=data[:4]
+            data=data[4:]
+            print >>outfile, "[%s]"%(":".join("%02x"%ord(x) for x in hdr)),
+            imei=[ord(x) for x in data[:9]]
+            data=data[9:]
+            if ord(hdr[0])==0x20:
+                n1=imei[1]>>4
+                t=imei[1]&0x7
+                o=(imei[1]>>3)&0x1
+                str="%02x|%d_%x:%x"%(imei[0],o,t,n1)
+                str+="".join("%x%x"%((x)&0xf,(x)>>4) for x in imei[2:])
+                imei="[imei:"+str+"]"
+            elif ord(hdr[0])==0x10:
+                tmsi="%02x%02x%02x%02x"%tuple(imei[:4])
+                str="tmsi:%s"%tmsi
+                str+=",lac1:%02x%02x"%(imei[4],imei[5])
+                str+=",lac2:%02x%02x"%(imei[6],imei[7])
+                imei="["+str+",%02x"%imei[8]+"]"
+            else:
+                imei="["+" ".join("%02x"%(x) for x in imei)+"]"
+            print >> outfile, "%s %s"%(imei," ".join("%02x"%ord(x) for x in data))
+            return
+
+        if len(data)>0:
+            print >>outfile, "%s"%(" ".join("%02x"%ord(x) for x in data)),
+
+            str=""
+            for c in data:
+                if( ord(c)>=32 and ord(c)<127):
+                    str+=c
+                else:
+                    str+="."
+            print >>outfile, " | %s"%(str)
+        else:
+            print >>outfile, ""
+
 class ReassembleIDASBD(ReassembleIDA):
     def consume(self,q):
         (data,time,ul,_,_)=q
@@ -736,6 +873,8 @@ if False:
     pass
 if mode == "ida":
     zx=ReassembleIDA()
+if mode == "idapp":
+    zx=ReassembleIDAPP()
 if mode == "gsmtap":
     zx=ReassembleIDALAP()
 elif mode == "lap":
