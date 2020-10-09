@@ -552,10 +552,13 @@ class ReassembleIDALAPPCAP(ReassembleIDALAP):
 
         # Filter non-GSM packets (see IDA-GSM.txt)
         (data,time,ul,_,_)=q
-        if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
-            return
-        if len(data)==1:
-            return
+        if 'all' in args:
+            pass
+        else:
+            if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
+                return
+            if len(data)==1:
+                return
         gsm=self.gsmwrap(q)
         udp=struct.pack("!HHHH",45988,4729,8+len(gsm),0xffff)+gsm  # 4729 == GSMTAP
 
@@ -700,6 +703,7 @@ if mode == "ida":
 if mode == "gsmtap":
     zx=ReassembleIDALAP()
 elif mode == "lap":
+    validargs=('all')
     if outfile == sys.stdout: # Force file, since it's binary
         ofile="%s.%s" % (basename, "pcap")
         outfile=open(ofile,"w")
