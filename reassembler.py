@@ -404,7 +404,13 @@ class ReassembleIDA(Reassemble):
                 str+=c
             else:
                 str+="."
-        print >>outfile, "%15.6f %s %s | %s"%(time,ul," ".join("%02x"%ord(x) for x in data),str)
+
+        fbase=freq-base_freq
+        fchan=int(fbase/channel_width)
+        foff =fbase%channel_width
+        freq_print="%3d|%05d"%(fchan,foff)
+
+        print >>outfile, "%15.6f %s %s %s | %s"%(time,freq_print,ul," ".join("%02x"%ord(x) for x in data),str)
 
 class ReassembleIDASBD(ReassembleIDA):
     def consume(self,q):
