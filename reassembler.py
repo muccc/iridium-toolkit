@@ -481,6 +481,10 @@ class ReassembleIDALAP(ReassembleIDA):
         if olvl<-126:
             olvl=-126
 
+        fbase=freq-base_freq
+        fchan=int(fbase/channel_width)
+        foff =fbase%channel_width
+
         # GSMTAP:
         #
         #struct gsmtap_hdr {
@@ -499,9 +503,9 @@ class ReassembleIDALAP(ReassembleIDA):
         #        uint8_t res;            /* reserved for future use (RFU) */       0 ?
         #} +attribute+((packed));
         if ul:
-            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x4000,olvl,0,freq,1,0,0,0)+lapdm
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x4000+fchan,olvl,0,freq,1,0,0,0)+lapdm
         else:
-            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x0000,olvl,0,freq,1,0,0,0)+lapdm
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x0000+fchan,olvl,0,freq,1,0,0,0)+lapdm
 
         return gsm
 
