@@ -1071,9 +1071,6 @@ class ReassembleIDASBD(ReassembleIDA):
         hdr=data[:3]
         data=data[3:]
 
-        # skip empty messages
-        if len(data)==0: return
-
         hdr=":".join("%02x"%ord(x) for x in hdr)
 
         str=""
@@ -1089,6 +1086,7 @@ class ReassembleIDASBD(ReassembleIDA):
 #        append=""
 
         print("%s %s [%s] {%02x} %-22s %-10s %-200s %s"%(datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),ul,typ,len(data),prehdr,"<"+hdr+">",str,append), file=outfile)
+        if len(data)==0: return
 
 class ReassembleIDALAP(ReassembleIDA):
     first=True
