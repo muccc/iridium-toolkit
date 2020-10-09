@@ -12,8 +12,11 @@
 # 05: Mobility Management - OK
 # 05.02 MM: Location Updating Accept (LAI)
 # 05.04 MM: Location Updating Reject
+# > 05.08 MM: Location Updating Request
 # 05.12 MM: Authentication Request (RAND)
+# > 05.14 MM: Authentication Response
 # 05.18 MM: Identity request
+# > 05.19 MM: Identity response (IMEI)
 # 05.1a MM: TMSI Reallocation Command (LAC, TIMSI)
 # > 05.1b MM: TMSI Reallocation Complete
 # 05.21 MM: CM Service Accept
