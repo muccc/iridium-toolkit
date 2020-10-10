@@ -422,7 +422,7 @@ class IridiumMessage(Message):
                 raise ParserError("Iridium message too short")
 
         if forcetype:
-            self.msgtype=forcetype
+            self.msgtype=forcetype.partition(':')[0]
 
         if "msgtype" not in self.__dict__:
             raise ParserError("unknown Iridium message type")
@@ -484,6 +484,8 @@ class IridiumMessage(Message):
                 self.lcw2=lcw2b
             (e3,self.lcw3,bch)= bch_repair( 41,o_lcw3)
             self.ft=int(self.lcw1,2) # Frame type
+            if forcetype and ':' in forcetype:
+                self.ft=int(forcetype.partition(':')[2])
             if e1<0 or e2<0 or e3<0:
                 self._new_error("LCW decode failed")
                 self.header="LCW(%s %s/%02d E%d,%s %sx/%03d E%d,%s %s/%02d E%d)"%(o_lcw1[:3],o_lcw1[3:],ndivide(29,o_lcw1),e1,o_lcw2[:6],o_lcw2[6:],ndivide(465,o_lcw2+'0'),e2,o_lcw3[:21],o_lcw3[21:],ndivide(41,o_lcw3),e3)
@@ -612,6 +614,8 @@ class IridiumMessage(Message):
                 self.msgtype="U%d"%self.ft
                 self.descrambled=data[:312]
                 self.descramble_extra=data[312:]
+        else:
+            raise Exception("Illegal Iridium frame type")
 
         self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
         if self.msgtype!="VO" and self.msgtype!="IP" and len(self.descrambled)==0:
