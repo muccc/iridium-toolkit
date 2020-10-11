@@ -75,51 +75,51 @@ globaltime=False
 channelize=False
 
 for opt, arg in options:
-    if opt in ('-v', '--verbose'):
+    if opt in ['-v', '--verbose']:
         verbose = True
-    elif opt in ('-g','--good'):
+    elif opt in ['-g','--good']:
         good = True
         min_confidence=90
-    elif opt in ('--uw-ec'):
+    elif opt in ['--uw-ec']:
         uwec = True
-    elif opt in ('--harder'):
+    elif opt in ['--harder']:
         harder = True
-    elif opt in ('--confidence'):
+    elif opt in ['--confidence']:
         good = True
         min_confidence=int(arg)
-    elif opt in ('--interesting'):
+    elif opt in ['--interesting']:
         interesting = True
-    elif opt in ('-p', '--perfect'):
+    elif opt in ['-p', '--perfect']:
         perfect = True
-    elif opt in ('-e', '--errorfree'):
+    elif opt in ['-e', '--errorfree']:
         errorfree = True
-    elif opt in ('-s', '--satclass'):
+    elif opt in ['-s', '--satclass']:
         dosatclass = True
-    elif opt in ('--plot'):
+    elif opt in ['--plot']:
         plotargs=arg.split(',')
-    elif opt in ('--filter'):
+    elif opt in ['--filter']:
         linefilter['type']=arg
         if ',' in linefilter['type']:
             (linefilter['type'],linefilter['check'])=linefilter['type'].split(',',2)
         if '+' in linefilter['type']:
             (linefilter['type'],linefilter['attr'])=linefilter['type'].split('+')
-    elif opt in ('--voice-dump'):
+    elif opt in ['--voice-dump']:
         vdumpfile=arg
-    elif opt in ('-i', '--input'):
+    elif opt in ['-i', '--input']:
         input=arg
-    elif opt in ('-o', '--output'):
+    elif opt in ['-o', '--output']:
         output=arg
-    elif opt in ('--errorfile'):
+    elif opt in ['--errorfile']:
         errorfile=arg
-    elif opt in ('--errorstats'):
+    elif opt in ['--errorstats']:
         errorstats={}
-    elif opt in ('--forcetype'):
+    elif opt in ['--forcetype']:
         forcetype=arg
-    elif opt in ('--channelize'):
+    elif opt in ['--channelize']:
         channelize=True
-    elif opt in ('--format'):
+    elif opt in ['--format']:
         ofmt=arg.split(',');
-    elif opt in ('--globaltime'):
+    elif opt in ['--globaltime']:
         globaltime=True;
     else:
         raise Exception("unknown argument?")
