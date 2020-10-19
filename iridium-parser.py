@@ -1217,7 +1217,10 @@ class IridiumRAMessage(IridiumECCMessage):
         self.ra_eip=   int(self.bitstream_bch[57:58],2) # EPI ?
         self.ra_bc_sb= int(self.bitstream_bch[58:63],2) # BCH downlink sub-band
 
+        # this calculates geocentric latitude (=arcsin(z/r)) instead of geodetic latitude:
         self.ra_lat = atan2(self.ra_pos_z,sqrt(self.ra_pos_x**2+self.ra_pos_y**2))*180/pi
+        # this value is too small by up to 0.2°
+        # https://www.wolframalpha.com/input/?i=max[phi-atan((1-0.081819190842622**2)*tan(phi*pi/180))*180/pi,0<phi<90]
         self.ra_lon = atan2(self.ra_pos_y,self.ra_pos_x)*180/pi
         self.ra_alt = sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4
         self.ra_msg= False
