@@ -254,7 +254,7 @@ class Message(object):
         elif(self.bitstream_raw.startswith(uplink_access)):
             self.uplink=1
         else:
-            if uwec:
+            if uwec and len(self.bitstream_raw)>=len(iridium_access):
                 access=[]
                 map=[0,1,3,2]
                 # back into bpsk symbols
