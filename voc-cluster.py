@@ -31,7 +31,7 @@ for line in open(sys.argv[1]):
                     sband_dn = int(fields[7].split(':')[1])
                     access = int(fields[8].split(':')[1].split(']')[0])
                     #print sband_dn, access
-                    frame.f_alt = (1616000000 + 333333 * (sband_dn - 1) + 46666 * (access - 0.5) + 52000) / 1000
+                    frame.f_alt = (1616000000 + 333333 * (sband_dn - 1) + 41666 * (access - 0.5) + 52000) / 1000
 
                 call.append(frame)
                 # First call that matches wins
