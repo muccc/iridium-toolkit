@@ -1,4 +1,3 @@
-#import numpy as np
 import sys
 import fileinput
 import matplotlib.pyplot as plt
@@ -10,9 +9,10 @@ import astropy # just to make sure it is there for pymap3d
 import pymap3d
 import numpy
 import interp_circ
+import pseudoranging
+
 from skyfield.api import load, utc, Topos
 #import iridium_next
-from scipy.optimize import minimize, LbfgsInvHessProduct
 
 debug = False
 #tlefile='tracking/iridium-NEXT.txt'
@@ -207,44 +207,6 @@ for line in ibc:
 
 print("Average delay to system time:", numpy.average([y[2] for y in ys]))
 
-def dist(a, b):
-    return numpy.linalg.norm(a-b)
-
-def cost_function(approx, measurements):
-    """
-    Cost function for the 3D problem
-
-    Based on code from https://github.com/AlexisTM/MultilaterationTDOA
-    TODO: Use weighed least square cost function
-    """
-    e = 0
-    for mea in measurements:
-        error = mea[2] - (dist(mea[1], approx) - dist(mea[0], approx))
-        e += error**2
-
-    #print("cost", approx, measurements, "->", e)
-    return e
-
-
-def solve(measurements, last_result):
-    """Optimize the position for LSE using in a 3D problem."""
-    approx = last_result
-    result = minimize(cost_function, approx, args=(measurements))
-    position = result.x
-
-    #if(type(result.hess_inv) == LbfgsInvHessProduct):
-    #    hess_inv = result.hess_inv.todense()
-    #else:
-    #    hess_inv = result.hess_inv
-    #dist = self.scalar_hess_squared(hess_inv)
-    #if dist < self.max_dist_hess_squared:
-    #    self.last_result = position
-
-    last_result = position
-    #return position, hess_inv
-    return position
-
-
 good = []
 errors = []
 height_errors = []
@@ -281,7 +243,7 @@ for o in ys:
         # Sometimes it needs a few iterations to converge
         result = last_result
         for i in range(4):
-            result = solve(measurements, result)
+            result = pseudoranging.solve(measurements, result)
 
         # Make sure we are not in space or inside the earth
         height = numpy.linalg.norm(result)
