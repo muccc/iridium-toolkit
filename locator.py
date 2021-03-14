@@ -198,14 +198,14 @@ for line in ibc:
         print("Error:",repr(e))
         continue
 
-    ys.append((s, numpy.array(xyz), tu-ti, tu))
+    ys.append((tu, s, numpy.array(xyz), tu-ti))
 
     #print(s, xyz, tu-ti, tu)
 
     xs.append(tu-t0)
     cs.append(s)
 
-print("Average delay to system time:", numpy.average([y[2] for y in ys]))
+print("Average delay to system time:", numpy.average([y[3] for y in ys]))
 
 good = []
 errors = []
@@ -216,34 +216,27 @@ last_result = numpy.array([0, 0, 0])
 
 last_observation = {}
 for o in ys:
-    last_observation[o[0]] = o
+    last_observation[o[1]] = o
 
-    tu = o[3]
+    tu = o[0]
 
     # Find all SVs which we saw in the last 10 seconds
     concurent_observation = {}
     for lo in last_observation.values():
-        if tu - lo[3] < 10:
-            concurent_observation[lo[0]] = lo
+        if tu - lo[0] < 10:
+            concurent_observation[lo[1]] = lo
 
     # If we have more than 3, try to solve
     if len(concurent_observation) > 3:
-        measurements = []
+        pseudoranges = []
 
-        svs = list(concurent_observation.keys())
-        ref_sv = svs[0]
-        for sv in svs[1:]:
-            measurements.append(
-                (
-                    concurent_observation[ref_sv][1], # Position of reference SV
-                    concurent_observation[sv][1], # Position of second SV
-                    (concurent_observation[sv][2] - concurent_observation[ref_sv][2]) * 299792458.) # Distance delta
-                )
+        for obs in concurent_observation.values():
+            pseudoranges.append((obs[2], obs[3]))
 
         # Sometimes it needs a few iterations to converge
         result = last_result
         for i in range(4):
-            result = pseudoranging.solve(measurements, result)
+            result = pseudoranging.solve(pseudoranges, result)
 
         # Make sure we are not in space or inside the earth
         height = numpy.linalg.norm(result)
