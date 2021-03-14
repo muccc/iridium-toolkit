@@ -1,28 +1,12 @@
 import sys
-import fileinput
-import matplotlib.pyplot as plt
-import datetime
-import matplotlib.ticker as ticker
-import traceback
-from math import sqrt,sin,cos,atan2
-import astropy # just to make sure it is there for pymap3d
-import pymap3d
 import numpy
-import interp_circ
 import pseudoranging
 
-from skyfield.api import load, utc, Topos
-#import iridium_next
-
 debug = False
-#tlefile='tracking/iridium-NEXT.txt'
 
 # create input file like this:
-# iridium-parser.py -p --filter=IridiumBCMessage+iri_time_ux --format=globaltime,iri_time_ux,slot,sv_id,beam_id > muccc-2020-07-17.ibc
-# iridium-parser.py -p --filter=IridiumRAMessage,'q.ra_alt>7100' --format globaltime,ra_sat,ra_cell,ra_alt,ra_pos_x,ra_pos_y,ra_pos_z > muccc-2020-07-17.ira
-
-class InterpException(Exception):
-    pass
+# python3 ibc_position_interpolator.py iridium.ibc iridium.ira
+# See ibc_position_interpolator.py how to create iridium.ibc and iridium.ira
 
 #https://stackoverflow.com/questions/30307311/python-pyproj-convert-ecef-to-lla
 import pyproj
@@ -41,171 +25,7 @@ print("Observer:",lon,lat,alt)
 print("Observer:",ox,oy,oz)
 
 
-xs=[]
-ys=[]
-cs=[]
-
-ibc=open(sys.argv[1])
-ira=open(sys.argv[2])
-
-maxsat=127
-
-def loadTLE(filename):
-    satlist = load.tle_file(filename)
-    print("%i satellites loaded into list"%len(satlist))
-    return satlist
-
-#satellites = loadTLE(tlefile)
-#timescale=load.timescale()
-#by_name = {sat.name: sat for sat in satellites}
-
-
-# initialize RA (position) array
-ira_xyzt=[]
-for p in range(maxsat):
-    ira_xyzt.append([[0,0,0,0]])
-ira_t=[0]*maxsat
-
-def read_ira():
-    while True:
-        line=ira.readline()
-        if len(line) == 0:
-            return
-        tu,s,b,alt,x,y,z=line.split(None,7) # time_unix, sat, beam, altitude, position(xyz)
-
-        s=int(s)
-
-        x = int(x) * 4000
-        y = int(y) * 4000
-        z = int(z) * 4000
-        tu = float(tu)
-        #print(ppm)
-        #tu = float(tu) * (1-ppm/1e6)
-
-        #dist=sqrt( (x-ox)**2+ (y-oy)**2+ (y-oz)**2)
-        #dist_s=float(dist) / 299792458
-        #tu -= dist_s
-
-        x, y, z = pymap3d.ecef2eci(x, y, z, datetime.datetime.utcfromtimestamp(tu))
-
-        ira_xyzt[s].append([x,y,z,tu])
-
-
-satidx=[0]*maxsat
-osatidx=[0]*maxsat
-
-#tmax=500
-tmax=60
-#tmax=30
-
-def interp_ira(sat, ts): # (linear) interpolate sat position
-    global satidx,osatidx
-
-    """
-    # Option to interpolate based on TLEs
-    geocentric = by_name[iridium_next.sv_map[sat]].at(timescale.utc(datetime.datetime.utcfromtimestamp(ts).replace(tzinfo=utc)))
-    xyz = geocentric.position.m
-    xyz[0], xyz[1], xyz[2] = pymap3d.eci2ecef(xyz[0], xyz[1], xyz[2], datetime.datetime.utcfromtimestamp(ts))
-    return xyz
-    """
-
-    if ts > ira_xyzt[sat][satidx[sat]][3]:
-        satidx[sat]=0
-
-    if True or satidx[sat]==0:
-        #print("Searching for sat %d..."%sat)
-        osatidx[sat]=0
-        for x in range(len(ira_xyzt[sat])):
-            if osatidx[sat]==0 and ts-ira_xyzt[sat][x][3] < tmax:
-                #print("` old=%d"%x, end=' ')
-                osatidx[sat]=x
-            if ira_xyzt[sat][x][3]-ts > tmax:
-                #print("` new_exit=%d"%x)
-                break
-            satidx[sat]=x
-
-    xyz=[None,None,None]
-
-    idx=satidx[sat]
-    idxo=osatidx[sat]
-
-    tn=ira_xyzt[sat][idx][3]
-    to=ira_xyzt[sat][idxo][3]
-    delta=tn-to
-
-    #print("Borders: %d -> %d"%(idxo, idx))
-    #print("time %f -> %f: Δt: %f"%(to,tn,tn-to))
-
-    # refuse to extrapolate
-    if delta > 2000:
-        raise InterpException("Too inaccurate (Δ=%d)"%(delta))
-    if ts<to:
-        raise InterpException("In the past")
-    if ts>tn:
-        raise InterpException("In the future")
-
-    if idxo == idx:
-        raise InterpException("Not enough data")
-
-
-    step = 1
-    T = [t for x,y,z,t in ira_xyzt[sat][idxo:idx+1:step]]
-    X = [x for x,y,z,t in ira_xyzt[sat][idxo:idx+1:step]]
-    Y = [y for x,y,z,t in ira_xyzt[sat][idxo:idx+1:step]]
-    Z = [z for x,y,z,t in ira_xyzt[sat][idxo:idx+1:step]]
-
-    if len(T) < 2:
-        raise InterpException("Not enough data")
-
-    xyz[0], xyz[1], xyz[2] = interp_circ.interp([X, Y, Z], T, ts, debug)
-    xyz[0], xyz[1], xyz[2] = pymap3d.eci2ecef(xyz[0], xyz[1], xyz[2], datetime.datetime.utcfromtimestamp(ts))
-    return xyz
-
-ppm = 0
-
-read_ira()
-
-xyz=None
-t0=None
-t0i = None
-
-for line in ibc:
-    tu,ti,slot,s,b=line.split(None,5) # time_unix, time_iridium, slot, sat, beam
-
-    slot=int(slot)
-    s=int(s)
-    tu=float(tu)
-    ti=float(ti)
-
-    # time correction based on BC slot
-    if slot==1:
-        ti+=3 * float(8.28 + 0.1)/1000
-
-    # ppm correction
-    if t0 is None:
-        t0=tu
-
-    if t0i is None:
-        t0i=ti
-
-    tu=tu-(tu-t0)*ppm/1e6
-
-    try:
-        xyz = [0,0,0]
-        xyz=interp_ira(s, tu)
-        #xyz=interp_ira(s, ti)
-    except InterpException as e:
-        print("Error:",repr(e))
-        continue
-
-    ys.append((tu, s, numpy.array(xyz), tu-ti))
-
-    #print(s, xyz, tu-ti, tu)
-
-    xs.append(tu-t0)
-    cs.append(s)
-
-print("Average delay to system time:", numpy.average([y[3] for y in ys]))
+ibc_pos=open(sys.argv[1])
 
 good = []
 errors = []
@@ -215,10 +35,15 @@ known_bad = 0
 last_result = numpy.array([0, 0, 0])
 
 last_observation = {}
-for o in ys:
-    last_observation[o[1]] = o
+for line in ibc_pos:
+    tu,s,x,y,z,deltat=line.split(None,6) # time_unix, sat, x, z, y, time_unix - time_iridium
 
-    tu = o[0]
+    tu = float(tu)
+    s = int(s)
+    xyz = [float(x), float(y), float(z)]
+    dt = float(deltat)
+
+    last_observation[s] = (tu, s, xyz, dt)
 
     # Find all SVs which we saw in the last 10 seconds
     concurent_observation = {}
