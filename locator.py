@@ -13,12 +13,15 @@ import pyproj
 ecef = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
 lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
 
+to_lla = pyproj.Transformer.from_proj(ecef, lla)
+to_ecef = pyproj.Transformer.from_proj(lla, ecef)
+
 # https://www.koordinaten-umrechner.de/decimal/48.153543,11.560702?karte=OpenStreetMap&zoom=19
 lat=48.153543
 lon=11.560702
 alt=542
 
-ox, oy, oz = pyproj.transform(lla, ecef, lon, lat, alt, radians=False)
+ox, oy, oz = to_ecef.transform(lon, lat, alt, radians=False)
 observer = numpy.array((ox, oy, oz))
 
 print("Observer:",lon,lat,alt)
@@ -83,16 +86,14 @@ for line in ibc_pos:
 
 print("good", len(good), "bad", bad, "known_bad", known_bad)
 
-print("average error:", numpy.average(errors), "(", numpy.average(height_error), ")")
+print("average cartesian error:", numpy.average(errors), "(", numpy.average(height_error), ")")
 
 average_position = numpy.average(good, 0)
 
-print("average position:", average_position)
-print("average position error:", numpy.linalg.norm(average_position - observer))
-print("average position height error:", numpy.linalg.norm(average_position) - numpy.linalg.norm(observer))
+print("average cartesian position:", average_position)
+print("average cartesian position error:", numpy.linalg.norm(average_position - observer))
+print("average cartesian position height error:", numpy.linalg.norm(average_position) - numpy.linalg.norm(observer))
 
+lat, lon, alt = to_lla.transform(average_position[0], average_position[1], average_position[2], radians=False)
+print("average cartesian position to lla", lon, lat, alt)
 
-lat, lon, alt = pyproj.transform(ecef, lla, average_position[0], average_position[1], average_position[2], radians=False)
-
-
-print("average position", lon, lat, alt)
