@@ -10,6 +10,7 @@ import struct
 import math
 import os
 import socket
+from copy import deepcopy
 
 verbose = False
 ifile= None
@@ -19,12 +20,13 @@ base_freq=1616e6
 channel_width=41667
 args={}
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:a:', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:sa:', [
                                                          'verbose',
                                                          'help',
                                                          'input=',
                                                          'output=',
                                                          'mode=',
+                                                         'state',
                                                          'args=',
                                                          ])
 
@@ -68,6 +70,16 @@ elif ofile == "" or ofile == "=":
 else:
     basename=re.sub('\.[^.]*$','',ofile)
     outfile=open(ofile,"w")
+
+state=None
+if 'state' in args:
+    import pickle
+    statefile="%s.state" % (mode)
+    try:
+        with open(statefile) as f:
+            state=pickle.load(f)
+    except (IOError, EOFError):
+        pass
 
 if verbose:
     print "ifile",ifile
@@ -120,6 +132,99 @@ class Reassemble(object):
 
     def end(self):
         print "Kept %d/%d (%3.1f%%) lines"%(self.stat_filter,self.stat_line,100.0*self.stat_filter/self.stat_line)
+
+class StatsPKT(Reassemble):
+    intvl=600
+    timeslot=None
+    default=None
+    stats={}
+    first=True
+    loaded=False
+
+    def __init__(self):
+        if state is not None:
+            (self.timeslot,self.stats)=state
+            self.loaded=True
+            self.first=False
+        self.default={}
+        for k in ['UL', 'DL']:
+            self.default[k]={}
+            for x in ['IBC', 'IDA', 'IIP', 'IIQ', 'IIR', 'IIU', 'IMS', 'IRA', 'IRI', 'ISY', 'ITL', 'IU3', 'I36', 'I38', 'MSG', 'VDA', 'VO6', 'VOC', 'VOD', 'MS3']:
+                self.default[k][x]=0
+        pass
+
+    r1=re.compile('j-UW:0-LCW:0-FIX:0')
+
+    def filter(self,line):
+        q=super(StatsPKT,self).filter(line)
+
+        if q==None: return None
+        if q.typ[3]!=":": return None
+        if q.typ=="RAW:": return None
+        if q.typ=="IME:": return None
+        if 'perfect' in args:
+            m=self.r1.match(q.name)
+            if not m: return None
+
+        return q
+
+    def process(self,q):
+        globaltime=q.fixtime()
+        maptime=globaltime-(globaltime%self.intvl)
+        typ=q.typ[0:3]
+        rv=None
+
+        if maptime > self.timeslot:
+            # dump last time interval
+            if self.loaded:
+                print >> sys.stderr, "# Statefile (%s) not relevant to current file: %s"%(self.timeslot,maptime)
+                sys.exit(1)
+            if self.timeslot is not None:
+                if self.first:
+                    print >> sys.stderr, "# First period may be incomplete, skipping."
+                    self.first=False
+                    rv=[[self.timeslot,self.stats,True]]
+                else:
+                    rv=[[self.timeslot,self.stats,False]]
+            # reset for next slot
+            self.timeslot=maptime
+            self.stats=deepcopy(self.default)
+
+        self.loaded=False
+
+        if maptime == self.timeslot:
+            if typ not in self.stats['UL']:
+                print >> sys.stderr, "Unexpected frame %s found @ %s"%(typ,globaltime)
+                pass
+            self.stats[q.uldl][typ]+=1
+        else:
+            print >> sys.stderr, "Time ordering violation: %f is before %f"%(globaltime,self.timeslot)
+            sys.exit(1)
+        return rv
+
+    def printstats(self, timeslot, stats, skip=False):
+        ts=timeslot+self.intvl
+        comment=''
+        if skip:
+            comment='#!'
+            print >>sys.stderr, "#!@ %s L:"%(datetime.datetime.fromtimestamp(ts))
+        else:
+            print >>sys.stderr, "# @ %s L:"%(datetime.datetime.fromtimestamp(ts))
+        for k in stats:
+            for t in stats[k]:
+                print "%siridium.parsed.%s.%s %7d %8d"%(comment,k,t,stats[k][t],ts)
+        sys.stdout.flush()
+
+    def consume(self,to):
+        (ts,stats,skip)=to
+        self.printstats(ts, stats, skip=skip)
+
+    def end(self):
+        if 'state' in args:
+            with open(statefile,'w') as f:
+                state=pickle.dump([self.timeslot,self.stats],f)
+
+        self.printstats(self.timeslot, self.stats, skip=True)
 
 class ReassemblePPM(Reassemble):
     qqq=None
@@ -601,6 +706,9 @@ elif mode == "page":
     zx=ReassembleIRA()
 elif mode == "msg":
     zx=ReassembleMSG()
+elif mode == "stats":
+    validargs=('perfect','state')
+    zx=StatsPKT()
 elif mode == "ppm":
     zx=ReassemblePPM()
 
