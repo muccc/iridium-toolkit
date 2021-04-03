@@ -17,13 +17,15 @@ ofile= None
 mode= "undef"
 base_freq=1616e6
 channel_width=41667
+args={}
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:a:', [
                                                          'verbose',
                                                          'help',
                                                          'input=',
                                                          'output=',
                                                          'mode=',
+                                                         'args=',
                                                          ])
 
 for opt, arg in options:
@@ -35,6 +37,9 @@ for opt, arg in options:
         ofile=arg
     elif opt in ('-m', '--mode'):
         mode=arg
+    elif opt in ('-a', '--args'):
+        for a in arg.split(","):
+            args[a]=True
     elif opt in ('-h', '--help'):
         print >> sys.stderr, "Usage:"
         print >> sys.stderr, "\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|lap|sbd|page|msg|sat] [--output foo.parsed]"
@@ -577,6 +582,7 @@ class ReassembleMSG(Reassemble):
             str+= ": %s"%(msg)
             print >> outfile, str
 
+validargs=()
 zx=None
 if False:
     pass
@@ -597,5 +603,9 @@ elif mode == "msg":
     zx=ReassembleMSG()
 elif mode == "ppm":
     zx=ReassemblePPM()
+
+for x in args.keys():
+    if x not in validargs:
+        raise Exception("unknown -a option: "+x)
 
 zx.run(fileinput.input(ifile))
