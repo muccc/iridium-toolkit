@@ -615,22 +615,25 @@ class ReassembleIRA(Reassemble):
         q=super(ReassembleIRA,self).filter(line)
         if q==None: return None
         if q.typ=="IRA:":
-            p=re.compile('.*sat:(\d+) beam:(\d+) pos=\((.[0-9.]+)/(.[0-9.]+)\) alt=([-0-9]+) .* bc_sb:\d+ (.*)')
-            m=p.match(q.data)
+            p=re.compile('sat:(\d+) beam:(\d+) (?:aps=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+            m=p.search(q.data)
             if(not m):
-                print >> sys.stderr, "Couldn't parse IRA: ",q.data
+                print >> sys.stderr, "Couldn't parse IRA: ",q.data,
             else:
                 q.sat=  int(m.group(1))
                 q.beam= int(m.group(2))
                 q.lat=float(m.group(3))
                 q.lon=float(m.group(4))
                 q.alt=  int(m.group(5))
-                p=re.compile('PAGE\(tmsi:([0-9a-f]+) msc_id:([0-9]+)\)')
-                q.pages=p.findall(m.group(6))
+                if m.group(6) is not None:
+                    p=re.compile('PAGE\(tmsi:([0-9a-f]+) msc_id:([0-9]+)\)')
+                    q.pages=p.findall(m.group(6))
+                else: # Won't be printed, but just in case
+                    q.pages=[]
                 return q
     def process(self,q):
         for x in q.pages:
-            return ["%02d %02d %s %s %03d : %s %s"%(q.sat,q.beam,q.lat,q.lon,q.alt,x[0],x[1])]
+            return ["%03d %02d %6.2f %6.2f %03d : %s %s"%(q.sat,q.beam,q.lat,q.lon,q.alt,x[0],x[1])]
     def consume(self,q):
         print >> outfile, q
 
