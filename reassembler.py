@@ -546,10 +546,11 @@ class ReassembleIDALAP(ReassembleIDA):
         if self.first:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.first=False
+            print "Sending GSMTAP via UDP 4729"
 
-        (data,_,ul,_,_)=q
-        if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
-            return
+        (data,time,ul,level,freq)=q
+#        if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
+#            return
         if len(data)==1:
             return
         pkt=self.gsmwrap(q)
