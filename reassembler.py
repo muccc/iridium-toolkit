@@ -87,13 +87,32 @@ if verbose:
     print "basen",basename
 
 class MyObject(object):
-    def fixtime(self):
-        if (self.name.startswith("j")):
-            return float(self.time)
+    def enrich(self):
         try:
-            return (float(self.starttime)+float(self.time)/1000)
-        except AttributeError:
-            return float(self.time)/1000
+            if "|" in self.frequency:
+                chan, off=self.frequency.split('|')
+                self.frequency=base_freq+channel_width*int(chan)+int(off)
+            else:
+                self.frequency=int(self.frequency)
+            self.starttime, _, self.attr = self.name[1+self.name.index('-'):].partition('-')
+            self.confidence=int(self.confidence.strip("%"))
+            self.mstime=float(self.mstime)
+
+            if (self.name.startswith("j")):
+                self.time=self.mstime
+            else:
+                try:
+                    # XXX: Does not handle really old time format.
+                    self.time=float(self.starttime)+self.mstime/1000
+                except ValueError:
+                    self.time=self.mstime/1000
+
+            self.level=float(self.level)
+
+        except ValueError:
+            print >> sys.stderr, "Couldn't enrich input object: ",q
+            return None
+
     pass
 
 class Reassemble(object):
@@ -115,16 +134,7 @@ class Reassemble(object):
         self.stat_line+=1
         try:
             q=MyObject()
-            q.typ,q.name,q.time,q.frequency,q.confidence,q.level,q.symbols,q.uldl,q.data=line.split(None,8)
-            if "|" in q.frequency:
-                chan, off=q.frequency.split('|')
-                q.frequency=base_freq+channel_width*int(chan)+int(off)
-            else:
-                q.frequency=int(q.frequency)
-            q.starttime, _, q.attr = q.name[1+q.name.index('-'):].partition('-')
-            q.confidence=int(q.confidence.strip("%"))
-            q.time=float(q.time)
-            q.level=float(q.level)
+            q.typ,q.name,q.mstime,q.frequency,q.confidence,q.level,q.symbols,q.uldl,q.data=line.split(None,8)
             return q
         except ValueError:
             print >> sys.stderr, "Couldn't parse input line: ",line,
@@ -166,11 +176,11 @@ class StatsPKT(Reassemble):
             m=self.r1.match(q.attr)
             if not m: return None
 
+        q.enrich()
         return q
 
     def process(self,q):
-        globaltime=q.fixtime()
-        maptime=globaltime-(globaltime%self.intvl)
+        maptime=q.time-(q.time%self.intvl)
         typ=q.typ[0:3]
         rv=None
 
@@ -194,11 +204,11 @@ class StatsPKT(Reassemble):
 
         if maptime == self.timeslot:
             if typ not in self.stats['UL']:
-                print >> sys.stderr, "Unexpected frame %s found @ %s"%(typ,globaltime)
+                print >> sys.stderr, "Unexpected frame %s found @ %s"%(typ,q.time)
                 pass
             self.stats[q.uldl][typ]+=1
         else:
-            print >> sys.stderr, "Time ordering violation: %f is before %f"%(globaltime,self.timeslot)
+            print >> sys.stderr, "Time ordering violation: %f is before %f"%(q.time,self.timeslot)
             sys.exit(1)
         return rv
 
@@ -254,8 +264,8 @@ class ReassemblePPM(Reassemble):
         return q
 
     def process(self,q):
-        q.globaltime=q.fixtime()
-        q.uxtime=datetime.datetime.utcfromtimestamp(q.globaltime)
+        q.enrich()
+        q.uxtime=datetime.datetime.utcfromtimestamp(q.time)
 
         # correct for slot
         q.itime+=datetime.timedelta(seconds=q.slot*(3 * float(8.28 + 0.1))/1000)
@@ -300,7 +310,6 @@ class ReassembleIDA(Reassemble):
         q=super(ReassembleIDA,self).filter(line)
         if q==None: return None
         if q.typ=="IDA:":
-            q.time=q.fixtime()
             qqq=re.compile('.* CRC:OK')
             if not qqq.match(q.data):
                 return
@@ -320,6 +329,7 @@ class ReassembleIDA(Reassemble):
                 q.data=   m.group(5)
                 q.cont=(q.f1=='1')
 #                print "%s %s ctr:%02d %s"%(q.time,q.frequency,q.ctr,q.data)
+                q.enrich()
                 return q
     buf=[]
     stat_broken=0
@@ -628,7 +638,7 @@ class ReassembleMSG(Reassemble):
                 q.msg_checksum=int(m.group(6),16)
                 q.msg_hex=         m.group(7)
                 q.msg_brest=       m.group(8)
-                q.time=        q.fixtime()
+                q.enrich()
 
 
                 q.msg_msgdata = ''.join(["{0:08b}".format(int(q.msg_hex[i:i+2], 16)) for i in range(0, len(q.msg_hex), 2)])
