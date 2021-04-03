@@ -153,7 +153,11 @@ class Reassemble(object):
             return None
 
     def end(self):
-        print "Kept %d/%d (%3.1f%%) lines"%(self.stat_filter,self.stat_line,100.0*self.stat_filter/self.stat_line)
+        if self.stat_line>0:
+            print "Kept %d/%d (%3.1f%%) lines"%(self.stat_filter,self.stat_line,100.0*self.stat_filter/self.stat_line)
+        else:
+            print "No lines?"
+
 
 class StatsPKT(Reassemble):
     intvl=600
