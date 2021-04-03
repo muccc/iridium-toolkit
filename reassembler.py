@@ -237,7 +237,6 @@ class StatsPKT(Reassemble):
         self.printstats(self.timeslot, self.stats, skip=True)
 
 class ReassemblePPM(Reassemble):
-    qqq=None
     def __init__(self):
         pass
 
@@ -270,36 +269,53 @@ class ReassemblePPM(Reassemble):
         # correct for slot
         q.itime+=datetime.timedelta(seconds=q.slot*(3 * float(8.28 + 0.1))/1000)
 
-        q.timediff=q.uxtime-q.itime # missing correction for sat travel time
+        # XXX: missing correction for sat travel time
 
-        return [[q.timediff.total_seconds(),q.itime,q.starttime]]
+        return [[q.uxtime,q.itime,q.starttime]]
 
     ini=None
     def consume(self, data):
-        if self.ini is None:
+        if self.ini is None: # First PKT
+            self.idx=0
             self.ini=[data]
             self.fin=[data]
-            self.idx=0
-        if data[2]!=self.ini[self.idx][2]:
+            self.cur=data
+        if data[2]!=self.ini[self.idx][2]: # New Recording
             self.idx += 1
             self.ini.append(data)
             self.fin.append(data)
+            self.cur=data
         self.fin[-1]=data
+
+        # "interactive" statistics per INVTL(600)
+        if (data[1]-self.cur[1]).total_seconds() > 600:
+            (irun,toff,ppm)=self.onedelta(self.cur,data, verbose=False)
+            print "@ %s: %.3f"%(data[1],ppm)
+            self.cur=data
+        elif (data[1]-self.cur[1]).total_seconds() <0:
+            self.cur=data
+
+    def onedelta(self, start, end, verbose=False):
+        irun=(end[1]-start[1]).total_seconds()
+        urun=(end[0]-start[0]).total_seconds()
+        toff=urun-irun
+        ppm=toff/irun*1000000
+        if verbose:
+            print "Blob:"
+            print "- Start Itime  : %s"%(start[1])
+            print "- End   Itime  : %s"%(end[1])
+            print "- Start Utime  : %s"%(start[0])
+            print "- End   Utime  : %s"%(end[0])
+            print "- Runtime      : %s"%(str(datetime.timedelta(seconds=int(irun))))
+            print "- PPM          : %.3f"%(ppm)
+        return (irun,toff,ppm)
 
     def end(self):
         alltime=0
         delta=0
         for ppms in range(1+self.idx):
-            td=(self.fin[ppms][1]-self.ini[ppms][1]).total_seconds()
-            toff=(self.fin[ppms][0]-self.ini[ppms][0])
-            ppm=toff/td*1000000
-            if False:
-                print "Blob %d:"%ppms
-                print "- Start time  : %s"%(self.ini[ppms][1])
-                print "- End   time  : %s"%(self.fin[ppms][1])
-                print "- Runtime     : %.2fh"%(td/60/60)
-                print "- PPM         : %.3f"%(ppm)
-            alltime += td
+            (irun,toff,ppm)=self.onedelta(self.ini[ppms],self.fin[ppms], verbose=True)
+            alltime += irun
             delta += toff
         print "rec.ppm %.3f"%(delta/alltime*1000000)
 
