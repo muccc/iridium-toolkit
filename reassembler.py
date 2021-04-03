@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
 import sys
