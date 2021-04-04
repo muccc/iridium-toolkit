@@ -561,6 +561,20 @@ class ReassembleIDAPP(ReassembleIDA):
                 imei="["+" ".join("%02x"%(x) for x in imei)+"]"
             print >> outfile, "%s %s"%(imei," ".join("%02x"%ord(x) for x in data))
             return
+        if typ=="0519": # Identity Resp.
+            imei=[ord(x) for x in data[:9]]
+            data=data[9:]
+            n1=imei[1]>>4
+            t=imei[1]&0x7
+            o=(imei[1]>>3)&0x1
+            str="%02x|%d_%x:%x"%(imei[0],o,t,n1)
+            str+="".join("%x%x"%((x)&0xf,(x)>>4) for x in imei[2:])
+            if t==2:
+                imei="[imei:"+str+"]"
+            else:
+                imei="[unknown:"+str+"]"
+            print >> outfile, "%s %s"%(imei," ".join("%02x"%ord(x) for x in data))
+            return
 
         if len(data)>0:
             print >>outfile, "%s"%(" ".join("%02x"%ord(x) for x in data)),
