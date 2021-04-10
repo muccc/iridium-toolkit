@@ -195,7 +195,12 @@ class Message(object):
         else:
             self.freq_print="%010d"%(self.frequency)
 
-#        self.access_ok=(m.group(7)=="OK")
+        if m.group(5) is not None:
+            self.snr=float(m.group(5))
+            self.noise=float(m.group(6))
+        else:
+            self.access_ok=(m.group(7)=="OK")
+
 #        self.leadout_ok=(m.group(8)=="OK")
         self.confidence=int(m.group(9))
         self.level=float(m.group(10))
