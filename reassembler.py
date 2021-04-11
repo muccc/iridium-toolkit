@@ -88,32 +88,30 @@ if verbose:
 
 class MyObject(object):
     def enrich(self):
-        try:
-            if "|" in self.frequency:
-                chan, off=self.frequency.split('|')
-                self.frequency=base_freq+channel_width*int(chan)+int(off)
-            else:
-                self.frequency=int(self.frequency)
+        if "|" in self.frequency:
+            chan, off=self.frequency.split('|')
+            self.frequency=base_freq+channel_width*int(chan)+int(off)
+        else:
+            self.frequency=int(self.frequency)
+
+        if '-' in self.name:
             self.starttime, _, self.attr = self.name[1+self.name.index('-'):].partition('-')
-            self.confidence=int(self.confidence.strip("%"))
-            self.mstime=float(self.mstime)
+        else:
+            self.starttime = self.attr = ''
 
-            if (self.name.startswith("j")):
-                self.time=self.mstime
-            else:
-                try:
-                    # XXX: Does not handle really old time format.
-                    self.time=float(self.starttime)+self.mstime/1000
-                except ValueError:
-                    self.time=self.mstime/1000
+        self.confidence=int(self.confidence.strip("%"))
+        self.mstime=float(self.mstime)
 
-            self.level=float(self.level)
+        if (self.name.startswith("j")):
+            self.time=self.mstime
+        else:
+            try:
+                # XXX: Does not handle really old time format.
+                self.time=float(self.starttime)+self.mstime/1000
+            except ValueError:
+                self.time=self.mstime/1000
 
-        except ValueError:
-            print >> sys.stderr, "Couldn't enrich input object: ",q
-            return None
-
-    pass
+        self.level=float(self.level)
 
 class Reassemble(object):
     def __init__(self):
