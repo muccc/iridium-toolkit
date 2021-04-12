@@ -102,6 +102,20 @@ class MyObject(object):
         self.confidence=int(self.confidence.strip("%"))
         self.mstime=float(self.mstime)
 
+        if '|' in self.level:
+            self.level, self.noise, self.snr = self.level.split('|')
+            self.snr = float(self.snr)
+            self.noise = float(self.noise)
+            self.level=float(self.level)
+        else:
+            self.snr=None
+            self.noise=None
+            try:
+                self.level=math.log(self.signal,10)*20
+            except ValueError:
+                print >> sys.stderr, "Invalid signal level:",self.level
+                self.level=0
+
         if (self.name.startswith("j")):
             self.time=self.mstime
         else:
@@ -110,8 +124,6 @@ class MyObject(object):
                 self.time=float(self.starttime)+self.mstime/1000
             except ValueError:
                 self.time=self.mstime/1000
-
-        self.level=float(self.level)
 
 class Reassemble(object):
     def __init__(self):
