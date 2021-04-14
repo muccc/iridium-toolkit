@@ -918,6 +918,9 @@ elif mode == "stats":
     zx=StatsPKT()
 elif mode == "ppm":
     zx=ReassemblePPM()
+else:
+    print >>sys.stderr, "Unknown mode selected"
+    sys.exit(1)
 
 for x in args.keys():
     if x not in validargs:
