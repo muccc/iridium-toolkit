@@ -16,7 +16,7 @@ import copy
 import datetime
 import collections
 from itertools import izip
-from math import sqrt,atan2,pi
+from math import sqrt,atan2,pi,log
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'verbose',
@@ -204,6 +204,7 @@ class Message(object):
 #        self.leadout_ok=(m.group(8)=="OK")
         self.confidence=int(m.group(9))
         self.level=float(m.group(10))
+        self.leveldb=20*log(self.level,10)
 #        self.raw_length=m.group(11)
         self.bitstream_raw=(re.sub("[\[\]<> ]","",m.group(12))) # raw bitstring with correct symbols
         if self.swapped:
@@ -305,7 +306,10 @@ class Message(object):
             hdr="j-%d%s %16.6f"%(self.startts,flags,self.globaltime)
         else:
             hdr="%s %014.4f"%(self.filename,self.timestamp)
-        return "%s %s %3d%% %7.3f"%(hdr,self.freq_print,self.confidence,self.level)
+        if "snr" not in self.__dict__:
+            return "%s %s %3d%% %7.3f"%(hdr,self.freq_print,self.confidence,self.level)
+        else:
+            return "%s %s %3d%% %05.1f|%06.1f|%04.1f"%(hdr,self.freq_print,self.confidence,self.leveldb,self.noise,self.snr)
     def _pretty_trailer(self):
         return ""
     def pretty(self):
