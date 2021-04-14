@@ -904,9 +904,9 @@ class ReassembleIDAPP(ReassembleIDA):
 #  > 0519 Identity response (IMEI)
 # < 0502 Location Updating Accept (MCC/MNC/LAC)
 
-# > 0600 / 20:13:f0:10: imei +bytes
-# < 7608 <sbd_id> 0 messages
-# > 760c <50:xx:xx> MOMSN echoback
+# > 0600 / 20:13:f0:10: 02 imei + momsn + msgcnt + XC + len + bytes + time + (len>0: msg)
+# < 7608 <26:00:00:00:00:xx:xx> 0 messages (xx=MTMSN?)
+# > 760c <50:xx:xx> MTMSN echoback?
 # < 7605 ?
         if typ=="0600":
             hdr=data[:4]
@@ -1033,7 +1033,11 @@ class ReassembleIDAPP(ReassembleIDA):
 class ReassembleIDASBD(ReassembleIDA):
     def consume(self,q):
         (data,time,ul,_,_)=q
-        if ord(data[0])!=0x76:
+        if ord(data[0])==0x76:
+            pass
+        elif ord(data[0])==0x06 and ord(data[1])==0 and (ord(data[2])==0x20 or ord(data[2])==0x10) and len(data)>0x1a+5:
+            pass
+        else:
             return
         if len(data)<=2:
             return
@@ -1060,6 +1064,38 @@ class ReassembleIDASBD(ReassembleIDA):
             data=data[7:]
             prehdr="<"+":".join("%02x"%ord(x) for x in prehdr)+">"
 
+        if typ=="0600" and ord(data[0])==0x20 and (ord(data[5])&0xf)==5:
+            # > 0600 / 20:13:f0:10:02 imei[8] + momsn[2] + msgcnt[1] + 0x?C + len[1] + bytes[7] + time[4] + (len>0: msg)
+            prehdr=data[:5]
+            prehdr="["+":".join("%02x"%ord(x) for x in prehdr)+"]"
+            imei=[ord(x) for x in data[5:5+8]]
+            phdr=data[5+8:5+8+16]
+            data=data[5+8+16:]
+            n1=imei[0]>>4
+            hdr="imei:"
+            hdr+="%x"%n1
+            hdr+="".join("%x%x"%((x)&0xf,(x)>>4) for x in imei[1:])
+            hdr+=" "+"".join("%02x"%ord(x) for x in phdr[0:2])
+            hdr+=","+":".join("%02x"%ord(x) for x in phdr[2])
+            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[3])
+            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[4])
+            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[5:12])
+            hdr+=","+"".join("%02x"%ord(x) for x in phdr[12:16])
+        elif typ=="0600" and ord(data[0])==0x10:
+            prehdr=data[:5]
+            prehdr="["+":".join("%02x"%ord(x) for x in prehdr)+"]"
+            imei=[ord(x) for x in data[5:5+8]]
+            phdr=data[5+8:5+8+16]
+            data=data[5+8+16:]
+            hdr=""
+            hdr+=" "+"".join("%02x"%(x) for x in imei)
+            hdr+=" "+"".join("%02x"%ord(x) for x in phdr[0:2])
+            hdr+=","+":".join("%02x"%ord(x) for x in phdr[2])
+            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[3])
+            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[4])
+            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[5:12])
+            hdr+=","+"".join("%02x"%ord(x) for x in phdr[12:16])
+        else:
         # UL <50:0b:65>
         # 1: always 50 (nothing to send / message received)
         # 2+3: MOMSN mirror
@@ -1068,10 +1104,10 @@ class ReassembleIDASBD(ReassembleIDA):
         # 1: always 10 (message follows)
         # 2: length in bytes of message
         # 3: number of packet
-        hdr=data[:3]
-        data=data[3:]
+            hdr=data[:3]
+            data=data[3:]
 
-        hdr=":".join("%02x"%ord(x) for x in hdr)
+            hdr=":".join("%02x"%ord(x) for x in hdr)
 
         str=""
         for c in data:
@@ -1085,7 +1121,8 @@ class ReassembleIDASBD(ReassembleIDA):
         append="| "+" ".join("%02x"%ord(x) for x in data)
 #        append=""
 
-        print("%s %s [%s] {%02x} %-22s %-10s %-200s %s"%(datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),ul,typ,len(data),prehdr,"<"+hdr+">",str,append), file=outfile)
+        hdr="%-10s"%("<"+hdr+">")+" "
+        print("%s %s [%s] {%02x} %-22s %-211s %s"%(datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),ul,typ,len(data),prehdr,hdr+str,append), file=outfile)
         if len(data)==0: return
 
 class ReassembleIDALAP(ReassembleIDA):
