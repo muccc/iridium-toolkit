@@ -893,13 +893,12 @@ class ReassembleMSG(Reassemble):
 
 validargs=()
 zx=None
-if False:
-    pass
+
 if mode == "ida":
     zx=ReassembleIDA()
-if mode == "idapp":
+elif mode == "idapp":
     zx=ReassembleIDAPP()
-if mode == "gsmtap":
+elif mode == "gsmtap":
     zx=ReassembleIDALAP()
 elif mode == "lap":
     validargs=('all')
@@ -907,7 +906,7 @@ elif mode == "lap":
         ofile="%s.%s" % (basename, "pcap")
         outfile=open(ofile,"w")
     zx=ReassembleIDALAPPCAP()
-if mode == "sbd":
+elif mode == "sbd":
     zx=ReassembleIDASBD()
 elif mode == "page":
     zx=ReassembleIRA()
