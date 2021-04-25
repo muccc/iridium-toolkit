@@ -254,6 +254,7 @@ class StatsPKT(Reassemble):
 
 class ReassemblePPM(Reassemble):
     def __init__(self):
+        self.idx=None
         pass
 
     r1=re.compile('.* slot:(\d)')
@@ -315,6 +316,7 @@ class ReassemblePPM(Reassemble):
         irun=(end[1]-start[1]).total_seconds()
         urun=(end[0]-start[0]).total_seconds()
         toff=urun-irun
+        if irun==0: return (0,0,0)
         ppm=toff/irun*1000000
         if verbose:
             print "Blob:"
@@ -329,6 +331,7 @@ class ReassemblePPM(Reassemble):
     def end(self):
         alltime=0
         delta=0
+        if self.idx is None: return
         for ppms in range(1+self.idx):
             (irun,toff,ppm)=self.onedelta(self.ini[ppms],self.fin[ppms], verbose=True)
             alltime += irun
