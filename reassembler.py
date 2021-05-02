@@ -111,7 +111,7 @@ class MyObject(object):
             self.snr=None
             self.noise=None
             try:
-                self.level=math.log(self.signal,10)*20
+                self.level=math.log(float(self.level),10)*20
             except ValueError:
                 print >> sys.stderr, "Invalid signal level:",self.level
                 self.level=0
