@@ -58,8 +58,8 @@ def cut_convert_play(t_start, t_stop, f_min, f_max):
 
 def onclick(event):
     global t_start, t_stop, f_min, f_max
-    print 'button=%d, x=%d, y=%d, xdata=%f, ydata=%f'%(
-        event.button, event.x, event.y, event.xdata, event.ydata)
+    print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f'%(
+        event.button, event.x, event.y, event.xdata, event.ydata))
     if event.button == 1:
         t_start = event.xdata
         f_min = event.ydata
@@ -75,7 +75,7 @@ def onclick(event):
 def main():
     tsl, fl, quals, _ = filter_voc()
 
-    print len(tsl)
+    print(len(tsl))
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
