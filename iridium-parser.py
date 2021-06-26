@@ -1433,6 +1433,8 @@ class IridiumMessagingAscii(IridiumMSMessage):
             if(lfl == 0):
                 raise ParserError("len_field_len unexpectedly 0")
             self.msg_ctr=    int(rest[4:4+lfl],2)
+            if len(rest[4+lfl:4+lfl*2])==0:
+                raise ParserError("IridiumMessagingAscii message too short")
             self.msg_ctr_max=int(rest[4+lfl:4+lfl*2],2)
             rest=rest[4+lfl*2:]
             if(lfl<1 or lfl>2):
