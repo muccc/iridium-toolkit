@@ -12,6 +12,7 @@ import math
 import os
 import socket
 from copy import deepcopy
+from util import fmt_iritime
 
 verbose = False
 ifile= None
@@ -846,15 +847,17 @@ class ReassembleIDAPP(ReassembleIDA):
             "0518": "Identity request",
             "0519": "Identity response",
             "051a": "TMSI Reallocation Command",
-            "0600": "Register/Hello?",
+            "0600": "Register/SBD:uplink",
             "0901": "CP-DATA",
             "0904": "CP-ACK",
             "0910": "CP-ERROR",
             "7605": "7605",
-            "7608": "downlink initial",
-            "7609": "downlink part#2",
-            "760a": "downlink part#3+",
+            "7608": "downlink #1",
+            "7609": "downlink #2",
+            "760a": "downlink #3+",
             "760c": "uplink initial",
+            "760d": "uplink #2",
+            "760e": "uplink #3",
         }
 
         if tmin in minmap:
@@ -871,29 +874,100 @@ class ReassembleIDAPP(ReassembleIDA):
         print("%s"%strtime, end=' ', file=outfile)
         print("%s %s [%s] %-36s"%(freq_print,ul,typ,tstr), end=' ', file=outfile)
 
-        if tmaj=="76" and int(typ[2:],16)>=8:
+        if typ in ("0600","760c","760d","760e","7608","7609","760a"): # SBD
             prehdr=""
-            if typ=="7608":
-                # <26:44:9a:01:00:ba:85>
-                # 1: always? 26
-                # 2+3: sequence number (MTMSN)
-                # 4: number of packets in message
-                # 5: number of messages waiting to be delivered / backlog
-                # 6+7: unknown / maybe MOMSN?
-                prehdr=data[:7]
-                data=data[7:]
-                prehdr="<"+prehdr.hex(":")+">"
+            hdr=""
+            addlen=None
 
-            # <10:87:01>
-            # 1: always 10
-            # 2: length in bytes of message
-            # 3: number of packet
-            hdr=data[:3]
-            data=data[3:]
+            if ul=='UL' and typ in ("0600"):
+                #       0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28
+                #      20:13:f0:10:02|IMEI                   |MOMSN|MC|_c|LEN|                   |TIME
+                #      10:13:f0:10|TMSI?      |LAC? |LAC? |00:00:00|MC|                          |TIME
+                hdr=data[:29]
+                if len(hdr)<29:
+                    # packet too short
+                    print("ERR:short", file=outfile)
+                    return
 
-            hdr="<"+hdr.hex(":")+">"
+                data=data[29:]
+                prehdr="<"+hdr[0:4].hex(":")
 
+                if hdr[0]==0x20:
+                    prehdr+=",%02x"%hdr[4]
+                    bcd=["%x"%(x>>s&0xf) for x in hdr[5:13] for s in (0,4)]
+                    prehdr+=","+bcd[0]+",imei:"+"".join(bcd[1:])
+                    prehdr+=" MOMSN=%02x%02x"%(hdr[13],hdr[14])
+
+                    addlen=hdr[17]
+                elif hdr[0] in (0x10,0x40,0x70):
+                    prehdr+=","+ "".join(["%02x"%x for x in hdr[4:8]])
+                    prehdr+=",%02x%02x"%(hdr[8],hdr[9])
+                    prehdr+=",%02x%02x"%(hdr[10],hdr[11])
+                    prehdr+=",%02x%02x%02x"%(hdr[12],hdr[13],hdr[14])
+                else:
+                    prehdr+="ERR:hdrtype"
+
+                prehdr+=" msgct:%d"%hdr[15]
+                prehdr+=" "+hdr[16:25].hex(":")
+
+                ts=hdr[25:]
+                tsi=int(ts.hex(), 16)
+                _, strtime=fmt_iritime(tsi)
+                prehdr+=" t:"+strtime
+                prehdr+=">"
+                hdr=""
+            elif ul=='UL' and typ in ("760c","760d","760e"):
+                if data[0]==0x50:
+                    # <50:xx:xx> MTMSN echoback?
+                    prehdr=data[:3]
+                    data=data[3:]
+
+                    prehdr="<"+prehdr.hex(":")+">"
+
+            elif ul=='DL' and typ in ("7608","7609","760a"):
+                if typ=="7608":
+                    # <26:44:9a:01:00:ba:85>
+                    # 1: always? 26
+                    # 2+3: sequence number (MTMSN)
+                    # 4: number of packets in message
+                    # 5: number of messages waiting to be delivered / backlog
+                    # 6+7: unknown / maybe MOMSN?
+                    #
+                    # <20:33:17:03:01>
+                    # fields same as above except 6+7
+
+                    if data[0]==0x26:
+                        prehdr=data[:7]
+                        data=data[7:]
+                        prehdr="<"+prehdr.hex(":")+">"
+                    elif data[0]==0x20:
+                        prehdr=data[:5]
+                        data=data[5:]
+                        prehdr="<"+prehdr.hex(":")+">"
+                    else:
+                        prehdr="<ERR:prehdr_type?>"
+
+            else:
+                prehdr="<ERR:nomatch>"
             print("%-22s %-10s "%(prehdr,hdr), end=' ', file=outfile)
+
+            if typ != "0600" and len(data)>0:
+                if data[0]==0x10:
+                    # <10:87:01>
+                    # 1: always 10
+                    # 2: length in bytes of message
+                    # 3: number of packet (760c => 2, 760d => 3, 760e => 4)
+                    #                     (7608 => 1, 7609 => 2, 760a => 3+)
+                    hdr=data[:3]
+                    data=data[3:]
+                    addlen=hdr[1]
+                    hdr="<"+hdr.hex(":")+">"
+                else:
+                    print("ERR:no_0x10", end=" ", file=outfile)
+
+            if addlen is not None and len(data)!=addlen:
+                print("ERR:len(%d!=%d)"%(len(data),addlen), end=" ", file=outfile)
+
 # > 0600 / 10:13:f0:10: tmsi+lac+lac+00 +bytes
 # < 0605 ?
 # > 0508 Location Updating Request
@@ -908,63 +982,7 @@ class ReassembleIDAPP(ReassembleIDA):
 # < 7608 <26:00:00:00:00:xx:xx> 0 messages (xx=MTMSN?)
 # > 760c <50:xx:xx> MTMSN echoback?
 # < 7605 ?
-        if typ=="0600":
-            hdr=data[:4]
-            data=data[4:]
-            print("[%s]"%(hdr.hex(":")), end=' ', file=outfile)
-            imei=[x for x in data[:9]]
-            data=data[9:]
-            if hdr[0]==0x20:
-                n1=imei[1]>>4
-                t=imei[1]&0x7
-                o=(imei[1]>>3)&0x1
-                if t==5:
-                    str="imei(sbd):"
-                else:
-                    str="imei(unknown_type=%d):"%d
 
-                if o!=0:
-                    str+="(odd=1?)"
-                str+="%x"%n1
-                str+="".join("%x%x"%((x)&0xf,(x)>>4) for x in imei[2:])
-                imei="%02x [%s]"%(imei[0],str)
-            elif hdr[0]==0x10:
-                tmsi="%02x%02x%02x%02x"%tuple(imei[:4])
-                str="tmsi:%s"%tmsi
-                str+=",lac1:%02x%02x"%(imei[4],imei[5])
-                str+=",lac2:%02x%02x"%(imei[6],imei[7])
-                imei="["+str+",%02x"%imei[8]+"]"
-            else:
-                imei="["+" ".join("%02x"%(x) for x in imei)+"]"
-
-            momsn=int(data[0:2].hex(), 16)
-            msgcnt=data[2]
-            prepkt=data[3:4]
-            addlen=data[4]
-            postpkt=data[5:12]
-            ts=data[12:16]
-            if len(ts)<4:
-                strtime="<trunc>"
-                addpkt=""
-            else:
-                tsi=int(ts.hex(), 16)
-                uxtime= float(tsi)*90/1000+1399818235
-                if uxtime>1435708799: uxtime-=1 # Leap second: 2015-06-30 23:59:59
-                if uxtime>1483228799: uxtime-=1 # Leap second: 2016-12-31 23:59:59
-                strtime=datetime.datetime.fromtimestamp(uxtime,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}Z".format((uxtime%1)*100))
-                addpkt=data[16:]
-
-            print("%s"%imei, "MOMSN=%04x"%momsn, "msgct:%d"%msgcnt, prepkt.hex(" "), "len=%02d"%addlen, postpkt.hex(" "),"t:%s"%strtime, end=' ', file=outfile)
-            if len(addpkt)>0:
-                if len(addpkt)!=addlen:
-                    print("[%02d!]"%len(addpkt), end=' ', file=outfile)
-                print("|", addpkt.hex(" "), file=outfile)
-            else:
-                print("", file=outfile)
-            return
-
-        if False:
-            pass
         elif typ=="032d": # CC Release
             if len(data)==4 and data[0]==8:
                 data=data[1:]
@@ -1025,7 +1043,7 @@ class ReassembleIDAPP(ReassembleIDA):
 
         if len(data)>0:
             print(" ".join("%02x"%x for x in data), end=' ', file=outfile)
-            print(" | %s"%ascii(data, True), file=outfile)
+            print(" | %s"%ascii(data, dot=True), file=outfile)
         else:
             print("", file=outfile)
         return
