@@ -888,6 +888,8 @@ class IridiumIPMessage(IridiumMessage):
         else:
             (ok,msg,rsc)=rs.rs_fix(self.payload_f)
             if ok:
+                if bytearray(self.payload_f)!=msg+rsc:
+                    self.fixederrs=1
                 self.iiqcsum=checksum_16(msg[0:-3],msg[-2:])
                 self.oddbyte=msg[-3]
                 if self.iiqcsum == 0:
