@@ -259,6 +259,7 @@ class ReassemblePPM(Reassemble):
 
     r1=re.compile('.* slot:(\d)')
     r2=re.compile('.* time:([0-9:T-]+(\.\d+)?)Z')
+    rp=re.compile('UW:0-LCW:0-FIX:0')
 
     def filter(self,line):
         q=super(ReassemblePPM,self).filter(line)
@@ -266,6 +267,9 @@ class ReassemblePPM(Reassemble):
         if q.typ!="IBC:": return None
         if q.confidence<95: return None
 
+        if 'perfect' in args:
+            m=self.rp.search(q.name)
+            if not m: return None
 
         m=self.r1.match(q.data)
         if not m: return
@@ -307,7 +311,11 @@ class ReassemblePPM(Reassemble):
         # "interactive" statistics per INVTL(600)
         if (data[1]-self.cur[1]).total_seconds() > 600:
             (irun,toff,ppm)=self.onedelta(self.cur,data, verbose=False)
-            print "@ %s: %.3f"%(data[1],ppm)
+            if 'grafana' in args:
+                print "iridium.live.ppm %.5f %d"%(ppm,(data[1]-datetime.datetime.fromtimestamp(0)).total_seconds())
+                sys.stdout.flush()
+            else:
+                print "@ %s: %.3f"%(data[1],ppm)
             self.cur=data
         elif (data[1]-self.cur[1]).total_seconds() <0:
             self.cur=data
@@ -945,6 +953,7 @@ elif mode == "stats":
     validargs=('perfect','state')
     zx=StatsPKT()
 elif mode == "ppm":
+    validargs=('perfect','grafana')
     zx=ReassemblePPM()
 else:
     print >>sys.stderr, "Unknown mode selected"
