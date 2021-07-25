@@ -438,6 +438,8 @@ class IridiumMessage(Message):
         if self.msgtype=="MS":
             hdrlen=32
             self.header=data[:hdrlen]
+            if self.header==header_messaging:
+                self.header=""
             self.descrambled=[]
             (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
             for x in blocks:
@@ -951,7 +953,6 @@ class IridiumECCMessage(IridiumMessage):
             self.poly=acch_bch_poly
         else:
             raise ParserError("unknown Iridium message type(canthappen)")
-        self.bitstream_messaging=""
         self.bitstream_bch=""
         self.oddbits=""
         self.fixederrs=0
@@ -977,7 +978,6 @@ class IridiumECCMessage(IridiumMessage):
                 self.fixederrs+=1
 
             self.bitstream_bch+=data
-            self.bitstream_messaging+=data[1:]
             self.oddbits+=data[0]
         if len(self.bitstream_bch)==0:
             self._new_error("No data to descramble")
@@ -1320,72 +1320,82 @@ class IridiumRAMessage(IridiumECCMessage):
 
 class IridiumMSMessage(IridiumECCMessage):
     def __init__(self,imsg):
+        # Ref: US5596315
         self.__dict__=imsg.__dict__
-        rest=self.bitstream_messaging
 
-        if len(rest) < 32:
+        if len(self.bitstream_bch) < 21:
             raise ParserError("Not enough data received")
 
-        self.zero1 = rest[0:4]
+        self.ms_type=self.bitstream_bch[0]
+        self.zero1 = self.bitstream_bch[1:5]
         if self.zero1 != '0000':
             self._new_error("zero1 not 0000")
 
-        self.block = int(rest[4:4+4], 2)        # Block number in the super frame
-        self.frame = int(rest[8:8+6], 2)        # Current frame number (OR: Current cell number)
-        self.bch_blocks = int(rest[14:18], 2)   # Number of BCH blocks in this message
-        self.unknown1=rest[18]                  # ?
-        self.secondary = int(rest[19])          # Something like secondary SV
-        self.ctr1=int(rest[19]+self.oddbits[1]+rest[20:32],2)
+        self.block =     int(self.bitstream_bch[5:9], 2)   # Block number in the super frame
+        self.frame =     int(self.bitstream_bch[9:15], 2)  # Current frame number (OR: Current cell number)
+        self.bch_blocks= int(self.bitstream_bch[15:19], 2) # Number of BCH blocks in this message
 
-        if(self.oddbits[0]=="1"):
+        if self.ms_type=="1":
             self.group="A"
-            self.agroup=0
+            self.group_int=0
+            self.unknown1  = self.bitstream_bch[19]        # ?
+            self.secondary = int(self.bitstream_bch[20])   # Something like secondary SV
+            if len(self.bitstream_bch) < 38:
+                raise ParserError("Not enough data received")
         else:
-            self.group=int(rest[18:20],2)
-            self.agroup=1+self.group
-        self.tdiff=((self.block*5+self.agroup)*48+self.frame)*90
+            self.group=int(self.bitstream_bch[19:21],2)
+            self.group_int=1+self.group
+
+        self.tdiff=((self.block*5+self.group_int)*48+self.frame)*90
 
         if self.bch_blocks < 2:
-            raise ParserError("Not enough BCH blocks in header")
+            raise ParserError("length field in header too small") # in-packet size too small
 
-        if len(self.bitstream_messaging) < self.bch_blocks * 40:
+        if len(self.bitstream_bch) < self.bch_blocks * 42:
             self._new_error("Incorrect amount of data received.")
-            self._new_error("Need %d, got %d" % (self.bch_blocks * 40, len(self.bitstream_messaging)))
+            self._new_error("Need %d, got %d" % (self.bch_blocks * 42, len(self.bitstream_bch)))
 
-        rest = self.bitstream_messaging[:self.bch_blocks * 40]
-        self.oddbits = self.oddbits[:self.bch_blocks * 2]
+        rest = self.bitstream_bch[21:self.bch_blocks * 42]
 
-        # If oddbits ends in 1, this is an all-1 block -- remove it
-        self.msg_trailer=""
-        if(self.oddbits[-1]=="1"):
-            self.msg_trailer=rest[-20:]
-            if(self.msg_trailer != "1"*20):
-                self._new_error("trailer exists, but not all-1")
-            rest=rest[0:-20]
-            # If oddbits still ends in 1, probably also an all-1 block
-            if(self.oddbits[-2]=="1"):
-                self.msg_trailer=rest[-20:]+self.msg_trailer
-                if(self.msg_trailer != "1"*40):
-                    self._new_error("second trailer exists, but not all-1")
-                rest=rest[0:-20]
-        # If oddbits starts with 1, there is a 80-bit "pre" message
-        if self.oddbits[0]=="1":
-            self.msg_pre=rest[20:100]
-            rest=rest[100:]
+        # Acquisition group messages have 2 "blocks" pre-message a.k.a. block header message
+        if self.group=="A":
+            self.msg_pre=rest[:2*42]
+            self.ctr1=int(self.msg_pre[0:12],2)
+            preblocks=slice(self.msg_pre,21)
+            rest=rest[42*2:]
         else:
             self.msg_pre=""
-            rest=rest[20:]
-        # If enough  bits are left, there will be a pager message
-        if len(rest)>20:
+
+        blocks=slice(rest,21)
+
+        # Message may have up to two "all-1" trailer blocks
+        self.msg_trailer=""
+        if(len(blocks)>0 and blocks[-1][0]=="1"):
+            self.msg_trailer=blocks[-1][1:]
+            if(self.msg_trailer != "1"*20):
+                self._new_error("trailer exists, but not all-1")
+            blocks=blocks[:-1]
+            if(len(blocks)>0 and blocks[-1][0]=="1"):
+                self.msg_trailer=blocks[-1][1:]+self.msg_trailer
+                if(self.msg_trailer != "1"*40):
+                    self._new_error("second trailer exists, but not all-1")
+                blocks=blocks[:-1]
+
+        self.msg_odd="".join([x[:1] for x in blocks]) # collect "oddbits"
+        rest="".join([x[1:] for x in blocks]) # remove "oddbits"
+
+        if len(rest)>27:
             self.msg_ric=int(rest[0:22][::-1],2)
             self.msg_format=int(rest[22:27],2)
             self.msg_data=rest[27:]
+
     def upgrade(self):
         if self.error: return self
         try:
             if("msg_format" in self.__dict__):
                 if(self.msg_format == 5):
-                    return IridiumMessagingAscii(self).upgrade()
+                    if len(self.msg_data)>38:
+                        return IridiumMessagingAscii(self).upgrade()
                 elif(self.msg_format == 3):
                     return IridiumMessagingUnknown(self).upgrade()
                 else:
@@ -1396,15 +1406,15 @@ class IridiumMSMessage(IridiumECCMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMSMessage,self)._pretty_header()
-        str+= " odd:%-26s" % (self.oddbits)
         str+= " %1d:%s:%02d" % (self.block, self.group,self.frame)
-        if(self.oddbits == "1011"):
-            str+= " %s sec:%d %-83s" % (self.unknown1, self.secondary, group(self.msg_pre,20))
-        elif(self.group == "A"):
-            str+= " %s c=%05d           %s %-62s" % (self.unknown1, self.ctr1, self.msg_pre[12:20],group(self.msg_pre[20:],20))
+        str+= " len=%02d" % (self.bch_blocks)
+        str+= " T%d" % (len(self.msg_trailer)/20)
+        if(self.group == "A"):
+            str+= " %s %s %-87s" % (self.unknown1, self.secondary, group(self.msg_pre,21))
         else:
-            str+= "         %-83s" % (group(self.msg_pre,20))
+            str+= " %s %s %-87s" % (" "," "," ")
         if("msg_format" in self.__dict__):
+            str += " m_odd:%-26s" % (self.msg_odd)
             str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
         return str
     def _pretty_trailer(self):
@@ -1615,7 +1625,6 @@ def perline(q):
         if type(q).__name__ == "IridiumMessage" or type(q).__name__ == "IridiumECCMessage" or type(q).__name__ == "IridiumBCMessage" or type(q).__name__ == "Message" or type(q).__name__ == "IridiumSYMessage" or type(q).__name__ == "IridiumMSMessage" or q.error:
             return
         del q.bitstream_raw
-        if("bitstream_messaging" in q.__dict__): del q.bitstream_messaging
         if("descrambled" in q.__dict__): del q.descrambled
         del q.descramble_extra
     if q.error:
