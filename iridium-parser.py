@@ -1397,7 +1397,7 @@ class IridiumMSMessage(IridiumECCMessage):
                     if len(self.msg_data)>38:
                         return IridiumMessagingAscii(self).upgrade()
                 elif(self.msg_format == 3):
-                    return IridiumMessagingUnknown(self).upgrade()
+                    return IridiumMessagingBCD(self).upgrade()
                 else:
                     self._new_error("unknown msg_format")
         except ParserError as e:
@@ -1493,10 +1493,12 @@ class IridiumMessagingAscii(IridiumMSMessage):
        str+= self._pretty_trailer()
        return str
 
-class IridiumMessagingUnknown(IridiumMSMessage):
+class IridiumMessagingBCD(IridiumMSMessage):
     def __init__(self,immsg):
         self.__dict__=immsg.__dict__
         rest=self.msg_data
+        if len(rest) < 11:
+            raise ParserError("Not enough data received")
         self.msg_seq=int(rest[0:6],2)
         self.msg_zero1=int(rest[6:10],2)
         if(self.msg_zero1 != 0):
@@ -1505,17 +1507,19 @@ class IridiumMessagingUnknown(IridiumMSMessage):
         rest=rest[20:]
         self.msg_unknown2=rest[:1]
         self.msg_msgdata=rest[1:]
+        bcd=slice(self.msg_msgdata,4)
+        self.bcd="".join(["%01x"%int(x,2) for x in bcd])
     def upgrade(self):
         if self.error: return self
         return self
     def _pretty_header(self):
-        str= super(IridiumMessagingUnknown,self)._pretty_header()
+        str= super(IridiumMessagingBCD,self)._pretty_header()
         return str+ " seq:%02d %10s %s"%(self.msg_seq,self.msg_unknown1,self.msg_unknown2)
     def _pretty_trailer(self):
-        return super(IridiumMessagingUnknown,self)._pretty_trailer()
+        return super(IridiumMessagingBCD,self)._pretty_trailer()
     def pretty(self):
        str= "MS3: "+self._pretty_header()
-       str+= " %-65s"%group(self.msg_msgdata,4)
+       str+= " BCD: %-65s"%self.bcd
        str+= self._pretty_trailer()
        return str
 
