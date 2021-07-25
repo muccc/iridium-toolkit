@@ -293,9 +293,9 @@ class Message(object):
 
         if not perfect:
             if("fixederrs" in self.__dict__ and self.fixederrs>0):
-                flags+="-FIX:%d"%self.fixederrs
+                flags+="-FIX:%02d"%(self.fixederrs)
             else:
-                flags+="-FIX:0"
+                flags+="-FIX:%02d"%(0)
         if globaltime:
             hdr="j-%d%s %16.6f"%(self.startts,flags,self.globaltime)
         else:
