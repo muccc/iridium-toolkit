@@ -110,6 +110,8 @@ class MyObject(object):
         else:
             self.snr=None
             self.noise=None
+            if float(self.level)==0:
+                self.level+="1"
             try:
                 self.level=math.log(float(self.level),10)*20
             except ValueError:
