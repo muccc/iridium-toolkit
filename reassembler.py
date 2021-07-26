@@ -44,7 +44,7 @@ for opt, arg in options:
             args[a]=True
     elif opt in ('-h', '--help'):
         print >> sys.stderr, "Usage:"
-        print >> sys.stderr, "\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|lap|sbd|page|msg|sat] [--output foo.parsed]"
+        print >> sys.stderr, "\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|page|msg|stats|ppm] [--output foo.parsed]"
         exit(1)
     else:
         raise Exception("unknown argument?")

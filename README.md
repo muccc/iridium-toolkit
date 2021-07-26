@@ -76,8 +76,11 @@ Usage: (it is assumed that the output from iridium-parser is in `output.parsed`)
 Supported modes are currently:
 
 * `ida` - outputs Um Layer 3 messages as hex
+* `idapp` - same as above with some light parsing/pretty-printing
 * `lap` - GSM-compatible L3 messages as GSMtap compatible `.pcap`
 * `page` - paging requests (Ring Alert Channel)
 * `msg` - Pager messages
 * `sbd` - Short Burst Data messages
+* `ppm` - estimation of receiving SDRs PPM frequency offset
+* `stats` - per 10-minute statistics of received packet type in graphite format
 
