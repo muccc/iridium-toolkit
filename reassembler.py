@@ -666,8 +666,8 @@ class ReassembleIDALAP(ReassembleIDA):
         (data,time,ul,level,freq)=q
         lapdm=data
         try:
-            olvl=int(10*math.log(level,10))
-        except:
+            olvl=int(level)
+        except (ValueError, OverflowError):
             olvl=0
         if olvl>127:
             olvl=127
