@@ -811,7 +811,6 @@ class ReassembleMSG(Reassemble):
         q=super(ReassembleMSG,self).filter(line)
         if q == None: return None
         if q.typ == "MSG:":
-            #ric:0098049 fmt:05 seq:43 1010010000 1/1 oNEZCOuxvM3PuiQHujzQYd5n0Q8ra0wfMG2WnnhoxAnunT9xzIBSkXyvNP[3]     +11111
             p=re.compile('.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]+)\.([01]*) ')
             m=p.match(q.data)
             if(not m):
@@ -846,6 +845,21 @@ class ReassembleMSG(Reassemble):
                     q.msg_rest=q.msg_msgdata[-(len(q.msg_msgdata)%7):]
                 else:
                     q.msg_rest=""
+                return q
+        if q.typ == "MS3:":
+            p=re.compile('.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
+            m=p.match(q.data)
+            if(not m):
+                print >> sys.stderr, "Couldn't parse MS3: ",q.data
+            else:
+                q.msg_ric=     int(m.group(1))
+                q.fmt=         int(m.group(2))
+                q.msg_seq=     int(m.group(3))
+                q.msg_ctr=     0
+                q.msg_ctr_max= 0
+                q.msg_checksum=-1
+                q.msg_ascii=         m.group(4)
+                q.enrich()
                 return q
     buf={}
     ricseq={}
@@ -888,12 +902,17 @@ class ReassembleMSG(Reassemble):
     def end(self): # XXX should be rewritten to consume
         for b in sorted(self.buf, key=lambda x: self.buf[x].time):
             msg="".join(self.buf[b].msgs[:1+self.buf[b].msg_ctr_max])
-            msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
-            cmsg=re.sub("\[10\]","\n",msg) # XXX: should be done differently
-            csum=self.messagechecksum(cmsg)
             str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(self.buf[b].time).strftime("%Y-%m-%dT%H:%M:%S"),self.buf[b].msg_ctr_max)
-            str+= " %3d"%self.buf[b].msg_checksum
-            str+= (" fail"," OK  ")[self.buf[b].msg_checksum == csum]
+            if self.buf[b].fmt==5:
+                msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
+                cmsg=re.sub("\[10\]","\n",msg) # XXX: should be done differently
+                csum=self.messagechecksum(cmsg)
+                str+= " %3d"%self.buf[b].msg_checksum
+                str+= (" fail"," OK  ")[self.buf[b].msg_checksum == csum]
+            elif self.buf[b].fmt==3:
+                msg=re.sub("c+$","",msg) # XXX: should be done differently
+                str+= " BCD"
+                str+= " OK  "
             str+= ": %s"%(msg)
             print >> outfile, str
 
