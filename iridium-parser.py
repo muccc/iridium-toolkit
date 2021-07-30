@@ -1503,9 +1503,9 @@ class IridiumMessagingBCD(IridiumMSMessage):
         self.msg_zero1=int(rest[6:10],2)
         if(self.msg_zero1 != 0):
             self._new_error("zero1 is not all-zero")
-        self.msg_unknown1=rest[10:20]
-        rest=rest[20:]
-        self.msg_unknown2=rest[:1]
+        self.msg_unknown1=rest[10:16]
+        rest=rest[16:]
+        self.msg_unknown2=rest[:1] # msg_len_bit ?
         self.msg_msgdata=rest[1:]
         bcd=slice(self.msg_msgdata,4)
         self.bcd="".join(["%01x"%int(x,2) for x in bcd])
@@ -1514,7 +1514,7 @@ class IridiumMessagingBCD(IridiumMSMessage):
         return self
     def _pretty_header(self):
         str= super(IridiumMessagingBCD,self)._pretty_header()
-        return str+ " seq:%02d %10s %s"%(self.msg_seq,self.msg_unknown1,self.msg_unknown2)
+        return str+ " seq:%02d %6s %s"%(self.msg_seq,self.msg_unknown1,self.msg_unknown2)
     def _pretty_trailer(self):
         return super(IridiumMessagingBCD,self)._pretty_trailer()
     def pretty(self):
