@@ -189,7 +189,7 @@ class StatsPKT(Reassemble):
         if q.typ=="RAW:": return None
         if q.typ=="IME:": return None
         if 'perfect' in args:
-            m=self.r1.match(q.attr)
+            m=self.r1.search(q.name)
             if not m: return None
 
         q.enrich()
