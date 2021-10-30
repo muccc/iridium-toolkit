@@ -92,6 +92,8 @@ class Message(object):
         else:
             self.access_ok=(m.group(7)=="OK")
 
+        self.id=m.group(8)
+
         self.confidence=int(m.group(9))
         self.level=float(m.group(10))
         if self.level==0:

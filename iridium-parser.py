@@ -32,6 +32,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'errorstats',
                                                          'forcetype=',
                                                          'channelize',
+                                                         'sigmf-annotate=',
                                                          ])
 
 verbose = False
@@ -48,6 +49,7 @@ plotargs=["time", "frequency"]
 vdumpfile=None
 errorfile=None
 errorstats=None
+sigmffile=None
 
 for opt, arg in options:
     if opt in ['-v', '--verbose']:
@@ -99,12 +101,44 @@ for opt, arg in options:
         bitsparser.channelize=True
     elif opt in ['--format']:
         ofmt=arg.split(',');
+    elif opt in ['--sigmf-annotate']:
+        sigmffile=arg
+        output="sigmf"
     else:
         raise Exception("unknown argument?")
 
 if input == "dump" or output == "dump":
     import pickle as pickle
     dumpfile="pickle.dump"
+
+if output == "sigmf":
+    import json
+
+sigmfjson=None
+sigmfout=None
+if sigmffile is not None:
+    try:
+        sigmfjson=json.load(open(sigmffile,'r'))
+        sigmfjson.pop('annotations', None)
+    except FileNotFoundError:
+        print("WARN: no sigmf-meta source file. Using (probably-wrong) hardcoded defaults", file=sys.stderr)
+        sigmfjson={
+            "global":
+                {"core:datatype": "cf32_le", "core:sample_rate": 10e6, "core:version": "0.0.1"},
+            "captures": [
+                {"core:sample_start": 0, "core:frequency": 1626000000}
+            ]
+        }
+    sigmfout=open(sigmffile+'.tmp','w')
+    print("{", file=sigmfout)
+    for key in sigmfjson:
+        print('"%s":'%key, file=sigmfout)
+        json.dump(sigmfjson[key],sigmfout)
+        print(',', file=sigmfout)
+    print('"%s": ['%"annotations", file=sigmfout)
+
+if sigmfout is None:
+    sigmfout=sys.stdout
 
 if dosatclass == True:
     import satclass
@@ -217,6 +251,28 @@ def perline(q):
                 print(" ".join([str(q.__dict__[x]) for x in ofmt]))
     elif output == "rxstats":
         print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
+    elif output == "sigmf":
+        try:
+            sr=sigmfjson['global']["core:sample_rate"]
+            center=sigmfjson['captures'][0]["core:frequency"]
+        except TypeError:
+            sr=10e6
+            center=1626000000
+        SYMBOLS_PER_SECOND = 25000
+        if q.error:
+            desc=q.error_msg[0]
+        elif "msgtype" in q.__dict__:
+            desc=q.msgtype
+        else:
+            desc=type(q).__name__
+        print(json.dumps({
+            "core:comment": type(q).__name__,
+            "core:description": desc+"#%d"%int(q.id),
+            "core:freq_lower_edge": q.frequency-20e3,
+            "core:freq_upper_edge": q.frequency+20e3,
+            "core:sample_count": int(q.symbols * (sr/SYMBOLS_PER_SECOND)),
+            "core:sample_start": int(q.timestamp * (sr/1000))
+            }), end=",\n", file=sigmfout)
     else:
         print("Unknown output mode.", file=sys.stderr)
         exit(1)
@@ -225,6 +281,13 @@ def bitdiff(a, b):
     return sum(x != y for x, y in zip(a, b))
 
 do_input(input)
+
+if sigmffile is not None:
+    import os
+    print("{}]}", file=sigmfout)
+    sigmfout.close()
+    os.rename(sigmffile,        sigmffile+".bak")
+    os.rename(sigmffile+".tmp", sigmffile)
 
 if output == "sat":
     print("SATs:")
