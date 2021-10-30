@@ -296,17 +296,25 @@ class ReassemblePPM(Reassemble):
 
     ini=None
     def consume(self, data):
+        tdelta=(data[0]-data[1]).total_seconds()
         if self.ini is None: # First PKT
             self.idx=0
             self.ini=[data]
             self.fin=[data]
             self.cur=data
+            self.tmin=tdelta
+            self.tmax=tdelta
         if data[2]!=self.ini[self.idx][2]: # New Recording
             self.idx += 1
             self.ini.append(data)
             self.fin.append(data)
             self.cur=data
         self.fin[-1]=data
+
+        if tdelta < self.tmin:
+            self.tmin=tdelta
+        if tdelta > self.tmax:
+            self.tmax=tdelta
 
         # "interactive" statistics per INVTL(600)
         if (data[1]-self.cur[1]).total_seconds() > 600:
@@ -344,6 +352,8 @@ class ReassemblePPM(Reassemble):
             (irun,toff,ppm)=self.onedelta(self.ini[ppms],self.fin[ppms], verbose=True)
             alltime += irun
             delta += toff
+        print "rec.tmin %f"%(self.tmin)
+        print "rec.tmax %f"%(self.tmax)
         print "rec.ppm %.3f"%(delta/alltime*1000000)
 
 class ReassembleIDA(Reassemble):
