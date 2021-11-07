@@ -325,6 +325,8 @@ class ReassemblePPM(Reassemble):
             self.tmin=tdelta
         if tdelta > self.tmax:
             self.tmax=tdelta
+        if 'tdelta' in args:
+            print "tdelta %sZ %f"%(data[0].isoformat(),tdelta)
 
         # "interactive" statistics per INVTL(600)
         if (data[1]-self.cur[1]).total_seconds() > 600:
@@ -333,7 +335,7 @@ class ReassemblePPM(Reassemble):
                 print "iridium.live.ppm %.5f %d"%(ppm,(data[1]-datetime.datetime.fromtimestamp(0)).total_seconds())
                 sys.stdout.flush()
             else:
-                print "@ %s: %.3f"%(data[1],ppm)
+                print "@ %s: ppm: % 6.3f ds: % 8.5f "%(data[1],ppm,(data[1]-data[0]).total_seconds())
             self.cur=data
         elif (data[1]-self.cur[1]).total_seconds() <0:
             self.cur=data
@@ -973,7 +975,7 @@ elif mode == "stats":
     validargs=('perfect','state')
     zx=StatsPKT()
 elif mode == "ppm":
-    validargs=('perfect','grafana')
+    validargs=('perfect','grafana','tdelta')
     zx=ReassemblePPM()
 else:
     print >>sys.stderr, "Unknown mode selected"
