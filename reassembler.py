@@ -287,10 +287,20 @@ class ReassemblePPM(Reassemble):
         q.enrich()
         q.uxtime=datetime.datetime.utcfromtimestamp(q.time)
 
-        # correct for slot
+        # correct for slot:
+        # 1st vs. 4th slot is 3 * (downlink + guard)
         q.itime+=datetime.timedelta(seconds=q.slot*(3 * float(8.28 + 0.1))/1000)
 
-        # XXX: missing correction for sat travel time
+        # correct to beginning of frame:
+        # guard + simplex + guard + 4*(uplink + guard)
+        q.itime+=datetime.timedelta(seconds=(1 + 20.32 + 1.24 + 4 * float(8.28 + 0.22))/1000)
+
+        # correct to beginning of signal:
+        # our timestamp is "the middle of the first symbol of the 12-symbol BPSK Iridium sync word"
+        # so correct for 64 symbols preamble & one half symbol.
+        q.itime+=datetime.timedelta(seconds=(64.5/25000))
+
+        # no correction (yet?) for signal travel time: ~ 2.6ms-10ms (780-3000 km)
 
         return [[q.uxtime,q.itime,q.starttime]]
 
