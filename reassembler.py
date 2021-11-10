@@ -160,7 +160,7 @@ class Reassemble(object):
             print("No lines?")
 
 
-class StatsPKT(Reassemble):
+class LivePktStats(Reassemble):
     intvl=600
     timeslot=None
     default=None
@@ -1077,9 +1077,9 @@ elif mode == "page":
     zx=ReassembleIRA()
 elif mode == "msg":
     zx=ReassembleMSG()
-elif mode == "stats":
+elif mode == "live-stats":
     validargs=('perfect','state')
-    zx=StatsPKT()
+    zx=LivePktStats()
 elif mode == "live-map":
     validargs=('perfect')
     zx=LiveMap()
