@@ -37,7 +37,6 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'errorfile=',
                                                          'errorstats',
                                                          'forcetype=',
-                                                         'globaltime',
                                                          'channelize',
                                                          ])
 
@@ -72,7 +71,6 @@ vdumpfile=None
 errorfile=None
 errorstats=None
 forcetype=None
-globaltime=False
 channelize=False
 
 for opt, arg in options:
@@ -120,8 +118,6 @@ for opt, arg in options:
         channelize=True
     elif opt in ['--format']:
         ofmt=arg.split(',');
-    elif opt in ['--globaltime']:
-        globaltime=True;
     else:
         raise Exception("unknown argument?")
 
@@ -215,28 +211,46 @@ class Message(object):
         if m.group(13):
             self.extra_data=m.group(13)
             self._new_error("There is crap at the end in extra_data")
-        # Make a "global" timestamp
-        global tswarning,tsoffset,maxts
+
+        # Make a "global" timestamp - needs to be an int to avoid precision loss
+        # Current format:
+        mm=re.match("i-(\d+)-t1$",self.filename)
+        if mm:
+            startts=int(mm.group(1))
+            self.fileinfo="p-%d"%startts
+            self.globalns=startts*(10**9)+int(float(self.timestamp)*(10**6))
+            return
+        # Older file formats:
         mm=re.match("(\d\d)-(\d\d)-(20\d\d)T(\d\d)-(\d\d)-(\d\d)-[sr]1",self.filename)
         if mm:
             month, day, year, hour, minute, second = map(int, mm.groups())
             ts=datetime.datetime(year,month,day,hour,minute,second)
-            ts=(ts- datetime.datetime(1970,1,1)).total_seconds()
-            self.startts=ts
-            self.globaltime=self.startts+float(self.timestamp)/1000
+            startts=int(ts.timestamp())
+            self.fileinfo="p-%d"%startts
+            self.globalns=startts*(10**9)+int(float(self.timestamp)*(10**6))
             return
         mm=re.match("i-(\d+(?:\.\d+)?)-[vbsrtl]1.([a-z])([a-z])",self.filename)
         if mm:
             self.b26=(ord(mm.group(2))-ord('a'))*26+ ord(mm.group(3))-ord('a')
-            self.startts=float(mm.group(1))+self.b26*600
-            self.globaltime=self.startts+float(self.timestamp)/1000
+            startts=float(mm.group(1))+self.b26*600
+            if startts != int(startts):
+                self.timestamp+=(startts%1)*(10**3)
+            startts=int(startts)
+            self.fileinfo="p-%d"%startts
+            self.globalns=startts*(10**9)+int(float(self.timestamp)*(10**6))
             return
         mm=re.match("i-(\d+(?:\.\d+)?)-[vbsrtl]1(?:-o[+-]\d+)?$",self.filename)
         if mm:
-            self.startts=float(mm.group(1))
-            self.globaltime=self.startts+float(self.timestamp)/1000
+            startts=float(mm.group(1))
+            if startts != int(startts):
+                self.timestamp+=(startts%1)*(10**3)
+            startts=int(startts)
+            self.fileinfo="p-%d"%startts
+            self.globalns=self.startts*(10**9)+int(float(self.timestamp)*(10**6))
             return
-        self.startts=self.filename.replace("-",".")
+
+        global tswarning,tsoffset,maxts
+        self.fileinfo="u-"+self.filename.replace("-",".")
         if not tswarning:
             print("Warning: no timestamp found in filename", file=sys.stderr)
             tswarning=True
@@ -245,7 +259,7 @@ class Message(object):
             tsoffset=maxts
             ts=tsoffset+float(self.timestamp)/1000
         maxts=ts
-        self.globaltime=ts
+        self.globalns=int(ts*(10**9))
 
     def upgrade(self):
         if self.error: return self
@@ -287,27 +301,26 @@ class Message(object):
             self.error_msg.append(msg)
     def _pretty_header(self):
         flags=""
-        if uwec:
+        if uwec or harder or not perfect:
+            flags="-e"
             if("ec_uw" in self.__dict__):
-                flags+="-UW:%d"%self.ec_uw
+                flags+="%d"%self.ec_uw
             else:
-                flags+="-UW:0"
+                flags+="0"
 
-        if harder:
             if("ec_lcw" in self.__dict__):
-                flags+="-LCW:%s"%self.ec_lcw
+                flags+="%d"%self.ec_lcw
             else:
-                flags+="-LCW:0"
+                flags+="0"
 
-        if not perfect:
-            if("fixederrs" in self.__dict__ and self.fixederrs>0):
-                flags+="-FIX:%02d"%(self.fixederrs)
+            if("fixederrs" in self.__dict__):
+                if self.fixederrs>9:
+                    flags+="9"
+                else:
+                    flags+="%d"%self.fixederrs
             else:
-                flags+="-FIX:%02d"%(0)
-        if globaltime:
-            hdr="j-%d%s %16.6f"%(self.startts,flags,self.globaltime)
-        else:
-            hdr="%s %014.4f"%(self.filename,self.timestamp)
+                flags+="0"
+        hdr="%s%s %014.4f"%(self.fileinfo,flags,self.timestamp)
         if "snr" not in self.__dict__:
             return "%s %s %3d%% %7.3f"%(hdr,self.freq_print,self.confidence,self.level)
         else:
@@ -1182,7 +1195,6 @@ class IridiumBCMessage(IridiumECCMessage):
                 self.unknown21 = data[6:10]
                 self.iri_time = int(data[10:42], 2)
                 (self.iri_time_ux, self.iri_time_str)= fmt_iritime(self.iri_time)
-                self.iri_time_diff = self.iri_time_ux-self.globaltime
                 self.readable += ' %s time:%s' % (self.unknown21, self.iri_time_str)
             elif self.type == 2:
                 self.unknown31 = data[6:10]
@@ -1703,8 +1715,6 @@ def perline(q):
             if not ofmt:
                 print(q.pretty())
             else:
-                q.globaltime="%.6f"%(q.globaltime)
-                if( "iri_time_diff" in q.__dict__): q.iri_time_diff="%.6f"%(q.iri_time_diff)
                 print(" ".join([str(q.__dict__[x]) for x in ofmt]))
     elif output == "rxstats":
         print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
