@@ -87,6 +87,8 @@ if verbose:
     print("ofile",ofile)
     print("basen",basename)
 
+pwarn=False
+
 class MyObject(object):
     def enrich(self):
         if "|" in self.frequency:
@@ -95,10 +97,11 @@ class MyObject(object):
         else:
             self.frequency=int(self.frequency)
 
-        if '-' in self.name:
-            self.starttime, _, self.attr = self.name[1+self.name.index('-'):].partition('-')
+        if len(self.name) > 3 and self.name[1]=='-':
+            self.ftype=self.name[0]
+            self.starttime, _, self.attr = self.name[2:].partition('-')
         else:
-            self.starttime = self.attr = ''
+            self.ftype = self.starttime = self.attr = ''
 
         self.confidence=int(self.confidence.strip("%"))
         self.mstime=float(self.mstime)
@@ -119,14 +122,33 @@ class MyObject(object):
                 print("Invalid signal level:",self.level, file=sys.stderr)
                 self.level=0
 
-        if (self.name.startswith("j")):
+        if self.ftype=='p':
+            self.time=float(self.starttime)+self.mstime/1000
+        elif self.ftype=='j': # deperec
             self.time=self.mstime
+            self.timens=int(self.mstime*(10**9))
         else:
             try:
                 # XXX: Does not handle really old time format.
                 self.time=float(self.starttime)+self.mstime/1000
             except ValueError:
                 self.time=self.mstime/1000
+
+        if self.attr.startswith("e"):
+            if self.attr != 'e000':
+                self.perfect=False
+            else:
+                self.perfect=True
+        else:
+            if self.attr == 'UW:0-LCW:0-FIX:00':
+                self.perfect=True
+            else:
+                self.perfect=False
+            if 'perfect' in args:
+                global pwarn
+                if pwarn is False:
+                    pwarn = True
+                    print("'perfect' requested, but no EC info found", file=sys.stderr)
 
 class Reassemble(object):
     def __init__(self):
@@ -165,8 +187,6 @@ class StatsSNR(Reassemble):
         self.stats={}
         pass
 
-    r1=re.compile('UW:0-LCW:0-FIX:0')
-
     def filter(self,line):
         q=super(StatsSNR,self).filter(line)
 
@@ -174,11 +194,12 @@ class StatsSNR(Reassemble):
         if q.typ[3]!=":": return None
         if q.typ=="RAW:": return None
         if q.typ=="IME:": return None
-        if 'perfect' in args:
-            m=self.r1.search(q.name)
-            if not m: return None
 
         q.enrich()
+
+        if 'perfect' in args:
+            if not q.perfect: return None
+
         return q
 
     def process(self,q):
@@ -268,20 +289,19 @@ class LivePktStats(Reassemble):
                 self.default[k][x]=0
         pass
 
-    r1=re.compile('UW:0-LCW:0-FIX:0')
-
     def filter(self,line):
-        q=super(StatsPKT,self).filter(line)
+        q=super(LivePktStats,self).filter(line)
 
         if q==None: return None
         if q.typ[3]!=":": return None
         if q.typ=="RAW:": return None
         if q.typ=="IME:": return None
-        if 'perfect' in args:
-            m=self.r1.search(q.name)
-            if not m: return None
 
         q.enrich()
+
+        if 'perfect' in args:
+            if not q.perfect: return None
+
         return q
 
     def process(self,q):
@@ -352,7 +372,6 @@ class LiveMap(Reassemble):
         self.ground={}
         pass
 
-    r1=re.compile('UW:0-LCW:0-FIX:0')
     r2=re.compile(' *sat:(\d+) beam:(\d+) (?:rps=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+).*')
 
     def filter(self,line):
@@ -360,9 +379,11 @@ class LiveMap(Reassemble):
 
         if q==None: return None
         if q.typ!="IRA:": return None
+
+        q.enrich()
+
         if 'perfect' in args:
-            m=self.r1.search(q.name)
-            if not m: return None
+            if not q.perfect: return None
 
         return q
 
@@ -377,7 +398,6 @@ class LiveMap(Reassemble):
         q.alt=  int(m.group(5))
 
         rv=None
-        q.enrich()
         maptime=q.time-(q.time%self.intvl)
 
         if maptime > self.timeslot:
@@ -453,7 +473,6 @@ class ReassemblePPM(Reassemble):
 
     r1=re.compile('.* slot:(\d)')
     r2=re.compile('.* time:([0-9:T-]+(\.\d+)?)Z')
-    rp=re.compile('UW:0-LCW:0-FIX:0')
 
     def filter(self,line):
         q=super(ReassemblePPM,self).filter(line)
@@ -461,9 +480,10 @@ class ReassemblePPM(Reassemble):
         if q.typ!="IBC:": return None
         if q.confidence<95: return None
 
+        q.enrich()
+
         if 'perfect' in args:
-            m=self.rp.search(q.name)
-            if not m: return None
+            if not q.perfect: return None
 
         m=self.r1.match(q.data)
         if not m: return
@@ -478,7 +498,6 @@ class ReassemblePPM(Reassemble):
         return q
 
     def process(self,q):
-        q.enrich()
         q.uxtime=datetime.datetime.utcfromtimestamp(q.time)
 
         # correct for slot:
