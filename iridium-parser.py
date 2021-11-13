@@ -1746,9 +1746,6 @@ def perline(q):
     if output == "err":
         if(q.error):
             selected.append(q)
-    elif output == "msg":
-        if type(q).__name__ == "IridiumMessagingAscii" and not q.error:
-            selected.append(q)
     elif output == "sat":
         if not q.error and not q.oddbits == "1011":
             selected.append(q)
@@ -1822,45 +1819,6 @@ if output == "err":
         print(msg+":")
         for m in sort[msg]:
             print("- "+m.pretty())
-
-if output == "msg":
-    buf={}
-    ricseq={}
-    wrapmargin=10
-    for m in selected:
-        # msg_seq wraps around after 61, detect it, and fix it.
-        if m.msg_ric in ricseq:
-            if (m.msg_seq + wrapmargin) < ricseq[m.msg_ric][1]: # seq wrapped around
-                ricseq[m.msg_ric][0]+=62
-            if (m.msg_seq + wrapmargin - 62) > ricseq[m.msg_ric][1]: # "wrapped back" (out-of-order old message)
-                ricseq[m.msg_ric][0]-=62
-        else:
-            ricseq[m.msg_ric]=[0,0]
-        ricseq[m.msg_ric][1]=m.msg_seq
-        id="%07d[%03d]"%(m.msg_ric,(m.msg_seq+ricseq[m.msg_ric][0]))
-        ts=m.globaltime
-        if id in buf:
-            if buf[id].msg_checksum != m.msg_checksum:
-                print("Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%(id,buf[id].globaltime,buf[id].msg_checksum,m.globaltime,m.msg_checksum))
-                # "Wrap around" to not miss the changed packet.
-                ricseq[m.msg_ric][0]+=62
-                id="%07d[%03d]"%(m.msg_ric,(m.msg_seq+ricseq[m.msg_ric][0]))
-                m.msgs=['[NOTYET]']*3
-                buf[id]=m
-        else:
-            m.msgs=['[NOTYET]']*3
-            buf[id]=m
-        buf[id].msgs[m.msg_ctr]=m.msg_ascii
-
-    for b in sorted(buf, key=lambda x: buf[x].globaltime):
-        msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
-        msg=re.sub(r"(\[3\])+$","",msg) # XXX: should be done differently
-        csum=messagechecksum(msg)
-        str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(buf[b].globaltime).strftime("%Y-%m-%dT%H:%M:%S"),buf[b].msg_ctr_max)
-        str+= " %3d"%buf[b].msg_checksum
-        str+= (" fail"," OK  ")[buf[b].msg_checksum == csum]
-        str+= ": %s"%(msg)
-        print(str)
 
 def plotsats(plt, _s, _e):
     for ts in range(int(_s),int(_e),10):
