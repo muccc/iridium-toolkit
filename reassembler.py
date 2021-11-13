@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
+from __future__ import print_function
 import sys
 import fileinput
 import getopt
@@ -43,8 +44,8 @@ for opt, arg in options:
         for a in arg.split(","):
             args[a]=True
     elif opt in ('-h', '--help'):
-        print >> sys.stderr, "Usage:"
-        print >> sys.stderr, "\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|page|msg|stats|ppm] [--output foo.parsed]"
+        print("Usage:", file=sys.stderr)
+        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|page|msg|stats|ppm] [--output foo.parsed]", file=sys.stderr)
         exit(1)
     else:
         raise Exception("unknown argument?")
@@ -82,9 +83,9 @@ if 'state' in args:
         pass
 
 if verbose:
-    print "ifile",ifile
-    print "ofile",ofile
-    print "basen",basename
+    print("ifile",ifile)
+    print("ofile",ofile)
+    print("basen",basename)
 
 class MyObject(object):
     def enrich(self):
@@ -115,7 +116,7 @@ class MyObject(object):
             try:
                 self.level=math.log(float(self.level),10)*20
             except ValueError:
-                print >> sys.stderr, "Invalid signal level:",self.level
+                print("Invalid signal level:",self.level, file=sys.stderr)
                 self.level=0
 
         if (self.name.startswith("j")):
@@ -149,14 +150,14 @@ class Reassemble(object):
             q.typ,q.name,q.mstime,q.frequency,q.confidence,q.level,q.symbols,q.uldl,q.data=line.split(None,8)
             return q
         except ValueError:
-            print >> sys.stderr, "Couldn't parse input line: ",line,
+            print("Couldn't parse input line: ",line, end=' ', file=sys.stderr)
             return None
 
     def end(self):
         if self.stat_line>0:
-            print "Kept %d/%d (%3.1f%%) lines"%(self.stat_filter,self.stat_line,100.0*self.stat_filter/self.stat_line)
+            print("Kept %d/%d (%3.1f%%) lines"%(self.stat_filter,self.stat_line,100.0*self.stat_filter/self.stat_line))
         else:
-            print "No lines?"
+            print("No lines?")
 
 
 class StatsPKT(Reassemble):
@@ -203,11 +204,11 @@ class StatsPKT(Reassemble):
         if maptime > self.timeslot:
             # dump last time interval
             if self.loaded:
-                print >> sys.stderr, "# Statefile (%s) not relevant to current file: %s"%(self.timeslot,maptime)
+                print("# Statefile (%s) not relevant to current file: %s"%(self.timeslot,maptime), file=sys.stderr)
                 sys.exit(1)
             if self.timeslot is not None:
                 if self.first:
-                    print >> sys.stderr, "# First period may be incomplete, skipping."
+                    print("# First period may be incomplete, skipping.", file=sys.stderr)
                     self.first=False
                     rv=[[self.timeslot,self.stats,True]]
                 else:
@@ -220,11 +221,11 @@ class StatsPKT(Reassemble):
 
         if maptime == self.timeslot:
             if typ not in self.stats['UL']:
-                print >> sys.stderr, "Unexpected frame %s found @ %s"%(typ,q.time)
+                print("Unexpected frame %s found @ %s"%(typ,q.time), file=sys.stderr)
                 pass
             self.stats[q.uldl][typ]+=1
         else:
-            print >> sys.stderr, "Time ordering violation: %f is before %f"%(q.time,self.timeslot)
+            print("Time ordering violation: %f is before %f"%(q.time,self.timeslot), file=sys.stderr)
             sys.exit(1)
         return rv
 
@@ -233,12 +234,12 @@ class StatsPKT(Reassemble):
         comment=''
         if skip:
             comment='#!'
-            print >>sys.stderr, "#!@ %s L:"%(datetime.datetime.fromtimestamp(ts))
+            print("#!@ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
         else:
-            print >>sys.stderr, "# @ %s L:"%(datetime.datetime.fromtimestamp(ts))
+            print("# @ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
         for k in stats:
             for t in stats[k]:
-                print "%siridium.parsed.%s.%s %7d %8d"%(comment,k,t,stats[k][t],ts)
+                print("%siridium.parsed.%s.%s %7d %8d"%(comment,k,t,stats[k][t],ts))
         sys.stdout.flush()
 
     def consume(self,to):
@@ -326,16 +327,16 @@ class ReassemblePPM(Reassemble):
         if tdelta > self.tmax:
             self.tmax=tdelta
         if 'tdelta' in args:
-            print "tdelta %sZ %f"%(data[0].isoformat(),tdelta)
+            print("tdelta %sZ %f"%(data[0].isoformat(),tdelta))
 
         # "interactive" statistics per INVTL(600)
         if (data[1]-self.cur[1]).total_seconds() > 600:
             (irun,toff,ppm)=self.onedelta(self.cur,data, verbose=False)
             if 'grafana' in args:
-                print "iridium.live.ppm %.5f %d"%(ppm,(data[1]-datetime.datetime.fromtimestamp(0)).total_seconds())
+                print("iridium.live.ppm %.5f %d"%(ppm,(data[1]-datetime.datetime.fromtimestamp(0)).total_seconds()))
                 sys.stdout.flush()
             else:
-                print "@ %s: ppm: % 6.3f ds: % 8.5f "%(data[1],ppm,(data[1]-data[0]).total_seconds())
+                print("@ %s: ppm: % 6.3f ds: % 8.5f "%(data[1],ppm,(data[1]-data[0]).total_seconds()))
             self.cur=data
         elif (data[1]-self.cur[1]).total_seconds() <0:
             self.cur=data
@@ -347,13 +348,13 @@ class ReassemblePPM(Reassemble):
         if irun==0: return (0,0,0)
         ppm=toff/irun*1000000
         if verbose:
-            print "Blob:"
-            print "- Start Itime  : %s"%(start[1])
-            print "- End   Itime  : %s"%(end[1])
-            print "- Start Utime  : %s"%(start[0])
-            print "- End   Utime  : %s"%(end[0])
-            print "- Runtime      : %s"%(str(datetime.timedelta(seconds=int(irun))))
-            print "- PPM          : %.3f"%(ppm)
+            print("Blob:")
+            print("- Start Itime  : %s"%(start[1]))
+            print("- End   Itime  : %s"%(end[1]))
+            print("- Start Utime  : %s"%(start[0]))
+            print("- End   Utime  : %s"%(end[0]))
+            print("- Runtime      : %s"%(str(datetime.timedelta(seconds=int(irun)))))
+            print("- PPM          : %.3f"%(ppm))
         return (irun,toff,ppm)
 
     def end(self):
@@ -364,9 +365,9 @@ class ReassemblePPM(Reassemble):
             (irun,toff,ppm)=self.onedelta(self.ini[ppms],self.fin[ppms], verbose=True)
             alltime += irun
             delta += toff
-        print "rec.tmin %f"%(self.tmin)
-        print "rec.tmax %f"%(self.tmax)
-        print "rec.ppm %.3f"%(delta/alltime*1000000)
+        print("rec.tmin %f"%(self.tmin))
+        print("rec.tmax %f"%(self.tmax))
+        print("rec.ppm %.3f"%(delta/alltime*1000000))
 
 class ReassembleIDA(Reassemble):
     def __init__(self):
@@ -383,7 +384,7 @@ class ReassembleIDA(Reassemble):
         p=re.compile('.* cont=(\d) (\d) ctr=(\d+) \d+ len=(\d+) 0:.000 \[([0-9a-f.!]*)\]\s+..../.... CRC:OK')
         m=p.match(q.data)
         if(not m):
-            print >> sys.stderr, "Couldn't parse IDA: ",q.data
+            print("Couldn't parse IDA: ",q.data, file=sys.stderr)
             return None
 
         q.ul=        (q.uldl=='UL')
@@ -410,7 +411,7 @@ class ReassembleIDA(Reassemble):
         if (self.otime-1)<=m.time<=(self.otime+1) and self.odata==m.data and (self.ofreq-200)<m.frequency<(self.ofreq+200):
             self.stat_dupes+=1
             if verbose:
-                print "dupe: ",m.time,"(",m.cont,m.ctr,")",m.data
+                print("dupe: ",m.time,"(",m.cont,m.ctr,")",m.data)
             return
         self.otime=m.time
         self.odata=m.data
@@ -427,7 +428,7 @@ class ReassembleIDA(Reassemble):
                 else:
                     self.stat_ok+=1
                     if verbose:
-                        print ">assembled: [%s] %s"%(",".join(["%s"%x for x in time+[m.time]]),dat)
+                        print(">assembled: [%s] %s"%(",".join(["%s"%x for x in time+[m.time]]),dat))
                     data="".join([chr(int(x,16)) for x in re.split("[.!]",dat)])
                     return [[data,m.time,ul,m.level,freq]]
                 self.stat_fragments+=1
@@ -437,37 +438,37 @@ class ReassembleIDA(Reassemble):
             pass
         elif m.ctr==0 and not m.cont:
             if verbose:
-                print ">single: [%s] %s"%(m.time,m.data)
+                print(">single: [%s] %s"%(m.time,m.data))
             data="".join([chr(int(x,16)) for x in re.split("[.!]",m.data)])
             return [[data,m.time,m.ul,m.level,m.frequency]]
         elif m.ctr==0 and m.cont: # New long packet
             self.stat_fragments+=1
             if verbose:
-                print "initial: ",m.time,"(",m.cont,m.ctr,")",m.data
+                print("initial: ",m.time,"(",m.cont,m.ctr,")",m.data)
             self.buf.append([m.frequency,[m.time],m.ctr,m.data,m.cont,m.ul])
         elif m.ctr>0:
             self.stat_broken+=1
             self.stat_fragments+=1
             if verbose:
-                print "orphan: ",m.time,"(",m.cont,m.ctr,")",m.data
+                print("orphan: ",m.time,"(",m.cont,m.ctr,")",m.data)
             pass
         else:
-             print "unknown: ",m.time,m.cont,m.ctr,m.data
+             print("unknown: ",m.time,m.cont,m.ctr,m.data)
         # expire packets
         for (idx,(freq,time,ctr,dat,cont,ul)) in enumerate(self.buf[:]):
             if time[-1]+1000<=m.time:
                 self.stat_broken+=1
                 del self.buf[idx]
                 if verbose:
-                    print "timeout:",time,"(",cont,ctr,")",dat
+                    print("timeout:",time,"(",cont,ctr,")",dat)
                 data="".join([chr(int(x,16)) for x in re.split("[.!]",dat)])
                 #could be put into assembled if long enough to be interesting?
                 break
     def end(self):
         super(ReassembleIDA,self).end()
-        print "%d valid packets assembled from %d fragments (1:%1.2f)."%(self.stat_ok,self.stat_fragments,((float)(self.stat_fragments)/(self.stat_ok or 1)))
-        print "%d/%d (%3.1f%%) broken fragments."%(self.stat_broken,self.stat_fragments,(100.0*self.stat_broken/(self.stat_fragments or 1)))
-        print "%d dupes removed."%(self.stat_dupes)
+        print("%d valid packets assembled from %d fragments (1:%1.2f)."%(self.stat_ok,self.stat_fragments,((float)(self.stat_fragments)/(self.stat_ok or 1))))
+        print("%d/%d (%3.1f%%) broken fragments."%(self.stat_broken,self.stat_fragments,(100.0*self.stat_broken/(self.stat_fragments or 1))))
+        print("%d dupes removed."%(self.stat_dupes))
     def consume(self,q):
         (data,time,ul,level,freq)=q
         if ul:
@@ -486,7 +487,7 @@ class ReassembleIDA(Reassemble):
         foff =fbase%channel_width
         freq_print="%3d|%05d"%(fchan,foff)
 
-        print >>outfile, "%15.6f %s %s %s | %s"%(time,freq_print,ul," ".join("%02x"%ord(x) for x in data),str)
+        print("%15.6f %s %s %s | %s"%(time,freq_print,ul," ".join("%02x"%ord(x) for x in data),str), file=outfile)
 
 class ReassembleIDAPP(ReassembleIDA):
     def consume(self,q):
@@ -549,7 +550,7 @@ class ReassembleIDAPP(ReassembleIDA):
                 tstr="[?]"
 
         typ=tmin
-        print >>outfile, "%15.6f %s %s [%s] %-36s"%(time,freq_print,ul,typ,tstr),
+        print("%15.6f %s %s [%s] %-36s"%(time,freq_print,ul,typ,tstr), end=' ', file=outfile)
 
         if tmaj=="76" and int(typ[2:],16)>=8:
             prehdr=""
@@ -573,7 +574,7 @@ class ReassembleIDAPP(ReassembleIDA):
 
             hdr="<"+":".join("%02x"%ord(x) for x in hdr)+">"
 
-            print >>outfile, "%-22s %-10s "%(prehdr,hdr),
+            print("%-22s %-10s "%(prehdr,hdr), end=' ', file=outfile)
 # > 0600 / 10:13:f0:10: tmsi+lac+lac+00 +bytes
 # < 0605 ?
 # > 0508 Location Updating Request
@@ -591,7 +592,7 @@ class ReassembleIDAPP(ReassembleIDA):
         if typ=="0600":
             hdr=data[:4]
             data=data[4:]
-            print >>outfile, "[%s]"%(":".join("%02x"%ord(x) for x in hdr)),
+            print("[%s]"%(":".join("%02x"%ord(x) for x in hdr)), end=' ', file=outfile)
             imei=[ord(x) for x in data[:9]]
             data=data[9:]
             if ord(hdr[0])==0x20:
@@ -609,7 +610,7 @@ class ReassembleIDAPP(ReassembleIDA):
                 imei="["+str+",%02x"%imei[8]+"]"
             else:
                 imei="["+" ".join("%02x"%(x) for x in imei)+"]"
-            print >> outfile, "%s %s"%(imei," ".join("%02x"%ord(x) for x in data))
+            print("%s %s"%(imei," ".join("%02x"%ord(x) for x in data)), file=outfile)
             return
         if typ=="0519": # Identity Resp.
             imei=[ord(x) for x in data[:9]]
@@ -623,11 +624,11 @@ class ReassembleIDAPP(ReassembleIDA):
                 imei="[imei:"+str+"]"
             else:
                 imei="[unknown:"+str+"]"
-            print >> outfile, "%s %s"%(imei," ".join("%02x"%ord(x) for x in data))
+            print("%s %s"%(imei," ".join("%02x"%ord(x) for x in data)), file=outfile)
             return
 
         if len(data)>0:
-            print >>outfile, "%s"%(" ".join("%02x"%ord(x) for x in data)),
+            print("%s"%(" ".join("%02x"%ord(x) for x in data)), end=' ', file=outfile)
 
             str=""
             for c in data:
@@ -635,9 +636,9 @@ class ReassembleIDAPP(ReassembleIDA):
                     str+=c
                 else:
                     str+="."
-            print >>outfile, " | %s"%(str)
+            print(" | %s"%(str), file=outfile)
         else:
-            print >>outfile, ""
+            print("", file=outfile)
 
 class ReassembleIDASBD(ReassembleIDA):
     def consume(self,q):
@@ -697,7 +698,7 @@ class ReassembleIDASBD(ReassembleIDA):
         append="| "+" ".join("%02x"%ord(x) for x in data)
 #        append=""
 
-        print >>outfile, "%s %s [%s] {%02x} %-22s %-10s %-200s %s"%(datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),ul,typ,len(data),prehdr,"<"+hdr+">",str,append)
+        print("%s %s [%s] {%02x} %-22s %-10s %-200s %s"%(datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),ul,typ,len(data),prehdr,"<"+hdr+">",str,append), file=outfile)
 
 class ReassembleIDALAP(ReassembleIDA):
     first=True
@@ -747,7 +748,7 @@ class ReassembleIDALAP(ReassembleIDA):
         if self.first:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             self.first=False
-            print "Sending GSMTAP via UDP 4729"
+            print("Sending GSMTAP via UDP 4729")
 
         (data,time,ul,level,freq)=q
 #        if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
@@ -762,7 +763,7 @@ class ReassembleIDALAP(ReassembleIDA):
                 ul="UL"
             else:
                 ul="DL"
-            print "%15.6f %.3f %s %s"%(time,level,ul,".".join("%02x"%ord(x) for x in data))
+            print("%15.6f %.3f %s %s"%(time,level,ul,".".join("%02x"%ord(x) for x in data)))
 
 class ReassembleIDALAPPCAP(ReassembleIDALAP):
     first=True
@@ -819,7 +820,7 @@ class ReassembleIRA(Reassemble):
             p=re.compile('sat:(\d+) beam:(\d+) (?:aps=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
             m=p.search(q.data)
             if(not m):
-                print >> sys.stderr, "Couldn't parse IRA: ",q.data,
+                print("Couldn't parse IRA: ",q.data, end=' ', file=sys.stderr)
             else:
                 q.sat=  int(m.group(1))
                 q.beam= int(m.group(2))
@@ -836,7 +837,7 @@ class ReassembleIRA(Reassemble):
         for x in q.pages:
             return ["%03d %02d %6.2f %6.2f %03d : %s %s"%(q.sat,q.beam,q.lat,q.lon,q.alt,x[0],x[1])]
     def consume(self,q):
-        print >> outfile, q
+        print(q, file=outfile)
 
 class ReassembleMSG(Reassemble):
     def __init__(self):
@@ -848,7 +849,7 @@ class ReassembleMSG(Reassemble):
             p=re.compile('.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]+)\.([01]*) ')
             m=p.match(q.data)
             if(not m):
-                print >> sys.stderr, "Couldn't parse MSG: ",q.data
+                print("Couldn't parse MSG: ",q.data, file=sys.stderr)
             else:
                 q.msg_ric=     int(m.group(1))
                 q.fmt=         int(m.group(2))
@@ -884,7 +885,7 @@ class ReassembleMSG(Reassemble):
             p=re.compile('.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
             m=p.match(q.data)
             if(not m):
-                print >> sys.stderr, "Couldn't parse MS3: ",q.data
+                print("Couldn't parse MS3: ",q.data, file=sys.stderr)
             else:
                 q.msg_ric=     int(m.group(1))
                 q.fmt=         int(m.group(2))
@@ -912,7 +913,7 @@ class ReassembleMSG(Reassemble):
         ts=m.time
         if id in self.buf:
             if self.buf[id].msg_checksum != m.msg_checksum:
-                print "Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%(id,self.buf[id].time,self.buf[id].msg_checksum,m.time,m.msg_checksum)
+                print("Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%(id,self.buf[id].time,self.buf[id].msg_checksum,m.time,m.msg_checksum))
                 # "Wrap around" to not miss the changed packet.
                 self.ricseq[m.msg_ric][0]+=62
                 id="%07d %04d"%(m.msg_ric,(m.msg_seq+self.ricseq[m.msg_ric][0]))
@@ -930,7 +931,7 @@ class ReassembleMSG(Reassemble):
         return (~csum)%128
 
     def consume(self,q):
-        print "consume()"
+        print("consume()")
         pass
 
     def end(self): # XXX should be rewritten to consume
@@ -948,7 +949,7 @@ class ReassembleMSG(Reassemble):
                 str+= " BCD"
                 str+= " OK  "
             str+= ": %s"%(msg)
-            print >> outfile, str
+            print(str, file=outfile)
 
 validargs=()
 zx=None
@@ -978,7 +979,7 @@ elif mode == "ppm":
     validargs=('perfect','grafana','tdelta')
     zx=ReassemblePPM()
 else:
-    print >>sys.stderr, "Unknown mode selected"
+    print("Unknown mode selected", file=sys.stderr)
     sys.exit(1)
 
 for x in args.keys():
