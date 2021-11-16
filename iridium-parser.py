@@ -6,7 +6,7 @@ import sys
 import re
 import struct
 from bch import ndivide, nrepair, bch_repair
-import crcmod
+import crcmod2
 import rs
 import rs6
 import fileinput
@@ -899,7 +899,7 @@ class IridiumVOMessage(IridiumMessage):
         return str
 
 # Poly from GSM 04.64 / check value (reversed) is 0xC91B6
-iip_crc24=crcmod.mkCrcFun(poly=0x1BBA1B5,initCrc=0xffffff^0x0c91b6,rev=True,xorOut=0x0c91b6)
+iip_crc24=crcmod2.mkCrcFun(poly=0x1BBA1B5,initCrc=0xffffff^0x0c91b6,rev=True,xorOut=0x0c91b6)
 class IridiumIPMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
@@ -1057,7 +1057,7 @@ class IridiumECCMessage(IridiumMessage):
         str+=self._pretty_trailer()
         return str
 
-ida_crc16=crcmod.predefined.mkPredefinedCrcFun("crc-ccitt-false")
+ida_crc16=crcmod2.predefined.mkPredefinedCrcFun("crc-ccitt-false")
 class IridiumLCWMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
