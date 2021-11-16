@@ -478,9 +478,9 @@ class ReassemblePPM(Reassemble):
         q=super(ReassemblePPM,self).filter(line)
         if q==None: return None
         if q.typ!="IBC:": return None
-        if q.confidence<95: return None
 
         q.enrich()
+        if q.confidence<95: return None
 
         if 'perfect' in args:
             if not q.perfect: return None
