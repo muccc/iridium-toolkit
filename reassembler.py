@@ -17,7 +17,7 @@ verbose = False
 ifile= None
 ofile= None
 mode= "undef"
-base_freq=1616e6
+base_freq=1616*10**6
 channel_width=41667
 args={}
 
@@ -27,7 +27,6 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:sa:', [
                                                          'input=',
                                                          'output=',
                                                          'mode=',
-                                                         'state',
                                                          'args=',
                                                          ])
 
@@ -45,7 +44,7 @@ for opt, arg in options:
             args[a]=True
     elif opt in ('-h', '--help'):
         print("Usage:", file=sys.stderr)
-        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|page|msg|stats|ppm] [--output foo.parsed]", file=sys.stderr)
+        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|page|msg|stats-pkt|ppm] [--args option[,...]] [--output out.txt]", file=sys.stderr)
         exit(1)
     else:
         raise Exception("unknown argument?")
@@ -63,13 +62,12 @@ if not basename:
 #    basename=os.path.basename(re.sub('\.[^.]*$','',ifile))
 
 if ofile == None:
-    ofile="%s.%s" % (basename, mode)
+    ofile="/dev/stdout"
     outfile=sys.stdout
 elif ofile == "" or ofile == "=":
     ofile="%s.%s" % (basename, mode)
     outfile=open(ofile,"w")
 else:
-    basename=re.sub('\.[^.]*$','',ofile)
     outfile=open(ofile,"w")
 
 state=None
@@ -681,6 +679,7 @@ class ReassembleIDA(Reassemble):
         print("%d valid packets assembled from %d fragments (1:%1.2f)."%(self.stat_ok,self.stat_fragments,((float)(self.stat_fragments)/(self.stat_ok or 1))))
         print("%d/%d (%3.1f%%) broken fragments."%(self.stat_broken,self.stat_fragments,(100.0*self.stat_broken/(self.stat_fragments or 1))))
         print("%d dupes removed."%(self.stat_dupes))
+
     def consume(self,q):
         (data,time,ul,level,freq)=q
         if ul:
@@ -1019,7 +1018,7 @@ class ReassembleIDALAPPCAP(ReassembleIDALAP):
         else:
             eth=struct.pack("!BBBBBBBBBBBBH",0x10,0x22,0x33,0x44,0x55,0x66,0xaa,0xbb,0xcc,0xdd,0xee,0xff,0x800)+ip
 
-        pcap=struct.pack("<IIII",time,1000000*(time%1),len(eth),len(eth))+eth
+        pcap=struct.pack("<IIII",int(time),int(1000000*(time%1)),len(eth),len(eth))+eth
         outfile.write(pcap)
 
 class ReassembleIRA(Reassemble):
