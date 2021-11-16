@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
 from __future__ import print_function
@@ -661,7 +661,7 @@ class ReassembleIDA(Reassemble):
                     self.stat_ok+=1
                     if verbose:
                         print(">assembled: [%s] %s"%(",".join(["%s"%x for x in time+[m.time]]),dat))
-                    data="".join([chr(int(x,16)) for x in re.split("[.!]",dat)])
+                    data=bytes().fromhex( dat.replace('.',' ').replace('!',' ') )
                     return [[data,m.time,ul,m.level,freq]]
                 self.stat_fragments+=1
                 ok=True
@@ -671,7 +671,7 @@ class ReassembleIDA(Reassemble):
         elif m.ctr==0 and not m.cont:
             if verbose:
                 print(">single: [%s] %s"%(m.time,m.data))
-            data="".join([chr(int(x,16)) for x in re.split("[.!]",m.data)])
+            data=bytes().fromhex( m.data.replace('.',' ').replace('!',' ') )
             return [[data,m.time,m.ul,m.level,m.frequency]]
         elif m.ctr==0 and m.cont: # New long packet
             self.stat_fragments+=1
@@ -693,7 +693,7 @@ class ReassembleIDA(Reassemble):
                 del self.buf[idx]
                 if verbose:
                     print("timeout:",time,"(",cont,ctr,")",dat)
-                data="".join([chr(int(x,16)) for x in re.split("[.!]",dat)])
+                data=bytes().fromhex( dat.replace('.',' ').replace('!',' ') )
                 #could be put into assembled if long enough to be interesting?
                 break
     def end(self):
@@ -709,18 +709,14 @@ class ReassembleIDA(Reassemble):
         else:
             ul="DL"
         str=""
-        for c in data:
-            if( ord(c)>=32 and ord(c)<127):
-                str+=c
-            else:
-                str+="."
+        str+=ascii(data,True)
 
         fbase=freq-base_freq
         fchan=int(fbase/channel_width)
         foff =fbase%channel_width
         freq_print="%3d|%05d"%(fchan,foff)
 
-        print("%15.6f %s %s %s | %s"%(time,freq_print,ul," ".join("%02x"%ord(x) for x in data),str), file=outfile)
+        print("%15.6f %s %s %s | %s"%(time,freq_print,ul,data.hex(" "),str), file=outfile)
 
 def p_mi_iei(data):
     iei_len = data[0]
@@ -811,10 +807,10 @@ class ReassembleIDAPP(ReassembleIDA):
         else:
             ul="DL"
 
-        tmaj="%02x"%(ord(data[0]))
-        tmin="%02x%02x"%(ord(data[0]),ord(data[1]))
+        tmaj="%02x"%(data[0])
+        tmin="%02x%02x"%(data[0],data[1])
         if tmaj=="83" or tmaj=="89": # Transaction Identifier set (destination side)
-            tmin="%02x%02x"%(ord(data[0])&0x7f,ord(data[1]))
+            tmin="%02x%02x"%(data[0]&0x7f,data[1])
         data=data[2:]
         majmap={
             "03": "CC",
@@ -868,8 +864,6 @@ class ReassembleIDAPP(ReassembleIDA):
         print("%s"%strtime, end=' ', file=outfile)
         print("%s %s [%s] %-36s"%(freq_print,ul,typ,tstr), end=' ', file=outfile)
 
-        pdata=[ord(x) for x in data]
-
         if tmaj=="76" and int(typ[2:],16)>=8:
             prehdr=""
             if typ=="7608":
@@ -881,7 +875,7 @@ class ReassembleIDAPP(ReassembleIDA):
                 # 6+7: unknown / maybe MOMSN?
                 prehdr=data[:7]
                 data=data[7:]
-                prehdr="<"+":".join("%02x"%ord(x) for x in prehdr)+">"
+                prehdr="<"+prehdr.hex(":")+">"
 
             # <10:87:01>
             # 1: always 10
@@ -890,10 +884,9 @@ class ReassembleIDAPP(ReassembleIDA):
             hdr=data[:3]
             data=data[3:]
 
-            hdr="<"+":".join("%02x"%ord(x) for x in hdr)+">"
+            hdr="<"+hdr.hex(":")+">"
 
             print("%-22s %-10s "%(prehdr,hdr), end=' ', file=outfile)
-            pdata=[ord(x) for x in data]
 # > 0600 / 10:13:f0:10: tmsi+lac+lac+00 +bytes
 # < 0605 ?
 # > 0508 Location Updating Request
@@ -911,10 +904,10 @@ class ReassembleIDAPP(ReassembleIDA):
         if typ=="0600":
             hdr=data[:4]
             data=data[4:]
-            print("[%s]"%(":".join("%02x"%ord(x) for x in hdr)), end=' ', file=outfile)
-            imei=[ord(x) for x in data[:9]]
+            print("[%s]"%(hdr.hex(":")), end=' ', file=outfile)
+            imei=[x for x in data[:9]]
             data=data[9:]
-            if ord(hdr[0])==0x20:
+            if hdr[0]==0x20:
                 n1=imei[1]>>4
                 t=imei[1]&0x7
                 o=(imei[1]>>3)&0x1
@@ -928,7 +921,7 @@ class ReassembleIDAPP(ReassembleIDA):
                 str+="%x"%n1
                 str+="".join("%x%x"%((x)&0xf,(x)>>4) for x in imei[2:])
                 imei="%02x [%s]"%(imei[0],str)
-            elif ord(hdr[0])==0x10:
+            elif hdr[0]==0x10:
                 tmsi="%02x%02x%02x%02x"%tuple(imei[:4])
                 str="tmsi:%s"%tmsi
                 str+=",lac1:%02x%02x"%(imei[4],imei[5])
@@ -937,28 +930,28 @@ class ReassembleIDAPP(ReassembleIDA):
             else:
                 imei="["+" ".join("%02x"%(x) for x in imei)+"]"
 
-            momsn=int(data[0:2].encode('hex'), 16)
-            msgcnt=ord(data[2])
+            momsn=int(data[0:2].hex(), 16)
+            msgcnt=data[2]
             prepkt=data[3:4]
-            addlen=ord(data[4])
+            addlen=data[4]
             postpkt=data[5:12]
             ts=data[12:16]
             if len(ts)<4:
                 strtime="<trunc>"
                 addpkt=""
             else:
-                tsi=int(ts.encode('hex'), 16)
+                tsi=int(ts.hex(), 16)
                 uxtime= float(tsi)*90/1000+1399818235
                 if uxtime>1435708799: uxtime-=1 # Leap second: 2015-06-30 23:59:59
                 if uxtime>1483228799: uxtime-=1 # Leap second: 2016-12-31 23:59:59
                 strtime=datetime.datetime.fromtimestamp(uxtime,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}Z".format((uxtime%1)*100))
                 addpkt=data[16:]
 
-            print("%s"%imei, "MOMSN=%04x"%momsn, "msgct:%d"%msgcnt, " ".join("%02x"%ord(x) for x in prepkt), "len=%02d"%addlen, " ".join("%02x"%ord(x) for x in postpkt),"t:%s"%strtime, end=' ', file=outfile)
+            print("%s"%imei, "MOMSN=%04x"%momsn, "msgct:%d"%msgcnt, prepkt.hex(" "), "len=%02d"%addlen, postpkt.hex(" "),"t:%s"%strtime, end=' ', file=outfile)
             if len(addpkt)>0:
                 if len(addpkt)!=addlen:
                     print("[%02d!]"%len(addpkt), end=' ', file=outfile)
-                print("|", " ".join("%02x"%ord(x) for x in addpkt), file=outfile)
+                print("|", addpkt.hex(" "), file=outfile)
             else:
                 print("", file=outfile)
             return
@@ -966,66 +959,66 @@ class ReassembleIDAPP(ReassembleIDA):
         if False:
             pass
         elif typ=="032d": # CC Release
-            if len(pdata)==4 and pdata[0]==8:
-                pdata=pdata[1:]
-                (rv,pdata)=p_disc(pdata)
+            if len(data)==4 and data[0]==8:
+                data=data[1:]
+                (rv,data)=p_disc(data)
                 print("%s"%(rv), end=' ', file=outfile)
         elif typ=="032a": # CC Release Complete
-            if len(pdata)==4 and pdata[0]==8:
-                pdata=pdata[1:]
-                (rv,pdata)=p_disc(pdata)
+            if len(data)==4 and data[0]==8:
+                data=data[1:]
+                (rv,data)=p_disc(data)
                 print("%s"%(rv), end=' ', file=outfile)
         elif typ=="0325": # CC Disconnect
-            (rv,pdata)=p_disc(pdata)
+            (rv,data)=p_disc(data)
             print("%s"%(rv), end=' ', file=outfile)
         elif typ=="0502": # Loc up acc.
-            (rv,pdata)=p_lai(pdata)
+            (rv,data)=p_lai(data)
             print("%s"%(rv), end=' ', file=outfile)
-            if len(pdata)>=1 and pdata[0]==0x17:
-                pdata=pdata[1:]
-                (rv,pdata)=p_mi_iei(pdata)
+            if len(data)>=1 and data[0]==0x17:
+                data=data[1:]
+                (rv,data)=p_mi_iei(data)
                 print("%s"%(rv), end=' ', file=outfile)
-            if len(pdata)>=1 and pdata[0]==0xa1:
+            if len(data)>=1 and data[0]==0xa1:
                 print("Follow-on Proceed", end=' ', file=outfile)
-                pdata=pdata[1:]
+                data=data[1:]
         elif typ=="0508": # Loc up req.
-            if pdata[0]&0xf==0 and pdata[6]==0x28: # 6 == Mobile station classmark
-                if pdata[0]>>4 == 7:
+            if data[0]&0xf==0 and data[6]==0x28: # 6 == Mobile station classmark
+                if data[0]>>4 == 7:
                     print("key=none", end=' ', file=outfile)
                 else:
-                    print("key=%d"%(pdata[0]>>4), end=' ', file=outfile)
-                pdata=pdata[1:]
+                    print("key=%d"%(data[0]>>4), end=' ', file=outfile)
+                data=data[1:]
 
-                (rv,pdata)=p_lai(pdata)
+                (rv,data)=p_lai(data)
                 print("%s"%(rv), end=' ', file=outfile)
 
-                pdata=pdata[1:] # skip classmark
+                data=data[1:] # skip classmark
 
-                (rv,pdata)=p_mi_iei(pdata)
+                (rv,data)=p_mi_iei(data)
                 print("%s"%(rv), end=' ', file=outfile)
         elif typ=="051a": # TMSI realloc.
-            (rv,pdata)=p_lai(pdata)
+            (rv,data)=p_lai(data)
             print("%s"%(rv), end=' ', file=outfile)
-            (rv,pdata)=p_mi_iei(pdata)
+            (rv,data)=p_mi_iei(data)
             print("%s"%(rv), end=' ', file=outfile)
         elif typ=="0504": # Loc up rej.
-            if ord(data[0])==2:
+            if data[0]==2:
                 print("02(IMSI unknown in HLR)", end=' ', file=outfile)
-                pdata=pdata[1:]
+                data=data[1:]
         elif typ=="0518": # Identity Req
-            if pdata[0]==2:
+            if data[0]==2:
                 print("02(IMEI)", end=' ', file=outfile)
-                pdata=pdata[1:]
-            elif pdata[0]==1:
+                data=data[1:]
+            elif data[0]==1:
                 print("01(IMSI)", end=' ', file=outfile)
-                pdata=pdata[1:]
+                data=data[1:]
         elif typ=="0519": # Identity Resp.
-            (rv,pdata)=p_mi_iei(pdata)
+            (rv,data)=p_mi_iei(data)
             print("[%s]"%(rv), end=' ', file=outfile)
 
-        if len(pdata)>0:
-            print(" ".join("%02x"%x for x in pdata), end=' ', file=outfile)
-            print(" | %s"%ascii(pdata, True), file=outfile)
+        if len(data)>0:
+            print(" ".join("%02x"%x for x in data), end=' ', file=outfile)
+            print(" | %s"%ascii(data, True), file=outfile)
         else:
             print("", file=outfile)
         return
@@ -1033,15 +1026,15 @@ class ReassembleIDAPP(ReassembleIDA):
 class ReassembleIDASBD(ReassembleIDA):
     def consume(self,q):
         (data,time,ul,_,_)=q
-        if ord(data[0])==0x76:
+        if data[0]==0x76:
             pass
-        elif ord(data[0])==0x06 and ord(data[1])==0 and (ord(data[2])==0x20 or ord(data[2])==0x10) and len(data)>0x1a+5:
+        elif data[0]==0x06 and data[1]==0 and (data[2]==0x20 or data[2]==0x10) and len(data)>0x1a+5:
             pass
         else:
             return
         if len(data)<=2:
             return
-        if ord(data[1])==5:
+        if data[1]==5:
             return
 
         if ul:
@@ -1049,7 +1042,7 @@ class ReassembleIDASBD(ReassembleIDA):
         else:
             ul="DL"
 
-        typ="%02x%02x"%(ord(data[0]),ord(data[1]))
+        typ="%02x%02x"%(data[0],data[1])
         data=data[2:]
 
         prehdr=""
@@ -1062,39 +1055,39 @@ class ReassembleIDASBD(ReassembleIDA):
             # 6+7: unknown / maybe MOMSN?
             prehdr=data[:7]
             data=data[7:]
-            prehdr="<"+":".join("%02x"%ord(x) for x in prehdr)+">"
+            prehdr="<"+prehdr.hex(":")+">"
 
-        if typ=="0600" and ord(data[0])==0x20 and (ord(data[5])&0xf)==5:
+        if typ=="0600" and data[0]==0x20 and (data[5]&0xf)==5:
             # > 0600 / 20:13:f0:10:02 imei[8] + momsn[2] + msgcnt[1] + 0x?C + len[1] + bytes[7] + time[4] + (len>0: msg)
             prehdr=data[:5]
-            prehdr="["+":".join("%02x"%ord(x) for x in prehdr)+"]"
-            imei=[ord(x) for x in data[5:5+8]]
+            prehdr="["+prehdr.hex(":")+"]"
+            imei=[x for x in data[5:5+8]]
             phdr=data[5+8:5+8+16]
             data=data[5+8+16:]
             n1=imei[0]>>4
             hdr="imei:"
             hdr+="%x"%n1
             hdr+="".join("%x%x"%((x)&0xf,(x)>>4) for x in imei[1:])
-            hdr+=" "+"".join("%02x"%ord(x) for x in phdr[0:2])
-            hdr+=","+":".join("%02x"%ord(x) for x in phdr[2])
-            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[3])
-            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[4])
-            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[5:12])
-            hdr+=","+"".join("%02x"%ord(x) for x in phdr[12:16])
-        elif typ=="0600" and ord(data[0])==0x10:
+            hdr+=" "+"".join("%02x"%(x) for x in phdr[0:2])
+            hdr+=","+("%02x"%phdr[2])
+            hdr+=" "+("%02x"%phdr[3])
+            hdr+=" "+("%02x"%phdr[4])
+            hdr+=" "+":".join("%02x"%(x) for x in phdr[5:12])
+            hdr+=","+"".join("%02x"%(x) for x in phdr[12:16])
+        elif typ=="0600" and (data[0])==0x10:
             prehdr=data[:5]
-            prehdr="["+":".join("%02x"%ord(x) for x in prehdr)+"]"
-            imei=[ord(x) for x in data[5:5+8]]
+            prehdr="["+prehdr.hex(":")+"]"
+            imei=[(x) for x in data[5:5+8]]
             phdr=data[5+8:5+8+16]
             data=data[5+8+16:]
             hdr=""
             hdr+=" "+"".join("%02x"%(x) for x in imei)
-            hdr+=" "+"".join("%02x"%ord(x) for x in phdr[0:2])
-            hdr+=","+":".join("%02x"%ord(x) for x in phdr[2])
-            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[3])
-            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[4])
-            hdr+=" "+":".join("%02x"%ord(x) for x in phdr[5:12])
-            hdr+=","+"".join("%02x"%ord(x) for x in phdr[12:16])
+            hdr+=" "+"".join("%02x"%(x) for x in phdr[0:2])
+            hdr+=","+("%02x"%(phdr[2]))
+            hdr+=" "+("%02x"%(phdr[3]))
+            hdr+=" "+("%02x"%(phdr[4]))
+            hdr+=" "+":".join("%02x"%(x) for x in phdr[5:12])
+            hdr+=","+"".join("%02x"%(x) for x in phdr[12:16])
         else:
         # UL <50:0b:65>
         # 1: always 50 (nothing to send / message received)
@@ -1107,18 +1100,18 @@ class ReassembleIDASBD(ReassembleIDA):
             hdr=data[:3]
             data=data[3:]
 
-            hdr=":".join("%02x"%ord(x) for x in hdr)
+            hdr=hdr.hex(":")
 
         str=""
         for c in data:
-            if( ord(c)>=32 and ord(c)<127):
-                str+=c
-            elif ord(c)>127+32 and ord(c)<255:
-                str+=chr(ord(c)-128)
+            if( (c)>=32 and (c)<127):
+                str+=chr(c)
+            elif (c)>127+32 and (c)<255:
+                str+=chr((c)-128)
             else:
                 str+="."
 
-        append="| "+" ".join("%02x"%ord(x) for x in data)
+        append="| "+data.hex(" ")
 #        append=""
 
         hdr="%-10s"%("<"+hdr+">")+" "
@@ -1215,7 +1208,7 @@ class ReassembleIDALAPPCAP(ReassembleIDALAP):
         if 'all' in args:
             pass
         else:
-            if ord(data[0])&0xf==6 or ord(data[0])&0xf==8 or (ord(data[0])>>8)==7:
+            if data[0]&0xf==6 or data[0]&0xf==8 or (data[0]>>8)==7: # XXX: should be >>4?
                 return
             if len(data)==1:
                 return
@@ -1389,7 +1382,7 @@ elif mode == "lap":
     validargs=('all')
     if outfile == sys.stdout: # Force file, since it's binary
         ofile="%s.%s" % (basename, "pcap")
-        outfile=open(ofile,"w")
+    outfile=open(ofile,"wb")
     zx=ReassembleIDALAPPCAP()
 elif mode == "sbd":
     zx=ReassembleIDASBD()
