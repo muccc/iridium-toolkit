@@ -158,6 +158,18 @@ class MyObject(object):
                     pwarn = True
                     print("'perfect' requested, but no EC info found", file=sys.stderr)
 
+def ascii(data,dot=False):
+    str=""
+    for c in data:
+        if( c>=32 and c<127):
+            str+=chr(c)
+        else:
+            if dot:
+                str+="."
+            else:
+                str+="[%02x]"%c
+    return str
+
 class Reassemble(object):
     def __init__(self):
         raise Exception("undef")
