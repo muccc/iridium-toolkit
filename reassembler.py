@@ -85,6 +85,16 @@ if verbose:
     print("ofile",ofile)
     print("basen",basename)
 
+class Zulu(datetime.tzinfo):
+    def utcoffset(self, dt):
+        return datetime.timedelta(0)
+    def dst(self, dt):
+        return datetime.timedelta(0)
+    def tzname(self,dt):
+         return "Z"
+
+Z=Zulu()
+
 pwarn=False
 
 class MyObject(object):
