@@ -606,6 +606,7 @@ class ReassembleULDT(Reassemble):
     def __init__(self):
         self.last_mstime = None
         self.last_frequency = None
+        self.tracked = {}
         self.deltas = []
         pass
 
@@ -623,23 +624,36 @@ class ReassembleULDT(Reassemble):
         return q
 
     def process(self,q):
-        #q.uxtime=datetime.datetime.utcfromtimestamp(q.time)
 
-        last_mstime = self.last_mstime
-        last_frequency = self.last_frequency
-        self.last_mstime = q.mstime
-        self.last_frequency = q.frequency
+        for tracked in list(self.tracked):
+            if tracked < q.mstime - 40:
+                del self.tracked[tracked]
 
-        if last_mstime:
+        min_df = None
+        min_tracked = None
+
+        #print(len(self.tracked))
+
+        for tracked in list(self.tracked):
+            if min_df is None or abs(self.tracked[tracked] - q.frequency) < min_df:
+                min_df = abs(self.tracked[tracked] - q.frequency)
+                min_tracked = tracked
+
+        if min_tracked:
+            last_mstime = min_tracked
+            last_frequency = self.tracked[min_tracked]
+
+            self.tracked[q.mstime] = q.frequency
+
             return[[last_mstime, q.mstime, last_frequency, q.frequency]]
+        else:
+            self.tracked[q.mstime] = q.frequency
 
 
     def consume(self, data):
-        #tdelta=(data[0]-data[1]).total_seconds()
         tdelta = data[1] - data[0]
         fdelta = abs(data[3] - data[2])
-        #if tdelta < 100 and tdelta > 40:
-        if tdelta < 40  and tdelta > 4 and fdelta < 100:
+        if tdelta < 40  and tdelta > 4 and fdelta <= 256:
             self.deltas.append(tdelta)
             print(tdelta, fdelta)
 
