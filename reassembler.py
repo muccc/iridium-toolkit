@@ -601,6 +601,54 @@ class ReassemblePPM(Reassemble):
         print("rec.tmax %f"%(self.tmax))
         print("rec.ppm %.3f"%(delta/alltime*1000000))
 
+
+class ReassembleULDT(Reassemble):
+    def __init__(self):
+        self.last_mstime = None
+        self.last_frequency = None
+        self.deltas = []
+        pass
+
+    def filter(self,line):
+        q=super(ReassembleULDT,self).filter(line)
+        if q==None: return None
+        if not q.uldl=='UL': return None
+
+        q.enrich()
+        #if q.confidence<95: return None
+
+        if 'perfect' in args:
+            if not q.perfect: return None
+
+        return q
+
+    def process(self,q):
+        #q.uxtime=datetime.datetime.utcfromtimestamp(q.time)
+
+        last_mstime = self.last_mstime
+        last_frequency = self.last_frequency
+        self.last_mstime = q.mstime
+        self.last_frequency = q.frequency
+
+        if last_mstime:
+            return[[last_mstime, q.mstime, last_frequency, q.frequency]]
+
+
+    def consume(self, data):
+        #tdelta=(data[0]-data[1]).total_seconds()
+        tdelta = data[1] - data[0]
+        fdelta = abs(data[3] - data[2])
+        #if tdelta < 100 and tdelta > 40:
+        if tdelta < 40  and tdelta > 4 and fdelta < 100:
+            self.deltas.append(tdelta)
+            print(tdelta, fdelta)
+
+    def end(self):
+        import matplotlib.pyplot as plt
+        plt.hist(self.deltas)
+        plt.show()
+        pass
+
 class ReassembleIDA(Reassemble):
     def __init__(self):
         pass
@@ -1402,6 +1450,8 @@ elif mode == "live-map":
 elif mode == "ppm":
     validargs=('perfect','grafana','tdelta')
     zx=ReassemblePPM()
+elif mode == "uldt":
+    zx=ReassembleULDT()
 else:
     print("Unknown mode selected", file=sys.stderr)
     sys.exit(1)
