@@ -606,7 +606,7 @@ class ReassembleULDT(Reassemble):
     def __init__(self):
         self.last_mstime = None
         self.last_frequency = None
-        self.tracked = {}
+        self.tracked = []
         self.deltas = []
         pass
 
@@ -625,41 +625,54 @@ class ReassembleULDT(Reassemble):
 
     def process(self,q):
 
-        for tracked in list(self.tracked):
-            if tracked < q.mstime - 40:
-                del self.tracked[tracked]
+        delete_count = 0
+        for idx in range(len(self.tracked)):
+            if self.tracked[idx][0] + 100 < q.mstime:
+                delete_count += 1
+            else:
+                break
 
-        min_df = None
-        min_tracked = None
+        if delete_count > 0:
+            self.tracked = self.tracked[delete_count:]
+
+        self.tracked.append((q.mstime, q.frequency))
+
+        #if len(self.tracked) > 1:
+        #    print(len(self.tracked))
+        #    print(self.tracked)
+
+        min_dist = None
+        min_idx = None
 
         #print(len(self.tracked))
 
-        for tracked in list(self.tracked):
-            if min_df is None or abs(self.tracked[tracked] - q.frequency) < min_df:
-                min_df = abs(self.tracked[tracked] - q.frequency)
-                min_tracked = tracked
+        for idx in range(len(self.tracked) - 1):
+            dt = self.tracked[idx][0] - q.mstime
+            df = (self.tracked[idx][1] - q.frequency) / 1000
+            dist = dt * dt + df * df
+            if min_dist is None or dist < min_dist:
+                min_dist = dist
+                min_idx = idx
 
-        if min_tracked:
-            last_mstime = min_tracked
-            last_frequency = self.tracked[min_tracked]
+        if min_idx is not None:
+            last_mstime = self.tracked[min_idx][0]
+            last_frequency = self.tracked[min_idx][1]
 
-            self.tracked[q.mstime] = q.frequency
 
             return[[last_mstime, q.mstime, last_frequency, q.frequency]]
-        else:
-            self.tracked[q.mstime] = q.frequency
 
 
     def consume(self, data):
         tdelta = data[1] - data[0]
         fdelta = abs(data[3] - data[2])
         if tdelta < 40  and tdelta > 4 and fdelta <= 256:
+        #if tdelta < 90.2  and tdelta > 89.8 and fdelta <= 10000:
             self.deltas.append(tdelta)
             print(tdelta, fdelta)
 
     def end(self):
         import matplotlib.pyplot as plt
-        plt.hist(self.deltas)
+        plt.hist(self.deltas, bins=512)
         plt.show()
         pass
 
