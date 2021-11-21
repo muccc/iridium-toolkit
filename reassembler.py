@@ -525,8 +525,8 @@ class ReassemblePPM(Reassemble):
         q.itime+=datetime.timedelta(seconds=q.slot*(3 * float(8.28 + 0.1))/1000)
 
         # correct to beginning of frame:
-        # guard + simplex + guard + 4*(uplink + guard)
-        q.itime+=datetime.timedelta(seconds=(1 + 20.32 + 1.24 + 4 * float(8.28 + 0.22))/1000)
+        # guard + simplex + guard + 4*(uplink + guard) + extra_guard
+        q.itime+=datetime.timedelta(seconds=(1 + 20.32 + 1.24 + 4 * float(8.28 + 0.22) + 0.02)/1000)
 
         # correct to beginning of signal:
         # our timestamp is "the middle of the first symbol of the 12-symbol BPSK Iridium sync word"
