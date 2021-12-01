@@ -39,7 +39,7 @@ def sdivide(a,b): # returns b%a in GF(2) slow/ascii version
 #        print "b:   ",stringify(bb),one
 #        print "a:   ",(" "*(one-1)),stringify(aa)
 
-        for i in xrange(len(a)):
+        for i in range(len(a)):
           if aa[i]==1:
             bb[one+i]=1-bb[one+i]
     #      print "i: %2d"%i,stringify(bb),"a=",aa[i]
@@ -56,7 +56,7 @@ def add(a,b): # unneccessary, as actually add(a,b) == a^b
     result=[]
     if (len(bb)>len(aa)):
         (aa,bb)=(bb,aa)
-    for i in xrange(len(aa)):
+    for i in range(len(aa)):
         result[i]=(aa[i]+bb[i])%2
 
     return stringify(result)
@@ -73,7 +73,7 @@ def multiply(a,b):
 
 def polystr(a):
     poly=[]
-    for i in xrange(len(a)):
+    for i in range(len(a)):
         if (a[i]=="1"):
             poly.append("x^%d"%(len(a)-1-i))
 
@@ -88,13 +88,13 @@ def repair(a,b): # "repair" two bit errors by brute force.
         return (0,b)
     blen=len(b)
     bnum=int(b,2)
-    for b1 in xrange(len(b)):
+    for b1 in range(len(b)):
         bnum1=bnum^(1<<b1)
         bnum1str=("{0:0%db}"%blen).format(bnum1)
         r=divide(a,bnum1str)
         if(r==0):
             return (1,bnum1str)
-        for b2 in xrange(b1+1,len(b)):
+        for b2 in range(b1+1,len(b)):
             bnum2=bnum1^(1<<b2)
             bnum2str=("{0:0%db}"%blen).format(bnum2)
             r=divide(a,bnum2str)
@@ -108,15 +108,15 @@ def nrepair(a,b): # "repair" two bit errors by brute force.
         return (0,b)
     blen=len(b)
     bnum=int(b,2)
-    for b1 in xrange(len(b)):
+    for b1 in range(len(b)):
         bnum1=bnum^(1<<b1)
         r=nndivide(a,bnum1)
         if(r==0):
             bnum1str=("{0:0%db}"%blen).format(bnum1)
             return (1,bnum1str)
-    for b1 in xrange(len(b)):
+    for b1 in range(len(b)):
         bnum1=bnum^(1<<b1)
-        for b2 in xrange(b1+1,len(b)):
+        for b2 in range(b1+1,len(b)):
             bnum2=bnum1^(1<<b2)
             r=nndivide(a,bnum2)
             if(r==0):

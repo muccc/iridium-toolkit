@@ -1,12 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim: set ts=4 sw=4 tw=0 et pm=:
-from __future__ import print_function
+
 import sys
 import re
 import struct
 from bch import ndivide, nrepair, bch_repair
-import crcmod2
+import crcmod
 import rs
 import rs6
 import fileinput
@@ -14,8 +14,9 @@ import getopt
 import types
 import copy
 import datetime
-import collections
-from itertools import izip
+import collections.abc
+
+
 from math import sqrt,atan2,pi,log
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
@@ -133,7 +134,7 @@ for opt, arg in options:
         raise Exception("unknown argument?")
 
 if input == "dump" or output == "dump":
-    import cPickle as pickle
+    import pickle as pickle
     dumpfile="pickle.dump"
 
 if dosatclass == True:
@@ -221,7 +222,7 @@ class Message(object):
         self.bitstream_raw=(re.sub("[\[\]<> ]","",m.group(12))) # raw bitstring with correct symbols
         if self.swapped:
             self.bitstream_raw=symbol_reverse(self.bitstream_raw)
-        self.symbols=len(self.bitstream_raw)/2
+        self.symbols=len(self.bitstream_raw)//2
         if m.group(13):
             self.extra_data=m.group(13)
             self._new_error("There is crap at the end in extra_data")
@@ -286,10 +287,10 @@ class Message(object):
                 access=[]
                 map=[0,1,3,2]
                 # back into bpsk symbols
-                for x in xrange(0,len(iridium_access)-1,2):
+                for x in range(0,len(iridium_access)-1,2):
                     access.append(map[int(self.bitstream_raw[x+0])*2 + int(self.bitstream_raw[x+1])])
                 # undo differential decoding
-                for c in xrange(1,len(access)-1):
+                for c in range(1,len(access)-1):
                     access[c]=(access[c-1]+access[c])%4
 
                 if bitdiff(access,UW_DOWNLINK) <4:
@@ -704,7 +705,7 @@ class IridiumMessage(Message):
         return self
     def _pretty_header(self):
         str= super(IridiumMessage,self)._pretty_header()
-        str+= " %03d"%(self.symbols-len(iridium_access)/2)
+        str+= " %03d"%(self.symbols-len(iridium_access)//2)
 #        str+=" L:"+("no","OK")[self.lead_out_ok]
         if (self.uplink):
             str+=" UL"
@@ -865,7 +866,7 @@ class IridiumLCW3Message(IridiumMessage):
 class IridiumVOMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        self.crcval=iip_crc24( "".join([chr(x) for x in self.payload_r]))
+        self.crcval=iip_crc24( bytes(self.payload_r))
         if self.crcval==0:
             self.vtype="VDA"
             return
@@ -916,12 +917,12 @@ class IridiumVOMessage(IridiumMessage):
         return str
 
 # Poly from GSM 04.64 / check value (reversed) is 0xC91B6
-iip_crc24=crcmod2.mkCrcFun(poly=0x1BBA1B5,initCrc=0xffffff^0x0c91b6,rev=True,xorOut=0x0c91b6)
+iip_crc24=crcmod.mkCrcFun(poly=0x1BBA1B5,initCrc=0xffffff^0x0c91b6,rev=True,xorOut=0x0c91b6)
 class IridiumIPMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
 
-        self.crcval=iip_crc24( "".join([chr(x) for x in self.payload_r]))
+        self.crcval=iip_crc24( bytes(self.payload_r))
         if self.crcval==0:
             self.itype="IIP"
             self.ip_hdr=self.payload_r[0]
@@ -1057,7 +1058,7 @@ class IridiumECCMessage(IridiumMessage):
         return super(IridiumECCMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IME: "+self._pretty_header()+" "+self.msgtype+" "
-        for block in xrange(len(self.descrambled)):
+        for block in range(len(self.descrambled)):
             b=self.descrambled[block]
             if len(b)==31:
                 (errs,foo)=nrepair(self.poly,b)
@@ -1074,7 +1075,7 @@ class IridiumECCMessage(IridiumMessage):
         str+=self._pretty_trailer()
         return str
 
-ida_crc16=crcmod2.predefined.mkPredefinedCrcFun("crc-ccitt-false")
+ida_crc16=crcmod.predefined.mkPredefinedCrcFun("crc-ccitt-false")
 class IridiumLCWMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
@@ -1096,7 +1097,8 @@ class IridiumLCWMessage(IridiumECCMessage):
             self.da_crc=int(self.bitstream_bch[9*20:9*20+16],2)
             self.da_ta=[int(x,2) for x in slice(self.bitstream_bch[20:9*20],8)]
             crcstream=self.bitstream_bch[:20]+"0"*12+self.bitstream_bch[20:-4]
-            the_crc=ida_crc16("".join([chr(int(x,2)) for x in slice(crcstream,8)]))
+#            the_crc=ida_crc16("".join([chr(int(x,2)) for x in slice(crcstream,8)]))
+            the_crc=ida_crc16(bytes([int(x,2) for x in slice(crcstream,8)]))
             self.the_crc=the_crc
             self.crc_ok=(the_crc==0)
         else:
@@ -1459,7 +1461,7 @@ class IridiumMSMessage(IridiumECCMessage):
         str= super(IridiumMSMessage,self)._pretty_header()
         str+= " %1d:%s:%02d" % (self.block, self.group,self.frame)
         str+= " len=%02d" % (self.bch_blocks)
-        str+= " T%d" % (len(self.msg_trailer)/20)
+        str+= " T%d" % (len(self.msg_trailer)//20)
         if(self.group == "A"):
             str+= " %s %s %-87s" % (self.unknown1, self.secondary, group(self.msg_pre,21))
         else:
@@ -1576,24 +1578,24 @@ class IridiumMessagingBCD(IridiumMSMessage):
 
 def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), ..."
-    return izip(*[iter(iterable)]*n)
+    return zip(*[iter(iterable)]*n)
 
 def symbol_reverse(bits):
     r = ''
-    for x in xrange(0,len(bits)-1,2):
+    for x in range(0,len(bits)-1,2):
         r += bits[x+1] + bits[x+0]
     return r
 
 def de_interleave(group):
 #    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
-    symbols = [group[z+1]+group[z] for z in xrange(0,len(group),2)]
+    symbols = [group[z+1]+group[z] for z in range(0,len(group),2)]
     even = ''.join([symbols[x] for x in range(len(symbols)-2,-1, -2)])
     odd  = ''.join([symbols[x] for x in range(len(symbols)-1,-1, -2)])
     return (odd,even)
 
 def de_interleave3(group):
 #    symbols = [''.join(symbol) for symbol in grouped(group, 2)]
-    symbols = [group[z+1]+group[z] for z in xrange(0,len(group),2)]
+    symbols = [group[z+1]+group[z] for z in range(0,len(group),2)]
     third  = ''.join([symbols[x] for x in range(len(symbols)-3, -1, -3)])
     second = ''.join([symbols[x] for x in range(len(symbols)-2, -1, -3)])
     first  = ''.join([symbols[x] for x in range(len(symbols)-1, -1, -3)])
@@ -1630,12 +1632,12 @@ def group(string,n): # similar to grouped, but keeps rest at the end
     return string.rstrip()
 
 def slice_extra(string,n):
-    blocks=[string[x:x+n] for x in xrange(0,len(string)+1,n)]
+    blocks=[string[x:x+n] for x in range(0,len(string)+1,n)]
     extra=blocks.pop()
     return (blocks,extra)
 
 def slice(string,n):
-    return [string[x:x+n] for x in xrange(0,len(string),n)]
+    return [string[x:x+n] for x in range(0,len(string),n)]
 
 if output == "dump":
     file=open(dumpfile,"wb")
@@ -1683,7 +1685,7 @@ def perline(q):
         if("descrambled" in q.__dict__): del q.descrambled
         del q.descramble_extra
     if q.error:
-        if isinstance(errorstats, collections.Mapping):
+        if isinstance(errorstats, collections.abc.Mapping):
             msg=q.error_msg[0]
             if(msg in errorstats):
                 errorstats[msg]+=1
@@ -1751,12 +1753,12 @@ if output == "sat":
         f=m.frequency
         t=m.globaltime
         no=-1
-        for s in xrange(len(sats)):
-            fdiff=(sats[s][0]-f)/(t-sats[s][1])
+        for s in range(len(sats)):
+            fdiff=(sats[s][0]-f)//(t-sats[s][1])
             if f<sats[s][0] and fdiff<250:
                 no=s
         if no>-1:
-            m.fdiff=(sats[no][0]-f)/(t-sats[no][1])
+            m.fdiff=(sats[no][0]-f)//(t-sats[no][1])
             sats[no][0]=f
             sats[no][1]=t
         else:
@@ -1764,14 +1766,14 @@ if output == "sat":
             sats.append([f,t])
             m.fdiff=0
         m.satno=no
-    for s in xrange(len(sats)):
+    for s in range(len(sats)):
         print("Sat: %03d"%s)
         for m in selected:
             if m.satno == s: print(m.pretty())
 
-if isinstance(errorstats, collections.Mapping):
+if isinstance(errorstats, collections.abc.Mapping):
     total=0
-    for (msg,count) in sorted(errorstats.iteritems()):
+    for (msg,count) in sorted(errorstats.items()):
         total+=count
         print("%7d: %s"%(count, msg), file=sys.stderr)
     print("%7d: %s"%(total, "Total"), file=sys.stderr)

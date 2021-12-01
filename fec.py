@@ -23,7 +23,7 @@ def set_poly(pa,pb):
     p1= listify("{0:b}".format(pa))
     p2= listify("{0:b}".format(pb))
     if(len(p1)!=len(p2)):
-        print "set_poly: Poly length not equal"
+        print("set_poly: Poly length not equal")
         exit(-1)
 
 
@@ -32,7 +32,7 @@ def set_initbb(list):
     global initbb
     initbb=list
     if len(initbb)!=len(p1):
-        print "intibb: Length needs to be ",len(p1)
+        print("intibb: Length needs to be ",len(p1))
         exit(-1)
 
 
@@ -41,15 +41,15 @@ def fec(bits):
     bb=initbb
     for bit in bits:
         if debug:
-            print "bit=",bit,"bb: ",bb
+            print("bit=",bit,"bb: ",bb)
         bb=bb[1:]+[bit]
         o1=0
         o2=0
-        for i in xrange(len(bb)):
+        for i in range(len(bb)):
             o1^=p1[i]*bb[i]
             o2^=p2[i]*bb[i]
         if debug:
-            print "o1=",o1,"o2=",o2
+            print("o1=",o1,"o2=",o2)
         out+=[o1]+[o2]
     return out
 
@@ -76,7 +76,7 @@ d3f= [1,1,1,1,0,0]
 def puncture(dp,bits):
     debug=0
     ostr=''
-    for i in xrange(len(bits)):
+    for i in range(len(bits)):
         if(dp[i%len(dp)]):
             ostr+=str(bits[i])
         else:
