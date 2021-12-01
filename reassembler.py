@@ -291,7 +291,7 @@ class StatsSNR(Reassemble):
 
 class LivePktStats(Reassemble):
     intvl=600
-    timeslot=None
+    timeslot=-1
     default=None
     stats={}
     first=True
