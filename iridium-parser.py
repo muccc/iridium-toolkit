@@ -183,7 +183,7 @@ class Message(object):
         self.error=False
         self.error_msg=[]
         self.lineno=fileinput.lineno()
-        p=re.compile('(RAW|RWA): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
+        p=re.compile(r'(RAW|RWA): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
         m=p.match(line)
         if(errorfile != None):
             self.line=line
@@ -219,7 +219,7 @@ class Message(object):
         self.level=float(m.group(10))
         self.leveldb=20*log(self.level,10)
 #        self.raw_length=m.group(11)
-        self.bitstream_raw=(re.sub("[\[\]<> ]","",m.group(12))) # raw bitstring with correct symbols
+        self.bitstream_raw=(re.sub(r"[\[\]<> ]","",m.group(12))) # raw bitstring with correct symbols
         if self.swapped:
             self.bitstream_raw=symbol_reverse(self.bitstream_raw)
         self.symbols=len(self.bitstream_raw)//2
@@ -229,14 +229,14 @@ class Message(object):
 
         # Make a "global" timestamp - needs to be an int to avoid precision loss
         # Current format:
-        mm=re.match("i-(\d+)-t1$",self.filename)
+        mm=re.match(r"i-(\d+)-t1$",self.filename)
         if mm:
             startts=int(mm.group(1))
             self.fileinfo="p-%d"%startts
             self.globalns=startts*(10**9)+int(float(self.timestamp)*(10**6))
             return
         # Older file formats:
-        mm=re.match("(\d\d)-(\d\d)-(20\d\d)T(\d\d)-(\d\d)-(\d\d)-[sr]1",self.filename)
+        mm=re.match(r"(\d\d)-(\d\d)-(20\d\d)T(\d\d)-(\d\d)-(\d\d)-[sr]1",self.filename)
         if mm:
             month, day, year, hour, minute, second = map(int, mm.groups())
             ts=datetime.datetime(year,month,day,hour,minute,second)
@@ -244,7 +244,7 @@ class Message(object):
             self.fileinfo="p-%d"%startts
             self.globalns=startts*(10**9)+int(float(self.timestamp)*(10**6))
             return
-        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsrtl]1.([a-z])([a-z])",self.filename)
+        mm=re.match(r"i-(\d+(?:\.\d+)?)-[vbsrtl]1.([a-z])([a-z])",self.filename)
         if mm:
             self.b26=(ord(mm.group(2))-ord('a'))*26+ ord(mm.group(3))-ord('a')
             startts=float(mm.group(1))+self.b26*600
@@ -254,7 +254,7 @@ class Message(object):
             self.fileinfo="p-%d"%startts
             self.globalns=startts*(10**9)+int(float(self.timestamp)*(10**6))
             return
-        mm=re.match("i-(\d+(?:\.\d+)?)-[vbsrtl]1(?:-o[+-]\d+)?$",self.filename)
+        mm=re.match(r"i-(\d+(?:\.\d+)?)-[vbsrtl]1(?:-o[+-]\d+)?$",self.filename)
         if mm:
             startts=float(mm.group(1))
             if startts != int(startts):
@@ -1511,7 +1511,7 @@ class IridiumMessagingAscii(IridiumMSMessage):
             self._new_error("zero2 is not zero")
         self.msg_checksum=int(rest[1:8],2)
         self.msg_msgdata=rest[8:]
-        m=re.compile('(\d{7})').findall(self.msg_msgdata)
+        m=re.compile(r'(\d{7})').findall(self.msg_msgdata)
         self.msg_ascii=""
         end=0
         for (group) in m:
@@ -1825,7 +1825,7 @@ if output == "msg":
 
     for b in sorted(buf, key=lambda x: buf[x].globaltime):
         msg="".join(buf[b].msgs[:1+buf[b].msg_ctr_max])
-        msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
+        msg=re.sub(r"(\[3\])+$","",msg) # XXX: should be done differently
         csum=messagechecksum(msg)
         str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(buf[b].globaltime).strftime("%Y-%m-%dT%H:%M:%S"),buf[b].msg_ctr_max)
         str+= " %3d"%buf[b].msg_checksum
@@ -1882,7 +1882,7 @@ if output == "plot":
 
     mng = plt.get_current_fig_manager()
     mng.resize(*mng.window.maxsize())
-    plt.savefig(re.sub('[/ ]','_',name)+".png")
+    plt.savefig(re.sub(r'[/ ]','_',name)+".png")
     plt.show()
 
 def objprint(q):
