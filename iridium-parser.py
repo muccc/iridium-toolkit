@@ -1857,9 +1857,9 @@ if output == "plot":
     plt.xlabel(plotargs[0])
     plt.ylabel(plotargs[1])
     if plotargs[0]=="time":
-        plotargs[0]="globaltime"
+        plotargs[0]="globalns"
         def format_date(x, pos=None):
-            return datetime.datetime.fromtimestamp(x).strftime('%Y-%m-%d %H:%M:%S')
+            return datetime.datetime.fromtimestamp(x/10**9).strftime('%Y-%m-%d %H:%M:%S')
         plt.gca().xaxis.set_major_formatter(ticker.FuncFormatter(format_date))
         plt.gcf().autofmt_xdate()
 
