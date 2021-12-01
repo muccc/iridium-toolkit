@@ -10,7 +10,7 @@ from mock import patch
 
 TESTS={
     # Test header format
-    'hdr': [('i-1598047209-t1 000000841.3554 1625695104 100%   0.044', '')],
+    'hdr': [('p-1598047209-e000 000000841.3554 1625695104 100%   0.044', '')],
 
     # Test LCW parsing
     'lcw': [],
@@ -29,8 +29,8 @@ def add_tests():
             for line in f:
                 expected=line.strip()
                 while expected[0]=='#':
-                    expected=f.next().strip()
-                bits=f.next().strip()
+                    expected=next(f).strip()
+                bits=next(f).strip()
                 TESTS[typ].append((expected, bits))
 
 @pytest.mark.parametrize("expected,bits", TESTS['hdr'])

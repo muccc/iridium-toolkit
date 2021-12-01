@@ -12,13 +12,13 @@ VOC: i-1443338945.6543-t1 033399141 1625872817  81% 0.027 179 L:no LCW(0,001111,
 def chunks(l, n):
     """ Yield successive n-sized chunks from l.
     """
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):
         yield l[i:i+n]
 
-from itertools import izip
+
 def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), ..."
-    return izip(*[iter(iterable)]*n)
+    return zip(*[iter(iterable)]*n)
 
 def turn_symbols(byte):
     out = 0
@@ -65,7 +65,7 @@ for line in fileinput.input(infile):
         ts = float(line[2])
         data = line[10]
         content=bytearray()
-        for pos in xrange(1,len(data),3):
+        for pos in range(1,len(data),3):
             byte=int(data[pos:pos+2],16)
             byte=int('{:08b}'.format(byte)[::-1], 2)
             #byte=int('{:08b}'.format(byte)[::], 2)
@@ -73,12 +73,12 @@ for line in fileinput.input(infile):
         hdr='{:08b}'.format(content[0])
         hdr=hdr[::-1]
         content=content[1:]
-#        print data
-        print hdr,
-        print "".join("%02x"%x for x in content),
+#        print(data)
+        print(hdr, end=' ')
+        print("".join("%02x"%x for x in content), end=' ')
 
         if hdr.startswith("11000") or hdr.startswith("10000") or hdr.startswith("01000"):
-            print "A1",
+            print("A1", end=' ')
             #if a_data!='':
             #    outfile.write(a_data)
             #    outfile.write(c_data)
@@ -87,47 +87,41 @@ for line in fileinput.input(infile):
             a_ts = ts
 
         if hdr.startswith("00001"):
-            print "B1",
+            print("B1", end=' ')
             b_seq = hdr[5:8]
             b_data = content[20:30]
             b_ts = ts
 
         if hdr.startswith("00010"):
-            print "B2",
+            print("B2", end=' ')
             b_seq = hdr[5:8]
             b_data = content[10:20]
             b_ts = ts
 
         if hdr.startswith("00100"):
-            print "B3",
+            print("B3", end=' ')
             b_seq = hdr[5:8]
             b_data = content[0:10]
             b_ts = ts
 
-        print "> ",a_seq,b_seq,
+        print("> ",a_seq,b_seq, end=' ')
 #        print "|", "".join("%x"%x for x in a_data),"[%02d]"%len(a_data),
 #        print " ", "".join("%x"%x for x in b_data),"[%02d]"%len(b_data)
         if a_seq and b_seq and a_seq == b_seq and abs(a_ts - b_ts) < 3*90:
             #print "out!"
             data = a_data + b_data
 
-            print 'XXX: ','.'.join([c.encode('hex') for c in str(data)])
+            print('XXX: ',data.hex('.'))
             #outfile.write(data)
 
             #if data[0] == 0xc0:
             #if not (data[0] == 0x03 and data[1] == 0xc0):
             if (data[0] == 0x03 and data[1] == 0xc0):
                 #print int(a_seq, 2), a_ts - ts_old, '.'.join([c.encode('hex') for c in str(data)])
-                print a_ts - ts_old, '.'.join([c.encode('hex') for c in str(data)])
+                print(a_ts - ts_old, data.hex('.'))
                 #outfile.write(data)
 
-            content=bytearray()
-            for c in str(data):
-                byte=int('{:08b}'.format(ord(c))[::], 2)
-                #byte=turn_symbols(int('{:08b}'.format(ord(c))[::], 2))
-                content.append(byte)
-
-            outfile.write(str(content))
+            outfile.write(data)
 
             ts_old = a_ts
             a_data=''
@@ -136,5 +130,5 @@ for line in fileinput.input(infile):
             b_seq = None
 
 
-        print ""
+        print("")
 

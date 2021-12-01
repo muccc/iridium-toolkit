@@ -12,7 +12,7 @@ parser.py: .FORCE
 	./mkmodule.pl <../iridium-parser.py > $@
 
 run:
-	pytest test_parser.py
+	pytest-3 test_parser.py
 	
 clean:
 	for file in ${SRC} ${GEN}; do ${RM} $$file $${file}c ; done
