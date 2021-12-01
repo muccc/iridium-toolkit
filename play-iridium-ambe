@@ -2,4 +2,4 @@
 bits_to_dfs.py $1 /tmp/voice.dfs
 #ambe -w /tmp/voice.dfs
 ir77_ambe_decode /tmp/voice.dfs /tmp/voice.wav
-mplayer /tmp/voice.wav
+mplayer -msglevel all=3:statusline=5 -nolirc /tmp/voice.wav

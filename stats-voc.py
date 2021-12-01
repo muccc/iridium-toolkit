@@ -1,6 +1,5 @@
 #!/usr/bin/python
 # vim: set ts=4 sw=4 tw=0 et fenc=utf8 pm=:
-#VOC: i-1430527570.4954-t1 421036605 1625859953  66% 0.008 219 L:no LCW(0,001111,100000000000000000000 E1) 101110110101010100101101111000111111111001011111001011010001000010010001101110011010011001111111011101111100011001001001000111001101001011001011000101111111101110110011111000000001110010001110101101001010011001101001010111101100011100110011110010110110101010110001010000100100101011010010100100100011010110101001
 
 import sys
 import matplotlib.pyplot as plt
@@ -58,8 +57,8 @@ def cut_convert_play(t_start, t_stop, f_min, f_max):
 
 def onclick(event):
     global t_start, t_stop, f_min, f_max
-    print 'button=%d, x=%d, y=%d, xdata=%f, ydata=%f'%(
-        event.button, event.x, event.y, event.xdata, event.ydata)
+    print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f'%(
+        event.button, event.x, event.y, event.xdata, event.ydata))
     if event.button == 1:
         t_start = event.xdata
         f_min = event.ydata
@@ -75,7 +74,7 @@ def onclick(event):
 def main():
     tsl, fl, quals, _ = filter_voc()
 
-    print len(tsl)
+    print(len(tsl))
 
     fig = plt.figure()
     ax = fig.add_subplot(111)

@@ -34,7 +34,7 @@ def turn_symbols(byte):
 def chunks(l, n):
     """ Yield successive n-sized chunks from l.
     """
-    for i in xrange(0, len(l), n):
+    for i in range(0, len(l), n):
         yield l[i:i+n]
 
 infile = sys.argv[1]
@@ -49,10 +49,10 @@ for line in fileinput.input(infile):
             continue
         data = line[10]
         if (data[0] == "["):
-            for pos in xrange(1,len(data),3):
+            for pos in range(1,len(data),3):
                 byte=int(data[pos:pos+2],16)
                 byte=int('{:08b}'.format(byte)[::-1], 2)
-                outfile.write(chr(byte))
+                outfile.write(bytes([byte]))
         else:
             for bits in chunks(data, 8):
                 byte = int(bits[::-1],2)

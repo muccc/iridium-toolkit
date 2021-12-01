@@ -76,7 +76,7 @@ for line in f:
         data[ftype][1].append(f)
     else:
         if not ftype in newtypes:
-            print "unhandled frame type:",ftype
+            print("unhandled frame type:",ftype)
             newtypes.append(ftype)
 
 for t in frames:
@@ -87,7 +87,7 @@ for t in frames:
     data[t][2]= plt.scatter(y=data[t][1], x=data[t][0], c=f[0], label=t, alpha=1, edgecolors=f[0], marker=f[1], s=20)
 
 leg=plt.legend(loc='upper right')
-leg.draggable()
+leg.set_draggable(1)
 
 # Get to the legend entries
 pat=leg.get_children()
