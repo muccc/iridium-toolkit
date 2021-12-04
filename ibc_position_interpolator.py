@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import fileinput
 import datetime
@@ -19,9 +20,11 @@ ppm = 0
 
 
 # create input file like this:
-# iridium-parser.py -p --filter=IridiumBCMessage+iri_time_ux --format=globaltime,iri_time_ux,slot,sv_id,beam_id iridium.bits > iridium.ibc
-# iridium-parser.py -p --filter=IridiumRAMessage,'q.ra_alt>7100' --format globaltime,ra_sat,ra_cell,ra_alt,ra_pos_x,ra_pos_y,ra_pos_z iridium.bits > iridium.ira
+# iridium-parser.py -p --filter=IridiumBCMessage+iri_time_ux --format=timens,iri_time_ux,slot,sv_id,beam_id iridium.bits > iridium.ibc
+# iridium-parser.py -p --filter=IridiumRAMessage,'q.ra_alt>7100' --format timens,ra_sat,ra_cell,ra_alt,ra_pos_x,ra_pos_y,ra_pos_z iridium.bits > iridium.ira
 
+# call like this:
+# python3 ibc_position_interpolator.py iridium.ibc iridium.ira > iridium.ibc_pos_interp
 class InterpException(Exception):
     pass
 
@@ -77,7 +80,7 @@ def read_ira():
         x = int(x) * 4000
         y = int(y) * 4000
         z = int(z) * 4000
-        tu = float(tu)
+        tu = int(tu)/1e9
         #print(ppm)
         #tu = float(tu) * (1-ppm/1e6)
 
@@ -170,7 +173,7 @@ for line in ibc:
 
     slot=int(slot)
     s=int(s)
-    tu=float(tu)
+    tu=int(tu)/1e9
     ti=float(ti)
 
     # time correction based on BC slot
@@ -198,4 +201,4 @@ for line in ibc:
         #print("Warning:",repr(e))
         pass
 
-print(sys.stderr, "Average delay to system time:", numpy.average([y[3] for y in ys]))
+print("Average delay to system time:", numpy.average([y[3] for y in ys]), file=sys.stderr)
