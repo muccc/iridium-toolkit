@@ -41,10 +41,10 @@ last_observation = {}
 for line in ibc_pos:
     tu,s,x,y,z,deltat=line.split(None,6) # time_unix, sat, x, z, y, time_unix - time_iridium
 
-    tu = float(tu)
+    tu = int(tu)/1e9
     s = int(s)
     xyz = [float(x), float(y), float(z)]
-    dt = float(deltat)
+    dt = int(deltat)/1e9
 
     last_observation[s] = (tu, s, xyz, dt)
 
