@@ -58,8 +58,8 @@ if ifile == None:
         ifile = remainder[0]
 
 if not basename:
-    basename=re.sub('\.[^.]*$','',ifile)
-#    basename=os.path.basename(re.sub('\.[^.]*$','',ifile))
+    basename=re.sub(r'\.[^.]*$','',ifile)
+#    basename=os.path.basename(re.sub(r'\.[^.]*$','',ifile))
 
 if ofile == None:
     ofile="/dev/stdout"
@@ -392,7 +392,7 @@ class LiveMap(Reassemble):
         self.ground={}
         pass
 
-    r2=re.compile(' *sat:(\d+) beam:(\d+) (?:rps=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+).*')
+    r2=re.compile(r' *sat:(\d+) beam:(\d+) (?:rps=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+).*')
 
     def filter(self,line):
         q=super(LiveMap,self).filter(line)
@@ -491,8 +491,8 @@ class ReassemblePPM(Reassemble):
         self.idx=None
         pass
 
-    r1=re.compile('.* slot:(\d)')
-    r2=re.compile('.* time:([0-9:T-]+(\.\d+)?)Z')
+    r1=re.compile(r'.* slot:(\d)')
+    r2=re.compile(r'.* time:([0-9:T-]+(\.\d+)?)Z')
 
     def filter(self,line):
         q=super(ReassemblePPM,self).filter(line)
@@ -609,11 +609,11 @@ class ReassembleIDA(Reassemble):
         if q==None: return None
         if q.typ!="IDA:": return None
 
-        qqq=re.compile('.* CRC:OK')
+        qqq=re.compile(r'.* CRC:OK')
         if not qqq.match(q.data):
             return None
 
-        p=re.compile('.* cont=(\d) (\d) ctr=(\d+) \d+ len=(\d+) 0:.000 \[([0-9a-f.!]*)\]\s+..../.... CRC:OK')
+        p=re.compile(r'.* cont=(\d) (\d) ctr=(\d+) \d+ len=(\d+) 0:.000 \[([0-9a-f.!]*)\]\s+..../.... CRC:OK')
         m=p.match(q.data)
         if(not m):
             print("Couldn't parse IDA: ",q.data, file=sys.stderr)
@@ -1235,7 +1235,7 @@ class ReassembleIRA(Reassemble):
         q=super(ReassembleIRA,self).filter(line)
         if q==None: return None
         if q.typ=="IRA:":
-            p=re.compile('sat:(\d+) beam:(\d+) (?:aps=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+            p=re.compile(r'sat:(\d+) beam:(\d+) (?:aps=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
             m=p.search(q.data)
             if(not m):
                 print("Couldn't parse IRA: ",q.data, end=' ', file=sys.stderr)
@@ -1246,7 +1246,7 @@ class ReassembleIRA(Reassemble):
                 q.lon=float(m.group(4))
                 q.alt=  int(m.group(5))
                 if m.group(6) is not None:
-                    p=re.compile('PAGE\(tmsi:([0-9a-f]+) msc_id:([0-9]+)\)')
+                    p=re.compile(r'PAGE\(tmsi:([0-9a-f]+) msc_id:([0-9]+)\)')
                     q.pages=p.findall(m.group(6))
                 else: # Won't be printed, but just in case
                     q.pages=[]
@@ -1264,7 +1264,7 @@ class ReassembleMSG(Reassemble):
         q=super(ReassembleMSG,self).filter(line)
         if q == None: return None
         if q.typ == "MSG:":
-            p=re.compile('.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]+)\.([01]*) ')
+            p=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]+)\.([01]*) ')
             m=p.match(q.data)
             if(not m):
                 print("Couldn't parse MSG: ",q.data, file=sys.stderr)
@@ -1284,7 +1284,7 @@ class ReassembleMSG(Reassemble):
                 q.msg_msgdata+=q.msg_brest
 
                 # convert to 7bit thingies 
-                m=re.compile('(\d{7})').findall(q.msg_msgdata)
+                m=re.compile(r'(\d{7})').findall(q.msg_msgdata)
                 q.msg_ascii=""
                 q.msg=[]
                 for (group) in m:
@@ -1300,7 +1300,7 @@ class ReassembleMSG(Reassemble):
                     q.msg_rest=""
                 return q
         if q.typ == "MS3:":
-            p=re.compile('.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
+            p=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
             m=p.match(q.data)
             if(not m):
                 print("Couldn't parse MS3: ",q.data, file=sys.stderr)
@@ -1357,13 +1357,13 @@ class ReassembleMSG(Reassemble):
             msg="".join(self.buf[b].msgs[:1+self.buf[b].msg_ctr_max])
             str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(self.buf[b].time).strftime("%Y-%m-%dT%H:%M:%S"),self.buf[b].msg_ctr_max)
             if self.buf[b].fmt==5:
-                msg=re.sub("(\[3\])+$","",msg) # XXX: should be done differently
-                cmsg=re.sub("\[10\]","\n",msg) # XXX: should be done differently
+                msg=re.sub(r"(\[3\])+$","",msg) # XXX: should be done differently
+                cmsg=re.sub(r"\[10\]","\n",msg) # XXX: should be done differently
                 csum=self.messagechecksum(cmsg)
                 str+= " %3d"%self.buf[b].msg_checksum
                 str+= (" fail"," OK  ")[self.buf[b].msg_checksum == csum]
             elif self.buf[b].fmt==3:
-                msg=re.sub("c+$","",msg) # XXX: should be done differently
+                msg=re.sub(r"c+$","",msg) # XXX: should be done differently
                 str+= " BCD"
                 str+= " OK  "
             str+= ": %s"%(msg)
