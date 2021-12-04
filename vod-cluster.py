@@ -3,6 +3,7 @@
 
 import sys
 import os
+from util import parse_channel
 
 class Frame:
     def __init__(self, f, f_alt, ts, line):
@@ -17,7 +18,7 @@ for line in open(sys.argv[1]):
     if 'VOD: ' in line:
         sl = line.split()
         ts = float(sl[2])/1000. # seconds
-        f = int(sl[3])/1000. # kHz
+        f = parse_channel(sl[3]) / 1000.
         frame = Frame(f, 0, ts, line)
 
         for call in calls:
