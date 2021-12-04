@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
 import reedsolo6
