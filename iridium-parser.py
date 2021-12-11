@@ -186,13 +186,13 @@ def fmt_iritime(iritime):
     return (uxtime, strtime)
 
 class Message(object):
+    p=re.compile(r'(RAW|RWA): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
+    parse_error=False
+    error=False
     def __init__(self,line):
-        self.parse_error=False
-        self.error=False
         self.error_msg=[]
         self.lineno=fileinput.lineno()
-        p=re.compile(r'(RAW|RWA): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
-        m=p.match(line)
+        m=self.p.match(line)
         if(errorfile != None):
             self.line=line
         if(not m):
