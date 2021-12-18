@@ -1235,7 +1235,7 @@ class ReassembleIRA(Reassemble):
         q=super(ReassembleIRA,self).filter(line)
         if q==None: return None
         if q.typ=="IRA:":
-            p=re.compile(r'sat:(\d+) beam:(\d+) (?:(aps|xyz)=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+            p=re.compile(r'sat:(\d+) beam:(\d+) (?:(?:aps|xyz)=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
             m=p.search(q.data)
             if(not m):
                 print("Couldn't parse IRA: ",q.data, end=' ', file=sys.stderr)
