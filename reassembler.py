@@ -1235,19 +1235,21 @@ class ReassembleIRA(Reassemble):
         q=super().filter(line)
         if q==None: return None
         if q.typ=="IRA:":
-            p=re.compile(r'sat:(\d+) beam:(\d+) (?:(?:aps|xyz)=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+            p=re.compile(r'sat:(\d+) beam:(\d+) (?:(?:aps|xyz)=\(([+-]?[0-9]+),([+-]?[0-9]+),([+-]?[0-9]+)\) )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
             m=p.search(q.data)
             if(not m):
                 print("Couldn't parse IRA: ",q.data, end=' ', file=sys.stderr)
             else:
                 q.sat=  int(m.group(1))
                 q.beam= int(m.group(2))
-                q.lat=float(m.group(3))
-                q.lon=float(m.group(4))
-                q.alt=  int(m.group(5))
-                if m.group(6) is not None:
+                if m.group(3) is not None:
+                    q.xyz= [4*int(m.group(3)), 4*int(m.group(4)), 4*int(m.group(5))]
+                q.lat=float(m.group(6))
+                q.lon=float(m.group(7))
+                q.alt=  int(m.group(8))
+                if m.group(9) is not None:
                     p=re.compile(r'PAGE\(tmsi:([0-9a-f]+) msc_id:([0-9]+)\)')
-                    q.pages=p.findall(m.group(6))
+                    q.pages=p.findall(m.group(9))
                 else: # Won't be printed, but just in case
                     q.pages=[]
                 return q
