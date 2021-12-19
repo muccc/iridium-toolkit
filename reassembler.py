@@ -392,7 +392,7 @@ class LiveMap(Reassemble):
         self.ground={}
         pass
 
-    r2=re.compile(r' *sat:(\d+) beam:(\d+) (?:rps=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+).*')
+    r2=re.compile(r' *sat:(\d+) beam:(\d+) (?:xyz=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+).*')
 
     def filter(self,line):
         q=super().filter(line)
