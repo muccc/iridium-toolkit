@@ -393,7 +393,7 @@ import json
 class LiveMap(Reassemble):
     intvl=60
     exptime=60*8
-    timeslot=None
+    timeslot=-1
 
     def __init__(self):
         self.positions={}
@@ -449,10 +449,10 @@ class LiveMap(Reassemble):
                 del self.ground[sat][:eidx]
 
             #cleanup
-            for sat in self.positions.keys():
+            for sat in list(self.positions.keys()):
                 if len(self.positions[sat])==0:
                     del self.positions[sat]
-            for sat in self.ground.keys():
+            for sat in list(self.ground.keys()):
                 if len(self.ground[sat])==0:
                     del self.ground[sat]
 
