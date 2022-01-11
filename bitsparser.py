@@ -15,6 +15,7 @@ from inspect import stack
 
 from util import *
 from math import sqrt,atan2,pi,log
+import itl
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
 uplink_access= "110011000011110011111100" # BPSK: 0xc4b
@@ -165,14 +166,7 @@ class Message(object):
             self.uplink=1
         else:
             if uwec and len(self.bitstream_raw)>=len(iridium_access):
-                access=[]
-                map=[0,1,3,2]
-                # back into bpsk symbols
-                for x in range(0,len(iridium_access)-1,2):
-                    access.append(map[int(self.bitstream_raw[x+0])*2 + int(self.bitstream_raw[x+1])])
-                # undo differential decoding
-                for c in range(1,len(access)-1):
-                    access[c]=(access[c-1]+access[c])%4
+                access=de_dqpsk(self.bitstream_raw[:len(iridium_access)])
 
                 if bitdiff(access,UW_DOWNLINK) <4:
                     self.uplink=0
@@ -360,6 +354,12 @@ class IridiumMessage(Message):
                             if ((d2+b2+o_ra2[31]).count('1') % 2)==0:
                                 if ((d3+b3+o_ra3[31]).count('1') % 2)==0:
                                     self.msgtype="RA"
+
+                # try ITL
+                if len(data)>=96+(8*8*12):
+                    if bitdiff(data[:96],header_time_location)<4:
+                        self.ec_lcw=1
+                        self.msgtype="TL"
 
         if "msgtype" not in self.__dict__:
             if len(data)<64:
@@ -662,15 +662,120 @@ class IridiumSTLMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
         self.header="<11>"
+        self.fixederrs=0
+        if len(self.descrambled) < 8*8*12: # 12 blocks of 8 bytes
+            raise ParserError("ITL content too short")
+
+        symbols=de_dqpsk(self.descrambled)
+
+        (i_list,q_list)=split_qpsk(symbols)
+
+        i_list=["%02x"%int(x,2) for x in slice(i_list,8)]
+        q_list=["%02x"%int(x,2) for x in slice(q_list,8)]
+
+        self.i=["".join(x) for x in (i_list[:16],i_list[16:])]
+        self.q=["".join(x) for x in slice(q_list,12)]
+
+        if not harder:
+            if self.i[0]!=itl.PRS_V2:
+                raise ParserError("ITL initial PRS unknown")
+
+            try:
+                self.plane= itl.MAP_PLANE[self.i[1]]
+                self.msg= [itl.MAP_PRS[x] for x in self.q]
+            except KeyError:
+                raise ParserError("ITL PRS unknown")
+
+            #sanity check the PRS sequence order
+            sanity = "".join([str(itl.MAP_PRS_TYPE[x]) for x in self.q])
+            if self.plane%2 == 0:
+                if sanity not in ("0123","1032"):
+                    raise ParserError("ITL wrong PRS found")
+            else:
+                if sanity not in ("2301","3210"):
+                    raise ParserError("ITL wrong PRS found")
+
+        else: # harder
+            MAX_DIFF=10
+            self.plane=None
+            self.msg=[None]*4
+
+            self.ib=[bin(int(x, 16))[2:].zfill(len(x*4)) for x in self.i]
+
+            if self.i[0]==itl.PRS_V2:
+                pass
+            elif bitdiff(self.ib[0],itl.BIN_V2)<MAX_DIFF:
+                self.fixederrs+=1
+            else:
+                raise ParserError("ITL initial PRS unknown")
+
+            if self.i[1] in itl.MAP_PLANE:
+                self.plane= itl.MAP_PLANE[self.i[1]]
+            else:
+                for i,p in enumerate(itl.BIN_PLANES):
+                    if bitdiff(self.ib[1],p)<MAX_DIFF*2:
+                        self.plane=i+1
+                        self.fixederrs+=1
+                        break
+                if self.plane is None:
+                    raise ParserError("ITL plane PRS unknown")
+
+            cat=None
+            for qidx in range(len(self.q)):
+                mindist=999
+                if self.q[qidx] in itl.MAP_PRS:
+                    self.msg[qidx]= itl.MAP_PRS[self.q[qidx]]
+                    cat=itl.MAP_PRS_TYPE[self.q[qidx]]
+                else:
+                    q=bin(int(self.q[qidx], 16))[2:].zfill(len(self.q[qidx]*4))
+                    if qidx==0: # Only search in correct PRS subset
+                        if self.plane%2==0:
+                            s=0
+                            e=256
+                        else:
+                            s=256
+                            e=512
+                    elif qidx==1 or qidx==3:
+                        cat^=1
+                        s=128*cat
+                        e=128*(cat+1)
+                    elif qidx==2:
+                        cat^=3
+                        s=128*cat
+                        e=128*(cat+1)
+                    else:
+                        raise AssertionError("ITL category error")
+                    for i,prs in enumerate(itl.BIN_PRS[s:e]):
+                        dist=bitdiff(q,prs)
+                        if dist<mindist: mindist=dist
+                        if dist<MAX_DIFF:
+                            self.msg[qidx]=i%128
+                            if cat is None:
+                                cat=(i+s)//128
+                            self.fixederrs+=1
+                            break
+                if self.msg[qidx] is None:
+                    self._new_error("ITL PRS unknown")
+                    raise ParserError("ITL PRS dist=%d"%mindist)
+
+        self.header="V2"
+        try:
+            (self.sat, self.mt)= itl.map_sat(self.msg[0])
+        except ValueError:
+            raise ParserError("ITL invalid sat ID")
+        self.msg=self.msg[1:]
+
     def upgrade(self):
         return self
     def pretty(self):
-        str= "ITL: "+self._pretty_header()
-        str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[:256]), 8) ])+"]"
-        str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[256:512]), 8) ])+"]"
-        str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[512:]), 8) ])+"]"
-        str+=self._pretty_trailer()
-        return str
+        st= "ITL: "+self._pretty_header()
+
+        st+=" OK P%d"%self.plane
+        st+=" "+self.sat+" M%d"%self.mt
+        st+=" "+" ".join(["{0:07b}".format(x) for x in self.msg])
+
+        st+=self._pretty_trailer()
+        return st
 
 class IridiumLCW3Message(IridiumLCWMessage):
     def __init__(self,imsg):
@@ -1603,3 +1708,34 @@ def checksum_16(msg, csum):
     csum=sum(struct.unpack("15H",msg+csum))
     csum=((csum&0xffff) + (csum>>16))
     return csum^0xffff
+
+def de_dqpsk(bits):
+    symbols=[]
+    imap=[0,1,3,2]
+    # back into bpsk symbols
+    for x in range(0,len(bits)-1,2):
+        symbols.append(imap[int(bits[x+0])*2 + int(bits[x+1])])
+
+    # undo differential decoding
+    for c in range(1,len(symbols)):
+        symbols[c]=(symbols[c-1]+symbols[c])%4
+
+    return symbols
+
+def split_qpsk(symbols):
+    i_list=""
+    q_list=""
+    for sym in symbols:
+        if sym==0:
+            i_list+="0"
+            q_list+="0"
+        elif sym==1:
+            i_list+="1"
+            q_list+="0"
+        elif sym==2:
+            i_list+="1"
+            q_list+="1"
+        elif sym==3:
+            i_list+="0"
+            q_list+="1"
+    return (i_list,q_list)
