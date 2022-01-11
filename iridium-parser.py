@@ -137,7 +137,10 @@ def do_input(type):
         for line in fileinput.input(remainder):
             if good:
                 q=bitsparser.Message(line.strip())
-                if q.confidence<min_confidence:
+                try:
+                    if q.confidence<min_confidence:
+                        continue
+                except AttributeError:
                     continue
                 perline(q.upgrade())
             else:
