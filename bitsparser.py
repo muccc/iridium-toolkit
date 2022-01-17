@@ -611,6 +611,10 @@ class IridiumSYMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
     def upgrade(self):
+        self.fixederrs=0
+        for x in self.sync:
+            if x!=0xaa:
+                self.fixederrs+=1 # Maybe count bit errors
         return self
     def _pretty_header(self):
         return super(IridiumSYMessage,self)._pretty_header()
@@ -618,14 +622,10 @@ class IridiumSYMessage(IridiumMessage):
         return super(IridiumSYMessage,self)._pretty_trailer()
     def pretty(self):
         str= "ISY: "+self._pretty_header()
-        errs=0
-        for x in self.sync:
-            if x!=0xaa:
-                errs+=1 # Maybe count bit errors
-        if errs==0:
+        if self.fixederrs==0:
             str+=" Sync=OK"
         else:
-            str+=" Sync=no, errs=%d"%errs
+            str+=" Sync=no, errs=%d"%self.fixederrs
         str+=self._pretty_trailer()
         return str
 
