@@ -11,6 +11,7 @@ import rs
 import rs6
 import fileinput
 import datetime
+from inspect import stack
 
 from util import *
 from math import sqrt,atan2,pi,log
@@ -47,7 +48,9 @@ channelize=False
 freqclass=True
 
 class ParserError(Exception):
-    pass
+    def __init__(self, message):
+        super().__init__(message)
+        self.cls=stack()[1][0].f_locals['self'].__class__.__name__
 
 tswarning=False
 tsoffset=0
@@ -185,11 +188,14 @@ class Message(object):
         try:
             return IridiumMessage(self).upgrade()
         except ParserError as e:
-            self._new_error(str(e))
+            self._new_error(str(e), e.cls)
             return self
-    def _new_error(self,msg):
+    def _new_error(self,msg, cls=None):
         self.error=True
-        msg=str(type(self).__name__) + ": "+msg
+        if cls is None:
+            msg=str(type(self).__name__) + ": "+msg
+        else:
+            msg=cls + ": "+msg
         if not self.error_msg or self.error_msg[-1] != msg:
             self.error_msg.append(msg)
     def _pretty_header(self):
@@ -578,7 +584,7 @@ class IridiumMessage(Message):
                 return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
         except ParserError as e:
-            self._new_error(str(e))
+            self._new_error(str(e), e.cls)
             return self
         return self
     def _pretty_header(self):
@@ -945,7 +951,7 @@ class IridiumECCMessage(IridiumMessage):
             else:
                 self._new_error("Unknown message type")
         except ParserError as e:
-            self._new_error(str(e))
+            self._new_error(str(e), e.cls)
             return self
         return self
     def _pretty_header(self):
@@ -1016,7 +1022,7 @@ class IridiumLCWMessage(IridiumECCMessage):
         try:
             return self
         except ParserError as e:
-            self._new_error(str(e))
+            self._new_error(str(e), e.cls)
             return self
         return self
     def _pretty_header(self):
@@ -1145,7 +1151,7 @@ class IridiumBCMessage(IridiumECCMessage):
         try:
             return self
         except ParserError as e:
-            self._new_error(str(e))
+            self._new_error(str(e), e.cls)
             return self
         return self
     def _pretty_header(self):
@@ -1231,7 +1237,7 @@ class IridiumRAMessage(IridiumECCMessage):
         try:
             return self
         except ParserError as e:
-            self._new_error(str(e))
+            self._new_error(str(e), e.cls)
             return self
         return self
     def _pretty_header(self):
@@ -1351,7 +1357,7 @@ class IridiumMSMessage(IridiumECCMessage):
                 else:
                     self._new_error("unknown msg_format")
         except ParserError as e:
-            self._new_error(str(e))
+            self._new_error(str(e), e.cls)
             return self
         return self
     def _pretty_header(self):
