@@ -225,6 +225,8 @@ class Message(object):
 #        self.leadout_ok=(m.group(8)=="OK")
         self.confidence=int(m.group(9))
         self.level=float(m.group(10))
+        if self.level==0:
+            self.level=float(m.group(10)+"1")
         self.leveldb=20*log(self.level,10)
 #        self.raw_length=m.group(11)
         self.bitstream_raw=(re.sub(r"[\[\]<> ]","",m.group(12))) # raw bitstring with correct symbols
