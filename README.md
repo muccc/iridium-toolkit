@@ -2,7 +2,7 @@
 
 ### Requisites
 
- * Python (2.7)
+ * Python (3.x)
  * NumPy (scipy)
  * crcmod
 
@@ -15,11 +15,11 @@ Either extract some Iridium frames from the air or a file using [gr-iridium](htt
 
 It is assumed that the output of the extractor has been written to `output.bits`. Iridium frames can be decoded with
 
-    python2 iridium-parser.py -p output.bits
+    python3 iridium-parser.py -p output.bits
 
 if you want to speed up that step you can install `pypy` and instead run
 
-    pypy iridium-parser.py -p output.bits
+    pypy3 iridium-parser.py -p output.bits
 
 ### Frame extraction
 See  [gr-iridium](https://github.com/muccc/gr-iridium) (recommended) or [extractor-python](extractor-python/) (not recommended) on how to extract Iridium frames from raw data.
@@ -49,7 +49,16 @@ Partial documentation: http://wiki.muc.ccc.de/iridium:toolkit#frame_format
 
 Takes the demodulated bits and tries to parse them into a readable format.
 
-Supports some different output formats (`-o` option).
+Usage: (it is assumed that the output from gr-iridium is in `output.bits`)
+
+    iridium-parser.py [-p] [--harder] output.bits > output.parsed
+
+Some Options:
+
+* `-p` - Only output frames parsed without errors (and error-correction)
+* `--harder` - Try extra hard to decode with the use of error-correction (very slow)
+* `--uw-ec` - Try to parse lines with errors inside iridium unique word (also slow)
+* `--filter <classname>` - Only decode frames of that class (e.g. `IridiumRAMessage`, `IridiumBCMessage`, etc.) (fast)
 
 #### mkkml
 
@@ -82,5 +91,4 @@ Supported modes are currently:
 * `msg` - Pager messages
 * `sbd` - Short Burst Data messages
 * `ppm` - estimation of receiving SDRs PPM frequency offset
-* `stats` - per 10-minute statistics of received packet type in graphite format
 
