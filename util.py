@@ -16,13 +16,8 @@ class Zulu(datetime.tzinfo):
 
 Z=Zulu()
 
-# Workaround for python < 3.8 (i.e. pypy3)
-try:
-    bytes.hex(bytes(0),":")
-    myhex=bytes.hex
-except TypeError:
-    def myhex(data, sep):
-        return sep.join(["%02x"%(x) for x in data])
+def myhex(data, sep):
+    return sep.join(["%02x"%(x) for x in data])
 
 def fmt_iritime(iritime):
     # Different Iridium epochs that we know about:
