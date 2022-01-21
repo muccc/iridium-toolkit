@@ -411,176 +411,36 @@ class IridiumMessage(Message):
         elif self.msgtype=="LW":
             lcwlen=46
             (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
-            (e1,self.lcw1,bch)= bch_repair( 29,o_lcw1)
-            (e2a,lcw2a,bch)= bch_repair(465,o_lcw2+'0')  # One bit error expected
-            (e2b,lcw2b,bch)= bch_repair(465,o_lcw2+'1')  # Other bit flip?
-            if e2b<0:
-                e2=e2a
-                self.lcw2=lcw2a
-            elif e2a<0:
+            (e1, self.lcw1,bch)= bch_repair( 29,o_lcw1)
+            (e2, self.lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit error expected
+            (e2b,lcw2b,    bch)= bch_repair(465,o_lcw2+'1')  # Other bit flip?
+            (e3,self.lcw3, bch)= bch_repair( 41,o_lcw3)
+
+            if (e2b>=0 and e2b<=e2) or (e2<0):
                 e2=e2b
                 self.lcw2=lcw2b
-            elif e2a<e2b:
-                e2=e2a
-                self.lcw2=lcw2a
-            else:
-                e2=e2b
-                self.lcw2=lcw2b
-            (e3,self.lcw3,bch)= bch_repair( 41,o_lcw3)
+
             self.ft=int(self.lcw1,2) # Frame type
-            if forcetype and ':' in forcetype:
-                self.ft=int(forcetype.partition(':')[2])
+
+            self.lcw_e=e1+e2+e3
             if e1<0 or e2<0 or e3<0:
                 self._new_error("LCW decode failed")
                 self.header="LCW(%s %s/%02d E%d,%s %sx/%03d E%d,%s %s/%02d E%d)"%(o_lcw1[:3],o_lcw1[3:],ndivide(29,o_lcw1),e1,o_lcw2[:6],o_lcw2[6:],ndivide(465,o_lcw2+'0'),e2,o_lcw3[:21],o_lcw3[21:],ndivide(41,o_lcw3),e3)
-            else:
-# LCW:=xx[type] yyyy[code]
-# 0: maint
-#    6: geoloc
-#    f: "no text"
-#    c: maint [lqi[x1c,2], power[[x19,3]]
-#    789abde: reserved
-#    0: sync [status[xa,1], dtoa[xc,10], dfoa[x16,8]]
-#    3: maint [lqi[xa,2], power[xc,3], fine dtoa[xf,7], fine dfoa[x16,3]]
-#    245: reserved
-#    1: switch [dtoa[xc,10], dfoa[x16,8]]
-# 1: acchl
-#    1: acchl
-#    *: reserved
-# 2: handoff
-#    c: handoff cand.
-#    f: "no text"
-#    3: handoff resp. [cand[%c[0=P,1=S::0xb,1]], denied[0xc,1], ref[xd,1], slot[xf,2]+1, subband up[x11,5], subband down[x16,5], access[x1b,3]+1]
-#    *: reserved
-# 3: reserved
-#                self.header="LCW(%d,%s,%s E%d)"%(self.ft,self.lcw2,self.lcw3,e1+e2+e3)
-                self.lcw_ft=int(self.lcw2[:2],2)
-                self.lcw_code=int(self.lcw2[2:],2)
-                lcw3bits=self.lcw3
-                if self.lcw_ft == 0:
-                    ty="maint"
-                    if self.lcw_code == 6:
-                        code="geoloc"
-                    elif self.lcw_code == 15:
-                        code="<silent>"
-                    elif self.lcw_code == 12:
-                        code="maint[1]"
-                        code+="[lqi:%d,power:%d]"%(int(self.lcw3[19:21],2),int(self.lcw3[16:19],2))
-                        lcw3bits="%s"%(self.lcw3[:16])
-                    elif self.lcw_code == 0:
-                        code="sync"
-                        code+="[status:%d,dtoa:%d,dfoa:%d]"%(int(self.lcw3[1:2],2),int(self.lcw3[3:13],2),int(self.lcw3[13:21],2))
-                        lcw3bits="%s|%s"%(self.lcw3[0],self.lcw3[2])
-                    elif self.lcw_code == 3:
-                        code="maint[2]"
-                        code+="[lqi:%d,power:%d,f_dtoa:%d,f_dfoa:%d]"%(int(self.lcw3[1:3],2),int(self.lcw3[3:6],2),int(self.lcw3[6:13],2),int(self.lcw3[13:20],2))
-                        lcw3bits="%s|%s"%(self.lcw3[0],self.lcw3[20:])
-                    elif self.lcw_code == 1:
-                        code="switch"
-                        code+="[dtoa:%d,dfoa:%d]"%(int(self.lcw3[3:13],2),int(self.lcw3[13:21],2))
-                        lcw3bits="%s"%(self.lcw3[0:3])
-                    else:
-                        code="rsrvd(%d)"%(self.lcw_code)
-                elif self.lcw_ft == 1:
-                    ty="acchl"
-                    if self.lcw_code == 1:
-                        code="acchl"
-                    else:
-                        code="rsrvd(%d)"%(self.lcw_code)
-                elif self.lcw_ft == 2:
-                    ty="hndof"
-                    if self.lcw_code == 12:
-                        code="handoff_cand"
-                        lcw3bits="%03x,%03x,%s"%(int(self.lcw3[:11],2),int(self.lcw3[11:],2),lcw3bits)
-                    elif self.lcw_code == 3:
-                        code="handoff_resp"
-                        code+="[cand:%s,denied:%d,ref:%d,slot:%d,sband_up:%d,sband_dn:%d,access:%d]"%(['P','S'][int(self.lcw3[2:3],2)],int(self.lcw3[3:4],2),int(self.lcw3[4:5],2),1+int(self.lcw3[6:8],2),int(self.lcw3[8:13],2),int(self.lcw3[13:18],2),1+int(self.lcw3[18:21],2))
-                        lcw3bits="%s"%(self.lcw3[0:2])
-                    elif self.lcw_code == 15:
-                        code="<silent>"
-                    else:
-                        code="rsrvd(%d)"%(self.lcw_code)
-                elif self.lcw_ft == 3:
-                    ty="rsrvd"
-                    code="<%d>"%(self.lcw_code)
-                self.header="LCW(%d,T:%s,C:%s,%s E%d)"%(self.ft,ty,code,lcw3bits,e1+e2+e3)
-                self.header="%-110s "%self.header
-            self.descrambled=[]
-            self.payload_r=[]
-            self.payload_f=[]
-            data=data[lcwlen:]
 
-            if self.ft<=3 and len(data)<312:
-                    self._new_error("Not enough data in data packet")
-            if self.ft==0: # Voice - Mission data - voice
-                self.msgtype="VO"
-                for x in slice(data[:312],8):
-                    self.descrambled+=[x]
-                    self.payload_f+=[int(x,2)]
-                    self.payload_r+=[int(x[::-1],2)]
-                self.payload_6=[int(x,2) for x in slice(data[:312], 6)]
-                self.descramble_extra=data[312:]
-            elif self.ft==1: # IP via PPP - Mission data - data
-                self.msgtype="IP"
-                for x in slice(data[:312],8):
-                    self.descrambled+=[x[::-1]]
-                    self.payload_f+=[int(x,2)]
-                    self.payload_r+=[int(x[::-1],2)]
-                self.descramble_extra=data[312:]
-            elif self.ft==2: # DAta (SBD) - Mission control data - ISU/SV
-                self.msgtype="DA"
-                self.descramble_extra=data[124*2+64:]
-                data=data[:124*2+64]
-                blocks=slice(data,124)
-                end=blocks.pop()
-                for x in blocks:
-                    (b1,b2)=de_interleave(x)
-                    (b1,b2,b3,b4)=slice(b1+b2,31)
-                    self.descrambled+=[b4,b2,b3,b1]
-                (b1,b2)=de_interleave(end)
-                self.descrambled+=[b2[1:],b1[1:]] # Throw away the extra bit
-            elif self.ft==7: # Synchronisation
-                self.msgtype="SY"
-                self.descrambled=data[:312]
-                self.sync=[int(x,2) for x in slice(self.descrambled, 8)]
-                self.descramble_extra=data[312:]
-            elif self.ft==3: # Mission control data - inband sig
-                self.msgtype="U3"
-                self.descrambled=data[:312]
-                self.payload6=[int(x,2) for x in slice(self.descrambled, 6)]
-                self.payload8=[int(x,2) for x in slice(self.descrambled, 8)]
-                self.descramble_extra=data[312:]
-            elif self.ft==6: # "PT=,"
-                self.msgtype="U6"
-                self.descrambled=data[:312]
-                self.descramble_extra=data[312:]
-            else: # Need to check what other ft are
-                self.msgtype="U%d"%self.ft
-                self.descrambled=data[:312]
-                self.descramble_extra=data[312:]
+            data=data[lcwlen:]
+            self.descramble_extra=data[312:]
+            self.descrambled=data[:312]
+
         else:
             raise Exception("Illegal Iridium frame type")
 
-        if self.msgtype!="VO" and self.msgtype!="IP" and len(self.descrambled)==0:
-            self._new_error("No data to descramble")
-
     def upgrade(self):
-        if linefilter['type']=='IridiumLCW3Message' and self.msgtype!="U3":
-            self._new_error("filtered message")
         if self.error: return self
         try:
-            if self.msgtype=="VO":
-                return IridiumVOMessage(self).upgrade()
-            elif self.msgtype=="IP":
-                return IridiumIPMessage(self).upgrade()
-            elif self.msgtype=="SY":
-                return IridiumSYMessage(self).upgrade()
-            elif self.msgtype=="U3":
-                return IridiumLCW3Message(self).upgrade()
+            if self.msgtype=="LW":
+                return IridiumLCWMessage(self).upgrade()
             elif self.msgtype=="TL":
                 return IridiumSTLMessage(self).upgrade()
-            elif self.msgtype.startswith("U"):
-                return self # XXX: probably need to descramble/BCH it
             return IridiumECCMessage(self).upgrade()
         except ParserError as e:
             self._new_error(str(e), e.cls)
@@ -611,7 +471,175 @@ class IridiumMessage(Message):
         sstr+= self._pretty_trailer()
         return sstr
 
-class IridiumSYMessage(IridiumMessage):
+class IridiumLCWMessage(IridiumMessage):
+    def __init__(self,msg):
+        self.__dict__=msg.__dict__
+
+        if forcetype and ':' in forcetype:
+            self.ft=int(forcetype.partition(':')[2])
+
+        data=self.descrambled
+        self.pretty_lcw()
+
+        if self.ft<=3 and len(data)<312:
+                self._new_error("Not enough data in data packet")
+
+        self.descrambled=[]
+        self.payload_r=[]
+        self.payload_f=[]
+
+        if self.ft==0: # Voice - Mission data - voice
+            self.msgtype="VO"
+            for x in slice(data,8):
+                self.descrambled+=[x]
+                self.payload_f+=[int(x,2)]
+                self.payload_r+=[int(x[::-1],2)]
+            self.payload_6=[int(x,2) for x in slice(data[:312], 6)]
+        elif self.ft==1: # IP via PPP - Mission data - data
+            self.msgtype="IP"
+            for x in slice(data,8):
+                self.descrambled+=[x[::-1]]
+                self.payload_f+=[int(x,2)]
+                self.payload_r+=[int(x[::-1],2)]
+        elif self.ft==2: # DAta (SBD) - Mission control data - ISU/SV
+            self.msgtype="DA"
+            blocks=slice(data,124)
+            end=blocks.pop()
+            for x in blocks:
+                (b1,b2)=de_interleave(x)
+                (b1,b2,b3,b4)=slice(b1+b2,31)
+                self.descrambled+=[b4,b2,b3,b1]
+            (b1,b2)=de_interleave(end)
+            self.descrambled+=[b2[1:],b1[1:]] # Throw away the extra bit
+        elif self.ft==7: # Synchronisation
+            self.msgtype="SY"
+            self.descrambled=data
+            self.sync=[int(x,2) for x in slice(self.descrambled, 8)]
+        elif self.ft==3: # Mission control data - inband sig
+            self.msgtype="U3"
+            self.descrambled=data
+            self.payload6=[int(x,2) for x in slice(self.descrambled, 6)]
+            self.payload8=[int(x,2) for x in slice(self.descrambled, 8)]
+        elif self.ft==6: # "PT=,"
+            self.msgtype="U6"
+            self.descrambled=data
+        else: # Need to check what other ft are
+            self.msgtype="U%d"%self.ft
+            self.descrambled=data
+
+        if self.msgtype!="VO" and self.msgtype!="IP" and len(self.descrambled)==0:
+            self._new_error("No data to descramble")
+
+    def upgrade(self):
+        if linefilter['type']=='IridiumLCW3Message' and self.msgtype!="U3":
+            self._new_error("filtered message")
+        if self.error: return self
+        try:
+            if self.msgtype=="VO":
+                return IridiumVOMessage(self).upgrade()
+            elif self.msgtype=="IP":
+                return IridiumIPMessage(self).upgrade()
+            elif self.msgtype=="SY":
+                return IridiumSYMessage(self).upgrade()
+            elif self.msgtype=="DA":
+                return IridiumECCMessage(self).upgrade()
+            elif self.msgtype=="U3":
+                return IridiumLCW3Message(self).upgrade()
+            elif self.msgtype.startswith("U"):
+                return self # XXX: probably need to descramble/BCH it
+            raise AssertionError("unknown frame type encountered")
+        except ParserError as e:
+            self._new_error(str(e), e.cls)
+            return self
+        return self
+
+    def pretty_lcw(self):
+# LCW:=xx[type] yyyy[code]
+# 0: maint
+#    6: geoloc
+#    f: "no text"
+#    c: maint [lqi[x1c,2], power[[x19,3]]
+#    789abde: reserved
+#    0: sync [status[xa,1], dtoa[xc,10], dfoa[x16,8]]
+#    3: maint [lqi[xa,2], power[xc,3], fine dtoa[xf,7], fine dfoa[x16,3]]
+#    245: reserved
+#    1: switch [dtoa[xc,10], dfoa[x16,8]]
+# 1: acchl
+#    1: acchl
+#    *: reserved
+# 2: handoff
+#    c: handoff cand.
+#    f: "no text"
+#    3: handoff resp. [cand[%c[0=P,1=S::0xb,1]], denied[0xc,1], ref[xd,1], slot[xf,2]+1, subband up[x11,5], subband down[x16,5], access[x1b,3]+1]
+#    *: reserved
+# 3: reserved
+        self.lcw_ft=int(self.lcw2[:2],2)
+        self.lcw_code=int(self.lcw2[2:],2)
+        lcw3bits=self.lcw3
+        if self.lcw_ft == 0:
+            ty="maint"
+            if self.lcw_code == 6:
+                code="geoloc"
+            elif self.lcw_code == 15:
+                code="<silent>"
+            elif self.lcw_code == 12:
+                code="maint[1]"
+                code+="[lqi:%d,power:%d]"%(int(self.lcw3[19:21],2),int(self.lcw3[16:19],2))
+                lcw3bits="%s"%(self.lcw3[:16])
+            elif self.lcw_code == 0:
+                code="sync"
+                code+="[status:%d,dtoa:%d,dfoa:%d]"%(int(self.lcw3[1:2],2),int(self.lcw3[3:13],2),int(self.lcw3[13:21],2))
+                lcw3bits="%s|%s"%(self.lcw3[0],self.lcw3[2])
+            elif self.lcw_code == 3:
+                code="maint[2]"
+                code+="[lqi:%d,power:%d,f_dtoa:%d,f_dfoa:%d]"%(int(self.lcw3[1:3],2),int(self.lcw3[3:6],2),int(self.lcw3[6:13],2),int(self.lcw3[13:20],2))
+                lcw3bits="%s|%s"%(self.lcw3[0],self.lcw3[20:])
+            elif self.lcw_code == 1:
+                code="switch"
+                code+="[dtoa:%d,dfoa:%d]"%(int(self.lcw3[3:13],2),int(self.lcw3[13:21],2))
+                lcw3bits="%s"%(self.lcw3[0:3])
+            else:
+                code="rsrvd(%d)"%(self.lcw_code)
+        elif self.lcw_ft == 1:
+            ty="acchl"
+            if self.lcw_code == 1:
+                code="acchl"
+            else:
+                code="rsrvd(%d)"%(self.lcw_code)
+        elif self.lcw_ft == 2:
+            ty="hndof"
+            if self.lcw_code == 12:
+                code="handoff_cand"
+                lcw3bits="%03x,%03x,%s"%(int(self.lcw3[:11],2),int(self.lcw3[11:],2),lcw3bits) # XXX: duplication of bits
+            elif self.lcw_code == 3:
+                code="handoff_resp"
+                code+="[cand:%s,denied:%d,ref:%d,slot:%d,sband_up:%d,sband_dn:%d,access:%d]"%(['P','S'][int(self.lcw3[2:3],2)],int(self.lcw3[3:4],2),int(self.lcw3[4:5],2),1+int(self.lcw3[6:8],2),int(self.lcw3[8:13],2),int(self.lcw3[13:18],2),1+int(self.lcw3[18:21],2))
+                lcw3bits="%s"%(self.lcw3[0:2])
+            elif self.lcw_code == 15:
+                code="<silent>"
+            else:
+                code="rsrvd(%d)"%(self.lcw_code)
+        elif self.lcw_ft == 3:
+            ty="rsrvd"
+            code="<%d>"%(self.lcw_code)
+        self.header="LCW(%d,T:%s,C:%s,%s E%d)"%(self.ft,ty,code,lcw3bits,self.lcw_e)
+        self.header="%-110s "%self.header
+
+    def _pretty_header(self):
+        return super()._pretty_header()
+    def _pretty_trailer(self):
+        return super()._pretty_trailer()
+    def pretty(self):
+        sstr= "IRI: "+self._pretty_header()
+        sstr+= " %2s"%self.msgtype
+        if self.descrambled!="":
+            sstr+= " ["
+            sstr+=".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled), 8) ])
+            sstr+="]"
+        sstr+= self._pretty_trailer()
+        return sstr
+
+class IridiumSYMessage(IridiumLCWMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
     def upgrade(self):
@@ -643,7 +671,7 @@ class IridiumSTLMessage(IridiumMessage):
         str+=self._pretty_trailer()
         return str
 
-class IridiumLCW3Message(IridiumMessage):
+class IridiumLCW3Message(IridiumLCWMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
 
@@ -733,7 +761,7 @@ class IridiumLCW3Message(IridiumMessage):
         str+=self._pretty_trailer()
         return str
 
-class IridiumVOMessage(IridiumMessage):
+class IridiumVOMessage(IridiumLCWMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
         self.crcval=iip_crc24( bytes(self.payload_r))
@@ -784,7 +812,7 @@ class IridiumVOMessage(IridiumMessage):
 
 # Poly from GSM 04.64 / check value (reversed) is 0xC91B6
 iip_crc24=crcmod.mkCrcFun(poly=0x1BBA1B5,initCrc=0xffffff^0x0c91b6,rev=True,xorOut=0x0c91b6)
-class IridiumIPMessage(IridiumMessage):
+class IridiumIPMessage(IridiumLCWMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
 
