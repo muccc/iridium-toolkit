@@ -644,10 +644,7 @@ class IridiumSYMessage(IridiumLCWMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
     def upgrade(self):
-        self.fixederrs=0
-        for x in self.sync:
-            if x!=0xaa:
-                self.fixederrs+=1 # Maybe count bit errors
+        self.fixederrs=(1+bitdiff(self.descrambled,"10"*(len(self.descrambled)//2)))//2 # count symbols
         return self
     def pretty(self):
         str= "ISY: "+self._pretty_header()
@@ -655,6 +652,8 @@ class IridiumSYMessage(IridiumLCWMessage):
             str+=" Sync=OK"
         else:
             str+=" Sync=no, errs=%d"%self.fixederrs
+            if len(self.descrambled) < 312:
+                str+=", short:%s "%len(self.descrambled)
         str+=self._pretty_trailer()
         return str
 
