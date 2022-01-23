@@ -425,10 +425,10 @@ class IridiumMessage(Message):
 
             self.ft=int(self.lcw1,2) # Frame type
 
-            self.lcw_e=e1+e2+e3
             if e1<0 or e2<0 or e3<0:
-                self._new_error("LCW decode failed")
-                self.header="LCW(%s %s/%02d E%d,%s %sx/%03d E%d,%s %s/%02d E%d)"%(o_lcw1[:3],o_lcw1[3:],ndivide(29,o_lcw1),e1,o_lcw2[:6],o_lcw2[6:],ndivide(465,o_lcw2+'0'),e2,o_lcw3[:21],o_lcw3[21:],ndivide(41,o_lcw3),e3)
+                if not ( forcetype and ':' in forcetype):
+                    self._new_error("LCW decode failed")
+                self.header="LCW(%s_%s/%01dE%d,%s_%sx/%03dE%d,%s_%s/%06dE%d)"%(o_lcw1[:3],o_lcw1[3:],int(self.lcw1,2),e1,o_lcw2[:6],o_lcw2[6:],int(self.lcw2,2),e2,o_lcw3[:21],o_lcw3[21:],int(self.lcw3,2),e3)
 
             data=data[lcwlen:]
             self.descramble_extra=data[312:]
@@ -627,7 +627,7 @@ class IridiumLCWMessage(IridiumMessage):
         elif self.lcw_ft == 3:
             ty="rsrvd"
             code="<%d>"%(self.lcw_code)
-        self.header="LCW(%d,T:%s,C:%s,%s E%d)"%(self.ft,ty,code,lcw3bits,self.lcw_e)
+        self.header="LCW(%d,T:%s,C:%s,%s)"%(self.ft,ty,code,lcw3bits)
         self.header="%-110s "%self.header
 
     def pretty(self):
