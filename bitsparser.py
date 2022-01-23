@@ -922,7 +922,7 @@ class IridiumECCMessage(IridiumMessage):
             elif self.msgtype == "BC":
                 return IridiumBCMessage(self).upgrade()
             elif self.msgtype == "DA":
-                return IridiumLCWMessage(self).upgrade()
+                return IridiumDAMessage(self).upgrade()
             else:
                 raise AssertionError("unknown Iridium message type")
         except ParserError as e:
@@ -949,7 +949,7 @@ class IridiumECCMessage(IridiumMessage):
         return str
 
 ida_crc16=crcmod.predefined.mkPredefinedCrcFun("crc-ccitt-false")
-class IridiumLCWMessage(IridiumECCMessage):
+class IridiumDAMessage(IridiumECCMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
         # Decode stuff from self.bitstream_bch
