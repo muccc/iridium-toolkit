@@ -588,7 +588,7 @@ class IridiumMessage(Message):
             return self
         return self
     def _pretty_header(self):
-        str= super(IridiumMessage,self)._pretty_header()
+        str= super()._pretty_header()
         str+= " %03d"%(self.symbols-len(iridium_access)//2)
 #        str+=" L:"+("no","OK")[self.lead_out_ok]
         if (self.uplink):
@@ -599,7 +599,7 @@ class IridiumMessage(Message):
             str+=" "+self.header
         return str
     def _pretty_trailer(self):
-        str= super(IridiumMessage,self)._pretty_trailer()
+        str= super()._pretty_trailer()
         if("descramble_extra" in self.__dict__) and self.descramble_extra != "":
             str+= " descr_extra:"+re.sub(iridium_lead_out,"["+iridium_lead_out+"]",self.descramble_extra)
         return str
@@ -622,10 +622,6 @@ class IridiumSYMessage(IridiumMessage):
             if x!=0xaa:
                 self.fixederrs+=1 # Maybe count bit errors
         return self
-    def _pretty_header(self):
-        return super(IridiumSYMessage,self)._pretty_header()
-    def _pretty_trailer(self):
-        return super(IridiumSYMessage,self)._pretty_trailer()
     def pretty(self):
         str= "ISY: "+self._pretty_header()
         if self.fixederrs==0:
@@ -641,10 +637,6 @@ class IridiumSTLMessage(IridiumMessage):
         self.header="<11>"
     def upgrade(self):
         return self
-    def _pretty_header(self):
-        return super(IridiumSTLMessage,self)._pretty_header()
-    def _pretty_trailer(self):
-        return super(IridiumSTLMessage,self)._pretty_trailer()
     def pretty(self):
         str= "ITL: "+self._pretty_header()
         str+=" ["+".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled[:256]), 8) ])+"]"
@@ -688,10 +680,6 @@ class IridiumLCW3Message(IridiumMessage):
 
     def upgrade(self):
         return self
-    def _pretty_header(self):
-        return super(IridiumLCW3Message,self)._pretty_header()
-    def _pretty_trailer(self):
-        return super(IridiumLCW3Message,self)._pretty_trailer()
     def pretty(self):
         str= self.utype+": "+self._pretty_header()
         if self.utype=='I38':
@@ -780,10 +768,6 @@ class IridiumVOMessage(IridiumMessage):
             new.itype="VDA"
             return new
         return self
-    def _pretty_header(self):
-        return super(IridiumVOMessage,self)._pretty_header()
-    def _pretty_trailer(self):
-        return super(IridiumVOMessage,self)._pretty_trailer()
     def pretty(self):
         str= self.vtype+": "+self._pretty_header()
         if self.vtype=="VDA":
@@ -841,10 +825,6 @@ class IridiumIPMessage(IridiumMessage):
                 self.itype="IIU"
     def upgrade(self):
         return self
-    def _pretty_header(self):
-        return super(IridiumIPMessage,self)._pretty_header()
-    def _pretty_trailer(self):
-        return super(IridiumIPMessage,self)._pretty_trailer()
     def pretty(self):
         s= self.itype+": "+self._pretty_header()
         if self.itype=="IIP" or self.itype=="VDA":
@@ -954,11 +934,6 @@ class IridiumECCMessage(IridiumMessage):
             self._new_error(str(e), e.cls)
             return self
         return self
-    def _pretty_header(self):
-        str= super(IridiumECCMessage,self)._pretty_header()
-        return str
-    def _pretty_trailer(self):
-        return super(IridiumECCMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IME: "+self._pretty_header()+" "+self.msgtype+" "
         for block in range(len(self.descrambled)):
@@ -1025,10 +1000,6 @@ class IridiumLCWMessage(IridiumECCMessage):
             self._new_error(str(e), e.cls)
             return self
         return self
-    def _pretty_header(self):
-        return super(IridiumLCWMessage,self)._pretty_header()
-    def _pretty_trailer(self):
-        return super(IridiumLCWMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IDA: "+self._pretty_header()
         str+= " "+self.bitstream_bch[:3]
@@ -1154,10 +1125,8 @@ class IridiumBCMessage(IridiumECCMessage):
             self._new_error(str(e), e.cls)
             return self
         return self
-    def _pretty_header(self):
-        return super(IridiumBCMessage,self)._pretty_header()
     def _pretty_trailer(self):
-        return self.trailer + super(IridiumBCMessage,self)._pretty_trailer()
+        return self.trailer + super()._pretty_trailer()
     def pretty(self):
         str= "IBC: "+self._pretty_header() + ' ' + self.readable
         str+=self._pretty_trailer()
@@ -1240,10 +1209,6 @@ class IridiumRAMessage(IridiumECCMessage):
             self._new_error(str(e), e.cls)
             return self
         return self
-    def _pretty_header(self):
-        return super(IridiumRAMessage,self)._pretty_header()
-    def _pretty_trailer(self):
-        return super(IridiumRAMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IRA: "+self._pretty_header()
         str+= " sat:%03d"%self.ra_sat
@@ -1361,7 +1326,7 @@ class IridiumMSMessage(IridiumECCMessage):
             return self
         return self
     def _pretty_header(self):
-        str= super(IridiumMSMessage,self)._pretty_header()
+        str= super()._pretty_header()
         str+= " %1d:%s:%02d" % (self.block, self.group,self.frame)
         str+= " len=%02d" % (self.bch_blocks)
         str+= " T%d" % (len(self.msg_trailer)//20)
@@ -1373,8 +1338,6 @@ class IridiumMSMessage(IridiumECCMessage):
             str += " m_odd:%-26s" % (self.msg_odd)
             str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
         return str
-    def _pretty_trailer(self):
-        return super(IridiumMSMessage,self)._pretty_trailer()
     def pretty(self):
         str= "IMS: "+self._pretty_header()
         if("msg_format" in self.__dict__):
@@ -1436,13 +1399,11 @@ class IridiumMessagingAscii(IridiumMSMessage):
         if self.error: return self
         return self
     def _pretty_header(self):
-        str= super(IridiumMessagingAscii,self)._pretty_header()
+        str= super()._pretty_header()
         str+= " seq:%02d %10s %1d/%1d"%(self.msg_seq,self.msg_unknown1,self.msg_ctr,self.msg_ctr_max)
         (full,rest)=slice_extra(self.msg_msgdata,8)
         msgx="".join(["%02x"%int(x,2) for x in full])
         return str+ " csum:%02x msg:%s.%s"%(self.msg_checksum,msgx,rest)
-    def _pretty_trailer(self):
-        return super(IridiumMessagingAscii,self)._pretty_trailer()
     def pretty(self):
        str= "MSG: "+self._pretty_header()
        str+= " TXT: %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
@@ -1469,10 +1430,8 @@ class IridiumMessagingBCD(IridiumMSMessage):
         if self.error: return self
         return self
     def _pretty_header(self):
-        str= super(IridiumMessagingBCD,self)._pretty_header()
+        str= super()._pretty_header()
         return str+ " seq:%02d %6s %s"%(self.msg_seq,self.msg_unknown1,self.msg_unknown2)
-    def _pretty_trailer(self):
-        return super(IridiumMessagingBCD,self)._pretty_trailer()
     def pretty(self):
        str= "MS3: "+self._pretty_header()
        str+= " BCD: %-65s"%self.bcd
