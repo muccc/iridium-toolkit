@@ -388,7 +388,8 @@ class IridiumMessage(Message):
             if len(data)<firstlen:
                 self._new_error("No data to descramble")
             self.header=""
-            self.descrambled=de_interleave3(data[:firstlen])
+            self.descrambled=[]
+            self.descrambled+=de_interleave3(data[:firstlen])
             (blocks,self.descramble_extra)=slice_extra(data[firstlen:],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
@@ -441,7 +442,9 @@ class IridiumMessage(Message):
                 return IridiumLCWMessage(self).upgrade()
             elif self.msgtype=="TL":
                 return IridiumSTLMessage(self).upgrade()
-            return IridiumECCMessage(self).upgrade()
+            elif self.msgtype in ("MS", "RA", "BC"):
+                return IridiumECCMessage(self).upgrade()
+            raise AssertionError("unknown frame type encountered")
         except ParserError as e:
             self._new_error(str(e), e.cls)
             return self
@@ -542,7 +545,7 @@ class IridiumLCWMessage(IridiumMessage):
             elif self.msgtype=="SY":
                 return IridiumSYMessage(self).upgrade()
             elif self.msgtype=="DA":
-                return IridiumECCMessage(self).upgrade()
+                return IridiumLCWECCMessage(self).upgrade()
             elif self.msgtype=="U3":
                 return IridiumLCW3Message(self).upgrade()
             elif self.msgtype.startswith("U"):
@@ -625,10 +628,6 @@ class IridiumLCWMessage(IridiumMessage):
         self.header="LCW(%d,T:%s,C:%s,%s E%d)"%(self.ft,ty,code,lcw3bits,self.lcw_e)
         self.header="%-110s "%self.header
 
-    def _pretty_header(self):
-        return super()._pretty_header()
-    def _pretty_trailer(self):
-        return super()._pretty_trailer()
     def pretty(self):
         sstr= "IRI: "+self._pretty_header()
         sstr+= " %2s"%self.msgtype
@@ -908,40 +907,68 @@ class IridiumECCMessage(IridiumMessage):
             self.poly=ringalert_bch_poly
         elif self.msgtype == "BC":
             self.poly=ringalert_bch_poly
-        elif self.msgtype == "DA":
-            self.poly=acch_bch_poly
         else:
             raise AssertionError("unknown Iridium message type")
 
         self.bitstream_bch=""
         self.fixederrs=0
+        self.fill=0
+        self.ecc_cut=False
+        self.bch_blk=len(self.descrambled)
         parity=None
+
+        if self.bch_blk==0:
+            raise ParserError("No data to ECC")
+
+        if self.msgtype in ('MS','RA'):
+            # remove optional FILL pattern
+            while True:
+                (first,second)=self.descrambled[-2:]
+                if (first+second == "1010001001110011101111110110110101010100010001011100001011100110") or \
+                        (bitdiff(first, "10100010011100111011111101101101") <=2 and
+                         bitdiff(second,"01010100010001011100001011100110") <=2):
+                    # XXX: do it properly with BCH(ringalert_bch_poly)?
+                    self.fill+=1
+                    self.descrambled.pop()
+                    self.descrambled.pop()
+                else:
+                    break
+
+            if self.fill>0: self.descramble_extra=""
+
         for block in self.descrambled:
-            if len(block)==32: # contains parity bit
-                parity=block[31:]
-                block=block[:31]
-            if len(block)!=31:
-                raise ParserError("unknown BCH block len:%d"%len(block))
+            assert len(block)==32, "unknown BCH block len:%d"%len(block)
+
+            parity=block[31:]
+            block=block[:31]
 
             (errs,data,bch)=bch_repair(self.poly, block)
-            if(errs<0):
-                if len(self.bitstream_bch) == 0: self._new_error("BCH decode failed")
+
+            if errs<0: # cut packet on uncorrectable error
+                self.ecc_cut=True
+                self.fill=0
+                self.descramble_extra=""
                 break
 
-            if parity:
-                if ((data+bch+parity).count('1') % 2)==1:
-                    if harder:
-                        errs+=1
-                    else:
-                        if len(self.bitstream_bch) == 0: self._new_error("Parity error")
+            if ((data+bch+parity).count('1') % 2)==1:
+                if harder:
+                    errs+=1
+                else:
+                    if errs>0:
+                        self._new_error("Parity error")
+                        self.ecc_cut=True
+                        self.fill=0
+                        self.descramble_extra=""
                         break
 
             if errs>0:
                 self.fixederrs+=1
 
             self.bitstream_bch+=data
-        if len(self.bitstream_bch)==0:
-            self._new_error("No data to descramble")
+
+        if len(self.bitstream_bch) == 0:
+            self._new_error("BCH decode failed")
+
     def upgrade(self):
         if self.error: return self
         try:
@@ -951,7 +978,57 @@ class IridiumECCMessage(IridiumMessage):
                 return IridiumRAMessage(self).upgrade()
             elif self.msgtype == "BC":
                 return IridiumBCMessage(self).upgrade()
-            elif self.msgtype == "DA":
+            else:
+                raise AssertionError("unknown Iridium message type")
+        except ParserError as e:
+            self._new_error(str(e), e.cls)
+            return self
+        return self
+    def pretty(self):
+        str= "IME: "+self._pretty_header()+" "+self.msgtype+" "
+        for block in range(len(self.descrambled)):
+            b=self.descrambled[block]
+            (errs,foo)=nrepair(self.poly,b[:31])
+            res=ndivide(self.poly,b[:31])
+            parity=(foo+b[31]).count('1') % 2
+            str+="{%s %s %s/%04d E%s P%d}"%(b[:21],b[21:31],b[31],res,("0","1","2","-")[errs],parity)
+        if self.fill>0:
+            str+=" FILL=%02d"%self.fill
+        str+=self._pretty_trailer()
+        return str
+
+class IridiumLCWECCMessage(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=imsg.__dict__
+        if self.msgtype == "DA":
+            self.poly=acch_bch_poly
+        else:
+            raise AssertionError("unknown Iridium message type")
+
+        self.bitstream_bch=""
+        self.fixederrs=0
+
+        for block in self.descrambled:
+            assert len(block)==31, "unknown BCH block len:%d"%len(block)
+
+            (errs,data,bch)=bch_repair(self.poly, block)
+
+            if errs<0:
+                self.descramble_extra=""
+                break
+
+            if errs>0:
+                self.fixederrs+=1
+
+            self.bitstream_bch+=data
+
+        if len(self.bitstream_bch)==0:
+            self._new_error("BCH decode failed")
+
+    def upgrade(self):
+        if self.error: return self
+        try:
+            if self.msgtype == "DA":
                 return IridiumDAMessage(self).upgrade()
             else:
                 raise AssertionError("unknown Iridium message type")
@@ -963,23 +1040,15 @@ class IridiumECCMessage(IridiumMessage):
         str= "IME: "+self._pretty_header()+" "+self.msgtype+" "
         for block in range(len(self.descrambled)):
             b=self.descrambled[block]
-            if len(b)==31:
-                (errs,foo)=nrepair(self.poly,b)
-                res=ndivide(self.poly,b)
-                parity=(foo).count('1') % 2
-                str+="{%s %s/%04d E%s P%d}"%(b[:21],b[21:31],res,("0","1","2","-")[errs],parity)
-            elif len(b)==32:
-                (errs,foo)=nrepair(self.poly,b[:31])
-                res=ndivide(self.poly,b[:31])
-                parity=(foo+b[31]).count('1') % 2
-                str+="{%s %s %s/%04d E%s P%d}"%(b[:21],b[21:31],b[31],res,("0","1","2","-")[errs],parity)
-            else:
-                str+="length=%d?"%len(b)
+            (errs,foo)=nrepair(self.poly,b)
+            res=ndivide(self.poly,b)
+            parity=(foo).count('1') % 2
+            str+="{%s %s/%04d E%s P%d}"%(b[:21],b[21:31],res,("0","1","2","-")[errs],parity)
         str+=self._pretty_trailer()
-        return str
+        return str #
 
 ida_crc16=crcmod.predefined.mkPredefinedCrcFun("crc-ccitt-false")
-class IridiumDAMessage(IridiumECCMessage):
+class IridiumDAMessage(IridiumLCWECCMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
         # Decode stuff from self.bitstream_bch
@@ -1258,6 +1327,8 @@ class IridiumRAMessage(IridiumECCMessage):
             if len(self.paging)-self.page_len>1:
                 str+=" FILL=%d"%(len(self.paging)-self.page_len-1)
 
+        if self.fill>0:
+            str+=" FILL=%d"%self.fill
         if self.ra_extra:
             str+= " +%s"%" ".join(slice(self.ra_extra,21))
 
