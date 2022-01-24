@@ -14,7 +14,7 @@ class Zulu(datetime.tzinfo):
     def dst(self, dt):
         return datetime.timedelta(0)
     def tzname(self,dt):
-         return "Z"
+        return "Z"
 
 Z=Zulu()
 

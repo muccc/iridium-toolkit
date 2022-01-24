@@ -475,7 +475,7 @@ class IridiumMessage(Message):
         if (self.uplink):
             str+=" UL"
         else:
-             str+=" DL"
+            str+=" DL"
         if self.header:
             str+=" "+self.header
         return str
@@ -508,7 +508,7 @@ class IridiumLCWMessage(IridiumMessage):
         self.pretty_lcw()
 
         if self.ft<=3 and len(data)<312:
-                self._new_error("Not enough data in data packet")
+            self._new_error("Not enough data in data packet")
 
         self.descrambled=[]
         self.payload_r=[]
@@ -914,11 +914,11 @@ class IridiumLCW3Message(IridiumLCWMessage):
             if self.oddbyte!=0:
                 str+=" ODD:%d"%self.oddbyte
             if self.csum==0:
-               str+=" CS=OK"
-               self.rs8m=self.rs8m[0:-3]
-               remove_zeros(self.rs8m)
+                str+=" CS=OK"
+                self.rs8m=self.rs8m[0:-3]
+                remove_zeros(self.rs8m)
             else:
-               str+=" CS=no"
+                str+=" CS=no"
             str+= " ["
             str+=" ".join(["%02x"%(x) for x in self.rs8m ])
             str+= "]"
@@ -1831,10 +1831,10 @@ class IridiumMessagingAscii(IridiumMSMessageBody):
         msgx="".join(["%02x"%int(x,2) for x in full])
         return str+ " csum:%02x msg:%s.%s"%(self.msg_checksum,msgx,rest)
     def pretty(self):
-       str= "MSG: "+self._pretty_header()
-       str+= " TXT: %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
-       str+= self._pretty_trailer()
-       return str
+        str= "MSG: "+self._pretty_header()
+        str+= " TXT: %-65s"%self.msg_ascii+" +%-6s"%self.msg_rest
+        str+= self._pretty_trailer()
+        return str
 
 class IridiumMessagingBCD(IridiumMSMessageBody):
     def __init__(self,immsg):
@@ -1854,10 +1854,10 @@ class IridiumMessagingBCD(IridiumMSMessageBody):
         str+= " %6s"%(self.pkt_cs1)
         return str+ " %s"%(self.msg_unknown2)
     def pretty(self):
-       str= "MS3: "+self._pretty_header()
-       str+= " BCD: %-65s"%self.bcd
-       str+= self._pretty_trailer()
-       return str
+        str= "MS3: "+self._pretty_header()
+        str+= " BCD: %-65s"%self.bcd
+        str+= self._pretty_trailer()
+        return str
 
 def symbol_reverse(bits):
     r = ''
