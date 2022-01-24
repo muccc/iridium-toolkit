@@ -20,7 +20,6 @@ iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
 uplink_access= "110011000011110011111100" # BPSK: 0xc4b
 UW_DOWNLINK = [0,2,2,2,2,0,0,0,2,0,0,2]
 UW_UPLINK   = [2,2,0,0,0,2,0,0,2,0,2,2]
-iridium_lead_out="100101111010110110110011001111"
 header_messaging="00110011111100110011001111110011" # 0x9669 in BPSK
 header_time_location="11"+"0"*94
 messaging_bch_poly=1897
@@ -93,7 +92,6 @@ class Message(object):
         else:
             self.access_ok=(m.group(7)=="OK")
 
-#        self.leadout_ok=(m.group(8)=="OK")
         self.confidence=int(m.group(9))
         self.level=float(m.group(10))
         if self.level==0:
@@ -561,7 +559,6 @@ class IridiumMessage(Message):
         else:
             raise Exception("Illegal Iridium frame type")
 
-        self.lead_out_ok= self.descramble_extra.startswith(iridium_lead_out)
         if self.msgtype!="VO" and self.msgtype!="IP" and len(self.descrambled)==0:
             self._new_error("No data to descramble")
 
@@ -590,7 +587,6 @@ class IridiumMessage(Message):
     def _pretty_header(self):
         str= super()._pretty_header()
         str+= " %03d"%(self.symbols-len(iridium_access)//2)
-#        str+=" L:"+("no","OK")[self.lead_out_ok]
         if (self.uplink):
             str+=" UL"
         else:
@@ -601,7 +597,7 @@ class IridiumMessage(Message):
     def _pretty_trailer(self):
         str= super()._pretty_trailer()
         if("descramble_extra" in self.__dict__) and self.descramble_extra != "":
-            str+= " descr_extra:"+re.sub(iridium_lead_out,"["+iridium_lead_out+"]",self.descramble_extra)
+            str+= " descr_extra:"+self.descramble_extra
         return str
     def pretty(self):
         sstr= "IRI: "+self._pretty_header()
@@ -771,7 +767,7 @@ class IridiumVOMessage(IridiumMessage):
     def pretty(self):
         str= self.vtype+": "+self._pretty_header()
         if self.vtype=="VDA":
-            raise ParserError("VDA handled in IIP(canthappen)")
+            raise AssertionError("VDA handled in IIP")
         elif self.vtype=="VO6":
             v="".join(["{0:06b}".format(x) for x in self.rs6m ])
             if self.rs6p:
@@ -885,9 +881,9 @@ class IridiumECCMessage(IridiumMessage):
         elif self.msgtype == "DA":
             self.poly=acch_bch_poly
         else:
-            raise ParserError("unknown Iridium message type(canthappen)")
+            raise AssertionError("unknown Iridium message type")
+
         self.bitstream_bch=""
-        self.oddbits=""
         self.fixederrs=0
         parity=None
         for block in self.descrambled:
@@ -914,7 +910,6 @@ class IridiumECCMessage(IridiumMessage):
                 self.fixederrs+=1
 
             self.bitstream_bch+=data
-            self.oddbits+=data[0]
         if len(self.bitstream_bch)==0:
             self._new_error("No data to descramble")
     def upgrade(self):
@@ -929,7 +924,7 @@ class IridiumECCMessage(IridiumMessage):
             elif self.msgtype == "DA":
                 return IridiumLCWMessage(self).upgrade()
             else:
-                self._new_error("Unknown message type")
+                raise AssertionError("unknown Iridium message type")
         except ParserError as e:
             self._new_error(str(e), e.cls)
             return self
