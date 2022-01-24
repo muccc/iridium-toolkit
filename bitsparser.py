@@ -140,7 +140,7 @@ class Message(object):
                 self.timestamp+=(startts%1)*(10**3)
             startts=int(startts)
             self.fileinfo="p-%d"%startts
-            self.globalns=self.startts*(10**9)+int(float(self.timestamp)*(10**6))
+            self.globalns=startts*(10**9)+int(float(self.timestamp)*(10**6))
             return
 
         global tswarning,tsoffset,maxts
