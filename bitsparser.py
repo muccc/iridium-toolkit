@@ -1249,51 +1249,62 @@ class IridiumRAMessage(IridiumECCMessage):
         # https://www.wolframalpha.com/input/?i=max[phi-atan((1-0.081819190842622**2)*tan(phi*pi/180))*180/pi,0<phi<90]
         self.ra_lon = atan2(self.ra_pos_y,self.ra_pos_x)*180/pi
         self.ra_alt = sqrt(self.ra_pos_x**2+self.ra_pos_y**2+self.ra_pos_z**2)*4
-        self.ra_msg= False
+
         ra_msg=self.bitstream_bch[63:]
 
-        # Up to 12 PAGEs(@ 42 bits) for max 432 symbol frame
+        # Up to 12 PAGEs(@ 42 bits each) for max 432 symbol frame
         # PAGEs end with an all-1 page.
         # Frame may be longer, in that case it is padded with "FILL" pattern
-        # (not necessarily to an exact PAGE size)
-        self.paging=[]
-        page_end=None
-        page_sane=True
-        while len(ra_msg)>=42:
-            paging={
-                'tmsi':  int(ra_msg[ 0:32],2),
-                'zero1': int(ra_msg[32:34],2),
-                'msc_id':int(ra_msg[34:39],2),
-                'zero2': int(ra_msg[39:42],2),
-                'raw': ra_msg[:42],
-            }
-            if ra_msg[:42]=="111111111111111111111111111111111111111111":
-                paging['str']="NONE"
-                if page_end is None:
-                    page_end=len(self.paging)
-                else:
-                    page_sane=False
-            elif ra_msg[:42]=="101000100111001110111010101000100010111000":
-                paging['str']="FILL"
-                if page_end is None:
-                    page_sane=False
-            else:
-                paging['str'] = "tmsi:%08x"%paging['tmsi']
-                if paging['zero1']!=0: paging['str']+= " 0:%d"%paging['zero1']
-                paging['str']+= " msc_id:%02d"%paging['msc_id']
-                if paging['zero2']!=0: paging['str']+= " 0:%d"%paging['zero2']
-                if page_end is not None:
-                    page_sane=False
-            self.paging.append(paging)
-            ra_msg=ra_msg[42:]
+        # which should have be removed by the ECC layer
+        # but some may be left in case of bit errors
 
-        if page_sane==False:
-            self.page_len=None
-            self.ra_extra=ra_msg
+        self.paging=[]
+        self.page_cnt=len(ra_msg)//42
+
+        if self.page_cnt==0:
+            self.trailer="{TRUNCATED}"
+            return
+
+        if len(ra_msg)%42>0:
+            self.page_cnt+=1
+
+        blocks, _ = slice_extra(ra_msg,42)
+        for page in blocks:
+            paging={
+                'tmsi':  int(page[ 0:32],2),
+                'zero1': int(page[32:34],2),
+                'msc_id':int(page[34:39],2),
+                'zero2': int(page[39:42],2),
+            }
+
+            paging['str'] = "tmsi:%08x"%paging['tmsi']
+            if paging['zero1']!=0: paging['str']+= " 0:%d"%paging['zero1']
+            paging['str']+= " msc_id:%02d"%paging['msc_id']
+            if paging['zero2']!=0: paging['str']+= " 0:%d"%paging['zero2']
+
+            self.paging.append(paging)
+
+            if page=="1"*42:
+                paging['str']="END"
+                break
+
+        if self.paging[-1]['str']=="END":
+            if len(self.paging)<self.page_cnt: # Bits left at the end
+                self.ra_extra=ra_msg[42*(len(self.paging)):]
+                if self.ra_extra.startswith("101000100111001110111"):
+                    del(self.ra_extra)
+                    self.trailer="{OK:UNCLEAN}"
+                else:
+                    self.trailer="{EXTRA_BITS}"
+            else:
+                if self.descramble_extra.startswith("011010110"):
+                    self.descramble_extra=""
+                self.trailer="{OK}"
+            self.paging.pop()
+        elif len(self.paging)<12:
+            self.trailer="{TRUNCATED}"
         else:
-            self.page_len=page_end
-            self.ra_extra=""
-            self.descramble_extra=""
+            self.trailer="{OK}"
 
     def upgrade(self):
         if self.error: return self
@@ -1303,6 +1314,7 @@ class IridiumRAMessage(IridiumECCMessage):
             self._new_error(str(e), e.cls)
             return self
         return self
+
     def pretty(self):
         str= "IRA: "+self._pretty_header()
         str+= " sat:%03d"%self.ra_sat
@@ -1314,23 +1326,16 @@ class IridiumRAMessage(IridiumECCMessage):
         str+= " ?%d%d"%(self.ra_ts,self.ra_eip)
         str+= " bc_sb:%02d"%self.ra_bc_sb
 
-        if self.page_len is None:
-            for p in self.paging:
-                str+= " PAGE(%s)"%p['str']
-            if "NONE" in [x['str'] for x in self.paging]:
-                str+=" CORRUPT"
-            else:
-                str+=" INCOMPLETE"
-        else:
-            for p in self.paging[:self.page_len]:
-                str+= " PAGE(%s)"%p['str']
-            if len(self.paging)-self.page_len>1:
-                str+=" FILL=%d"%(len(self.paging)-self.page_len-1)
+        str+=" P%02d:"%len(self.paging)
+        for p in self.paging:
+            str+= " PAGE(%s)"%p['str']
 
+        if "trailer" in self.__dict__:
+            str+=" "+self.trailer
         if self.fill>0:
             str+=" FILL=%d"%self.fill
-        if self.ra_extra:
-            str+= " +%s"%" ".join(slice(self.ra_extra,21))
+        if "ra_extra" in self.__dict__:
+            str+= " +" + " ".join(slice(self.ra_extra,42))
 
         str+=self._pretty_trailer()
         return str
