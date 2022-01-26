@@ -327,6 +327,7 @@ class IridiumMessage(Message):
                         if ((d2+b2+o_bc1[31]).count('1') % 2)==0:
                             if ((d3+b3+o_bc2[31]).count('1') % 2)==0:
                                 self.msgtype="BC"
+                                self.ec_lcw=e1
 
                 # try for LCW
                 if len(data)>=64:
@@ -399,13 +400,14 @@ class IridiumMessage(Message):
             (e,d,bch)=bch_repair1(hdr_poly,self.header)
 
             self.bc_type = int(d, 2)
-            if e==0:
-                self.header="bc:%d" % self.bc_type
-            else:
+
+            if e<0:
                 self.header="%s/E%d"%(self.header,e)
                 self._new_error("IBC header error")
-            self.descrambled=[]
+            else:
+                self.header="bc:%d" % self.bc_type
 
+            self.descrambled=[]
             (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
@@ -1146,29 +1148,26 @@ class IridiumBCMessage(IridiumECCMessage):
         self.__dict__=imsg.__dict__
         blocks, _ =slice_extra(self.bitstream_bch,42)
 
-        self.readable = ''
-        self.trailer = ''
-
         if len(blocks)>4: # IBC is exactly 4 "blocks" long
             blocks=blocks[:4]
-            self.trailer=' {LONG}'
+            self.trailer='{LONG}'
         elif len(blocks)<4:
-            self.trailer=' {SHORT}'
+            self.trailer='{SHORT}'
+
+        self.descramble_extra=""
 
         if blocks and self.bc_type == 0:
             data = blocks.pop(0)
 
-            self.sv_id = int(data[0:7], 2)
-            self.beam_id = int(data[7:13], 2)
-            self.unknown01 = data[13:14]
-            self.slot = int(data[14:15], 2) # previously: timeslot
-            self.sv_blocking = int(data[15:16], 2) # aka: Acq
-            self.acqu_classes = data[16:32]
-            self.acqu_subband = int(data[32:37], 2)
+            self.sv_id =         int(data[ 0: 7], 2)
+            self.beam_id =       int(data[ 7:13], 2)
+            self.unknown01 =         data[13:14]
+            self.slot =          int(data[14:15], 2) # previously: timeslot
+            self.sv_blocking =   int(data[15:16], 2) # aka: Acq
+            self.acqu_classes =      data[16:32]
+            self.acqu_subband =  int(data[32:37], 2)
             self.acqu_channels = int(data[37:40], 2)
-            self.unknown02 = data[40:42]
-
-            self.readable += 'sat:%03d cell:%02d %s slot:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.slot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
+            self.unknown02 =         data[40:42]
 
         if blocks and self.bc_type == 0:
             data = blocks.pop(0)
@@ -1177,39 +1176,36 @@ class IridiumBCMessage(IridiumECCMessage):
             if self.type == 0:
                 self.unknown11 = data[6:36]
                 self.max_uplink_pwr = int(data[36:42], 2)
-                self.readable += ' %s max_uplink_pwr:%02d' % (self.unknown11, self.max_uplink_pwr)
             elif self.type == 1:
                 self.unknown21 = data[6:10]
-                self.iri_time = int(data[10:42], 2)
+                self.iri_time = int(data[10:42], 2) # a.k.a. LBFC (L-Band Frame Counter)
                 (self.iri_time_ux, self.iri_time_str)= fmt_iritime(self.iri_time)
-                self.readable += ' %s time:%s' % (self.unknown21, self.iri_time_str)
             elif self.type == 2:
                 self.unknown31 = data[6:10]
                 self.tmsi_expiry = int(data[10:42], 2)
-                (self.tmsi_expiry_ux, tmsi_expiry_str)= fmt_iritime(self.tmsi_expiry)
-                self.readable += ' %s tmsi_expiry:%s' % (self.unknown31, tmsi_expiry_str)
-            elif self.type == 4:
-                if data != "000100000000100001110000110000110011110000":
-                    self.readable += ' type:%02d %s' % (self.type, data)
+                (self.tmsi_expiry_ux, self.tmsi_expiry_str)= fmt_iritime(self.tmsi_expiry)
             else: # Unknown Type
-                self.readable += ' type:%02d %s' % (self.type, data)
-#                raise ParserError("unknown BC Type %s"%self.type)
+                self.type_data=data
 
+        self.assignments=[]
         for data in blocks: # Parse assignments (if any)
-            if(data != '111000000000000000000000000000000000000000'):
-                # Channel Assignment
-                unknown1 = data[0:3]
-                random_id = int(data[3:11], 2)
-                timeslot = 1+int(data[11:13], 2)
-                uplink_subband = int(data[13:18], 2)
-                downlink_subband = int(data[18:23], 2)
-                access = 1+int(data[23:26], 2)
-                dtoa = int(data[26:34], 2)
-                dfoa = int(data[34:40], 2)
-                unknown4 = data[40:42]
-                self.readable += ' [%s Rid:%03d ts:%d ul_sb:%02d dl_sb:%02d access:%d dtoa:%03d dfoa:%02d %s]' % (unknown1, random_id, timeslot, uplink_subband, downlink_subband, access, dtoa, dfoa, unknown4)
-            else:
-                self.readable += ' []'
+            assignment={
+                'unknown1':        data[ 0: 3],
+                'random_id':   int(data[ 3:11], 2),
+                'timeslot':  1+int(data[11:13], 2),
+                'ul_sb':       int(data[13:18], 2), # uplink_subband
+                'dl_sb':       int(data[18:23], 2), # downlink_subband
+                'access':    1+int(data[23:26], 2),
+                'dtoa':        int(data[26:34], 2),
+                'dfoa':        int(data[34:40], 2),
+                'unknown4':        data[40:42],
+            }
+
+            if assignment['dtoa'] > 128:
+                assignment['dtoa']=assignment['dtoa']-256
+            if(data == '111000000000000000000000000000000000000000'):
+                assignment['empty']=True
+            self.assignments.append(assignment)
 
     def upgrade(self):
         if self.error: return self
@@ -1220,9 +1216,40 @@ class IridiumBCMessage(IridiumECCMessage):
             return self
         return self
     def _pretty_trailer(self):
-        return self.trailer + super()._pretty_trailer()
+        tmp= ""
+        if "trailer" in self.__dict__:
+            tmp+=" "+self.trailer
+        tmp+= super()._pretty_trailer()
+        return tmp
     def pretty(self):
-        str= "IBC: "+self._pretty_header() + ' ' + self.readable
+        str= "IBC: "+self._pretty_header()
+        if self.bc_type == 0:
+            str+= ' sat:%03d cell:%02d %s slot:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.slot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
+            if "type" in self.__dict__:
+                if self.type == 0:
+                    str += ' %s max_uplink_pwr:%02d' % (self.unknown11, self.max_uplink_pwr)
+                elif self.type == 1:
+                    str += ' %s time:%s' % (self.unknown21, self.iri_time_str)
+                elif self.type == 2:
+                    str += ' %s tmsi_expiry:%s' % (self.unknown31, self.tmsi_expiry_str)
+                elif self.type == 4: # Not seen currently
+                    str += ' st:%02d '%self.type
+                    if self.type_data == "000100000000100001110000110000110011110000":
+                        str += 'DFLT'
+                    else:
+                        str += self.type_data
+                else: # Unknown Type
+#                    raise ParserError("unknown BC subtype %s"%self.type)
+                    str += ' st:%02d '%self.type
+                    str += self.type_data
+
+        str="%-210s"%str
+        for a in self.assignments:
+            if 'empty' in a:
+                str += ' []'
+            else:
+                str += ' [%s Rid:%03d ts:%d ul_sb:%02d dl_sb:%02d access:%d dtoa:%+04d dfoa:%02d %s]' % (a['unknown1'], a['random_id'], a['timeslot'], a['ul_sb'], a['dl_sb'], a['access'], a['dtoa'], a['dfoa'], a['unknown4'])
+
         str+=self._pretty_trailer()
         return str
 
