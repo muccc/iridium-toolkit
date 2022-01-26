@@ -208,7 +208,7 @@ class StatsSNR(Reassemble):
         pass
 
     def filter(self,line):
-        q=super(StatsSNR,self).filter(line)
+        q=super().filter(line)
 
         if q==None: return None
         if q.typ[3]!=":": return None
@@ -310,7 +310,7 @@ class LivePktStats(Reassemble):
         pass
 
     def filter(self,line):
-        q=super(LivePktStats,self).filter(line)
+        q=super().filter(line)
 
         if q==None: return None
         if q.typ[3]!=":": return None
@@ -395,7 +395,7 @@ class LiveMap(Reassemble):
     r2=re.compile(r' *sat:(\d+) beam:(\d+) (?:rps=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+).*')
 
     def filter(self,line):
-        q=super(LiveMap,self).filter(line)
+        q=super().filter(line)
 
         if q==None: return None
         if q.typ!="IRA:": return None
@@ -495,7 +495,7 @@ class ReassemblePPM(Reassemble):
     r2=re.compile(r'.* time:([0-9:T-]+(\.\d+)?)Z')
 
     def filter(self,line):
-        q=super(ReassemblePPM,self).filter(line)
+        q=super().filter(line)
         if q==None: return None
         if q.typ!="IBC:": return None
 
@@ -605,7 +605,7 @@ class ReassembleIDA(Reassemble):
     def __init__(self):
         pass
     def filter(self,line):
-        q=super(ReassembleIDA,self).filter(line)
+        q=super().filter(line)
         if q==None: return None
         if q.typ!="IDA:": return None
 
@@ -697,7 +697,7 @@ class ReassembleIDA(Reassemble):
                 #could be put into assembled if long enough to be interesting?
                 break
     def end(self):
-        super(ReassembleIDA,self).end()
+        super().end()
         print("%d valid packets assembled from %d fragments (1:%1.2f)."%(self.stat_ok,self.stat_fragments,((float)(self.stat_fragments)/(self.stat_ok or 1))))
         print("%d/%d (%3.1f%%) broken fragments."%(self.stat_broken,self.stat_fragments,(100.0*self.stat_broken/(self.stat_fragments or 1))))
         print("%d dupes removed."%(self.stat_dupes))
@@ -1232,7 +1232,7 @@ class ReassembleIRA(Reassemble):
     def __init__(self):
         pass
     def filter(self,line):
-        q=super(ReassembleIRA,self).filter(line)
+        q=super().filter(line)
         if q==None: return None
         if q.typ=="IRA:":
             p=re.compile(r'sat:(\d+) beam:(\d+) (?:(?:aps|xyz)=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
@@ -1261,7 +1261,7 @@ class ReassembleMSG(Reassemble):
     def __init__(self):
         pass
     def filter(self,line):
-        q=super(ReassembleMSG,self).filter(line)
+        q=super().filter(line)
         if q == None: return None
         if q.typ == "MSG:":
             p=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]+)\.([01]*) ')
