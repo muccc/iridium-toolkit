@@ -1208,7 +1208,7 @@ class IridiumRAMessage(IridiumECCMessage):
         str= "IRA: "+self._pretty_header()
         str+= " sat:%03d"%self.ra_sat
         str+= " beam:%02d"%self.ra_cell
-        str+= " xyz=(%04d,%04d,%04d)"%(self.ra_pos_x,self.ra_pos_y,self.ra_pos_z)
+        str+= " xyz=(%+05d,%+05d,%+05d)"%(self.ra_pos_x,self.ra_pos_y,self.ra_pos_z)
         str+= " pos=(%+06.2f/%+07.2f)"%(self.ra_lat,self.ra_lon)
         str+= " alt=%03d"%(self.ra_alt-6378+23) # Maybe try WGS84 geoid? :-)
         str+= " RAI:%02d"%self.ra_int
