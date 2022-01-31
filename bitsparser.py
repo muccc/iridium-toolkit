@@ -406,7 +406,7 @@ class IridiumMessage(Message):
                 self.header="%s/E%d"%(self.header,e)
                 self._new_error("IBC header error")
             else:
-                self.header="bc:%d" % self.bc_type
+                self.header=""
 
             self.descrambled=[]
             (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
@@ -1328,6 +1328,7 @@ class IridiumBCMessage(IridiumECCMessage):
         return tmp
     def pretty(self):
         str= "IBC: "+self._pretty_header()
+        str+= " bc:%d" % self.bc_type
         if self.bc_type == 0:
             str+= ' sat:%03d cell:%02d %s slot:%d sv_blkn:%d aq_cl:%s aq_sb:%02d aq_ch:%d %s' % (self.sv_id, self.beam_id, self.unknown01, self.slot, self.sv_blocking, self.acqu_classes, self.acqu_subband, self.acqu_channels, self.unknown02)
             if "type" in self.__dict__:
