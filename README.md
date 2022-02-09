@@ -90,5 +90,6 @@ Supported modes are currently:
 * `page` - paging requests (Ring Alert Channel)
 * `msg` - Pager messages
 * `sbd` - Short Burst Data messages
+* `acars` - parsed ACARS SBD messages
 * `ppm` - estimation of receiving SDRs PPM frequency offset
 
