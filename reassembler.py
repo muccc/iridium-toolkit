@@ -166,7 +166,7 @@ def ascii(data, dot=False, escape=False):
         else:
             if dot:
                 str+="."
-            if escape:
+            elif escape:
                 if c==0x0d:
                     str+='\\r'
                 elif c==0x0a:
