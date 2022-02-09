@@ -1213,6 +1213,167 @@ class ReassembleIDASBD(ReassembleIDA):
                     datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),
                     ult,prehdr.hex(":"),ascii(data, escape=True)))
 
+acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
+    b"_\x7f": "Demand mode",
+    b"H1": "Message to/from terminal",
+    b"52": "Ground UTC request",
+    b"C1": "Uplink to cockpit printer No.1",
+    b"C2": "Uplink to cockpit printer No.2",
+    b"C3": "Uplink to cockpit printer No.3",
+    b"Q0": "Link Test",
+}
+
+class ReassembleIDASBDACARS(ReassembleIDASBD):
+    def __init__(self):
+        import crcmod
+        self.acars_crc16=crcmod.predefined.mkPredefinedCrcFun("kermit")
+
+    def consume_l2(self,q):
+        (typ,time,ul,prehdr,data)=q
+
+        if len(data)==0: # Currently not interested :)
+            return
+
+        if data[0]!=1: # prelim. check for ACARS
+            return
+
+        def parity7(data):
+            ok = True
+            for c in data:
+                bits=bin(c).count("1")
+                if bits%2==0:
+                    ok=False
+            return ok, bytes([x&0x7f for x in data])
+
+        self.errors=0
+
+        csum=bytes()
+        self.hdr=bytes()
+        self.errors=[]
+        data=data[1:]
+
+        if data[-1]==0x7f:
+            csum=data[-3:-1]
+            data=data[:-3]
+
+        if data[0]==0x3: # header of unknown meaning
+            self.hdr=data[0:8]
+            data=data[8:]
+
+        if len(csum)>0:
+            self.the_crc=self.acars_crc16(data+csum)
+            if self.the_crc!=0:
+                self.errors.append("CRC_FAIL")
+        else:
+            self.errors.append("CRC_MISSING")
+
+        if len(data)<12:
+            self.errors.append("SHORT")
+            return
+
+        ok, data=parity7(data)
+
+        if not ok:
+            self.errors.append("PARITY_FAIL")
+
+        self.mode= data[ 0: 1]
+        self.f_no= data[ 1: 8]
+        self.ack=  data[ 8: 9]
+        self.label=data[ 9:11]
+        self.indi =data[11:12]
+
+        data=data[12:]
+
+        self.cont=False
+        if data[-1] == 0x03: # ETX
+            data=data[:-1]
+        elif data[-1] == 0x17: # ETB
+            self.cont=True
+            data=data[:-1]
+        else:
+            self.errors.append("ETX incorrect")
+
+        if len(data)>0 and data[0] == 2: # Additional content
+            if data[0] == 2:
+                if ul:
+                    self.m_no=data[1:5]
+                    self.f_id=data[5:11]
+                    self.txt=data[11:]
+                else:
+                    self.txt=data[1:]
+            else:
+                self.txt=data
+                self.errors.append("STX missing")
+        else:
+            self.txt=bytes()
+
+        if len(self.errors)>0 and not 'showerrs' in args:
+            return
+
+        # PRETTY-PRINT
+        out=""
+
+        out+=datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S")
+        out+=" "
+
+        if len(self.hdr)>0:
+            out+="[hdr: %s]"%self.hdr.hex()
+        else:
+            out+="%-23s"%""
+        out+=" "
+
+        if ul:
+            out+="Dir:%s"%"UL"
+        else:
+            out+="Dir:%s"%"DL"
+        out+=" "
+
+        out+="Mode:%s"%self.mode.decode('latin-1')
+        out+=" "
+
+        f_no=self.f_no.decode('latin-1')
+        while len(f_no)>0 and f_no[0]=='.':
+            f_no=f_no[1:]
+        out+="FNO:%-7s"%f_no
+        out+=" "
+
+        if self.ack[0]==21:
+            out+="NAK  "
+        else:
+            out+="ACK:%s"%self.ack.decode('latin-1')
+        out+=" "
+
+        out+="Label:"
+        if self.label== b'_\x7f':
+            out+='_?'
+        else:
+            out+=ascii(self.label, escape=True)
+        out+=" "
+
+        if self.label in acars_labels:
+            out+="(%s)"%acars_labels[self.label]
+        else:
+            out+="(?)"
+        out+=" "
+
+        out+="Indicator:%s"%(ascii(self.indi, escape=True))
+        out+=" "
+
+        if ul:
+            out+="MNO: %s, FID: %s"%(ascii(self.m_no, escape=True), ascii(self.f_id, escape=True))
+            out+=" "
+
+        if len(self.txt)>0:
+            out+="[%s]"%ascii(self.txt, escape=True)
+
+        if self.cont:
+            out+=" CONT'd"
+
+        if len(self.errors)>0:
+            out+=" " + " ".join(self.errors)
+
+        print(out)
+
 class ReassembleIDALAP(ReassembleIDA):
     first=True
     sock = None
@@ -1596,6 +1757,9 @@ elif mode == "lap":
 elif mode == "sbd":
     validargs=('perfect', 'debug')
     zx=ReassembleIDASBD()
+elif mode == "acars":
+    validargs=('perfect', 'showerrs')
+    zx=ReassembleIDASBDACARS()
 elif mode == "page":
     zx=ReassembleIRA()
 elif mode == "satmap":
