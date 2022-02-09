@@ -158,7 +158,7 @@ class MyObject(object):
                     pwarn = True
                     print("'perfect' requested, but no EC info found", file=sys.stderr)
 
-def ascii(data,dot=False):
+def ascii(data, dot=False, escape=False):
     str=""
     for c in data:
         if( c>=32 and c<127):
@@ -166,6 +166,13 @@ def ascii(data,dot=False):
         else:
             if dot:
                 str+="."
+            if escape:
+                if c==0x0d:
+                    str+='\\r'
+                elif c==0x0a:
+                    str+='\\n'
+                else:
+                    str+='\\x{%02x}'%c
             else:
                 str+="[%02x]"%c
     return str
