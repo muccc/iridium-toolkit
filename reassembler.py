@@ -1191,6 +1191,7 @@ class ReassembleIDASBD(ReassembleIDA):
             for (idx,(no,cnt,p,t)) in reversed(list(enumerate(self.multi[:]))):
                 if msgno==no+1 and msgno < cnt and p[2] == ul: # could check if "typ" seems right.
                     self.multi[idx][2][4]+=data
+                    self.multi[idx][0]+=1
                     ok=True
                     self.sbd_assembled+=1
                     if verb2:
