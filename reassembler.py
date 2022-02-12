@@ -1250,7 +1250,7 @@ class ReassembleIDASBD(ReassembleIDA):
 
         print("%s %s <%-20s> %s"%(
                     datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),
-                    ult,prehdr.hex(":"),ascii(data, escape=True)))
+                    ult,prehdr.hex(":"),ascii(data, escape=True)), file=outfile)
 
 acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
     b"_\x7f": "Demand mode",
