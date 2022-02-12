@@ -1242,6 +1242,7 @@ acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
     b"Q0": "Link Test",
 }
 
+# ref. http://www.hoka.it/oldweb/tech_info/systems/acars.htm
 class ReassembleIDASBDACARS(ReassembleIDASBD):
     def __init__(self):
         import crcmod
@@ -1296,10 +1297,10 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
             self.errors.append("PARITY_FAIL")
 
         self.mode= data[ 0: 1]
-        self.f_no= data[ 1: 8]
+        self.f_reg=data[ 1: 8] # address / aircraft registration
         self.ack=  data[ 8: 9]
         self.label=data[ 9:11]
-        self.indi =data[11:12]
+        self.b_id =data[11:12] # block id
 
         data=data[12:]
 
@@ -1315,8 +1316,8 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if len(data)>0 and data[0] == 2: # Additional content
             if data[0] == 2:
                 if ul:
-                    self.m_no=data[1:5]
-                    self.f_id=data[5:11]
+                    self.seqn=data[1:5] # sequence number
+                    self.f_no=data[5:11] # flight number
                     self.txt=data[11:]
                 else:
                     self.txt=data[1:]
@@ -1350,10 +1351,10 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         out+="Mode:%s"%self.mode.decode('latin-1')
         out+=" "
 
-        f_no=self.f_no.decode('latin-1')
-        while len(f_no)>0 and f_no[0]=='.':
-            f_no=f_no[1:]
-        out+="FNO:%-7s"%f_no
+        f_reg=self.f_reg.decode('latin-1')
+        while len(f_reg)>0 and f_reg[0]=='.':
+            f_reg=f_reg[1:]
+        out+="REG:%-7s"%f_reg
         out+=" "
 
         if self.ack[0]==21:
@@ -1375,11 +1376,11 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
             out+="(?)"
         out+=" "
 
-        out+="Indicator:%s"%(ascii(self.indi, escape=True))
+        out+="bID:%s"%(ascii(self.b_id, escape=True))
         out+=" "
 
         if ul:
-            out+="MNO: %s, FID: %s"%(ascii(self.m_no, escape=True), ascii(self.f_id, escape=True))
+            out+="SEQ: %s, FNO: %s"%(ascii(self.seqn, escape=True), ascii(self.f_no, escape=True))
             out+=" "
 
         if len(self.txt)>0:
