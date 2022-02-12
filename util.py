@@ -66,6 +66,27 @@ def slice_extra(string,n):
 def slice(string,n):
     return [string[x:x+n] for x in range(0,len(string),n)]
 
+def to_ascii(data, dot=False, escape=False, mask=False):
+    str=""
+    for c in data:
+        if mask:
+            c=c&0x7f
+        if( c>=32 and c<127):
+            str+=chr(c)
+        else:
+            if dot:
+                str+="."
+            elif escape:
+                if c==0x0d:
+                    str+='\\r'
+                elif c==0x0a:
+                    str+='\\n'
+                else:
+                    str+='\\x{%02x}'%c
+            else:
+                str+="[%02x]"%c
+    return str
+
 def bitdiff(a, b):
     return sum(x != y for x, y in zip(a, b))
 

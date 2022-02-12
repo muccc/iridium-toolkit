@@ -12,7 +12,7 @@ import math
 import os
 import socket
 from copy import deepcopy
-from util import fmt_iritime
+from util import fmt_iritime, to_ascii
 
 if sys.version_info[0]==3 and sys.version_info[1]<8:
     print("Old python detected, using replacement bytes class...", file=sys.stderr)
@@ -169,25 +169,6 @@ class MyObject(object):
                 if pwarn is False:
                     pwarn = True
                     print("'perfect' requested, but no EC info found", file=sys.stderr)
-
-def ascii(data, dot=False, escape=False):
-    str=""
-    for c in data:
-        if( c>=32 and c<127):
-            str+=chr(c)
-        else:
-            if dot:
-                str+="."
-            elif escape:
-                if c==0x0d:
-                    str+='\\r'
-                elif c==0x0a:
-                    str+='\\n'
-                else:
-                    str+='\\x{%02x}'%c
-            else:
-                str+="[%02x]"%c
-    return str
 
 class Reassemble(object):
     def __init__(self):
@@ -741,7 +722,7 @@ class ReassembleIDA(Reassemble):
         else:
             ul="DL"
         str=""
-        str+=ascii(data,True)
+        str+=to_ascii(data,True)
 
         fbase=freq-base_freq
         fchan=int(fbase/channel_width)
@@ -1068,7 +1049,7 @@ class ReassembleIDAPP(ReassembleIDA):
 
         if len(data)>0:
             print(" ".join("%02x"%x for x in data), end=' ', file=outfile)
-            print(" | %s"%ascii(data, dot=True), file=outfile)
+            print(" | %s"%to_ascii(data, dot=True), file=outfile)
         else:
             print("", file=outfile)
         return
@@ -1201,7 +1182,7 @@ class ReassembleIDASBD(ReassembleIDA):
         pkt=SBDObject(typ, time, ul, prehdr, data)
 
         if verb2 and (msgno>1 or msgcnt>1):
-            print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), ascii(data, escape=True)))
+            print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), to_ascii(data, escape=True)))
 
         for (idx,(_,_,_,t)) in reversed(list(enumerate(self.multi[:]))):
             if t+5<time:
@@ -1261,7 +1242,7 @@ class ReassembleIDASBD(ReassembleIDA):
 
         print("%s %s <%-20s> %s"%(
                     datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S"),
-                    ult,q.prehdr.hex(":"),ascii(q.data, escape=True)), file=outfile)
+                    ult,q.prehdr.hex(":"),to_ascii(q.data, escape=True)), file=outfile)
 
 acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
     b"_\x7f": "Demand mode",
@@ -1399,7 +1380,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if q.label== b'_\x7f':
             out+='_?'
         else:
-            out+=ascii(q.label, escape=True)
+            out+=to_ascii(q.label, escape=True)
         out+=" "
 
         if q.label in acars_labels:
@@ -1408,15 +1389,15 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
             out+="(?)"
         out+=" "
 
-        out+="bID:%s"%(ascii(q.b_id, escape=True))
+        out+="bID:%s"%(to_ascii(q.b_id, escape=True))
         out+=" "
 
         if q.ul:
-            out+="SEQ: %s, FNO: %s"%(ascii(q.seqn, escape=True), ascii(q.f_no, escape=True))
+            out+="SEQ: %s, FNO: %s"%(to_ascii(q.seqn, escape=True), to_ascii(q.f_no, escape=True))
             out+=" "
 
         if len(q.txt)>0:
-            out+="[%s]"%ascii(q.txt, escape=True)
+            out+="[%s]"%to_ascii(q.txt, escape=True)
 
         if q.cont:
             out+=" CONT'd"
