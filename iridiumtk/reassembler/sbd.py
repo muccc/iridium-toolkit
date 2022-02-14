@@ -46,20 +46,16 @@ class ReassembleIDASBD(ReassembleIDA):
     def process_l2(self,q):
         (data,time,ul,_,_)=q # level, freq
 
+        # not enough data
+        if len(data)<5:
+            return
+
         # check for SBD
-        if data[0]==0x76:
+        if data[0]==0x76 and data[1]!=5:
             pass
         elif data[0]==0x06 and data[1]==0:
             pass
         else:
-            return
-
-        # corrupt / no data
-        if len(data)<5:
-            return
-
-        # uninteresing (unclear)
-        if data[0]==0x76 and data[1]==5:
             return
 
         if data[0]==0x76:
@@ -134,14 +130,23 @@ class ReassembleIDASBD(ReassembleIDA):
             else:
                 hdr=bytes()
                 msgno=0
+                print("WARN: SBD: Data packet without header?",data.hex(":"), file=sys.stderr)
                 if verb2:
                     print("SBD: Pkt weird:", end=" ")
                     print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), data.hex(":")))
 
         pkt=SBDObject(typ, time, ul, prehdr, data)
 
-        if verb2 and (msgno>1 or msgcnt>1):
-            print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), to_ascii(data, escape=True)))
+        if verb2:
+            if len(prehdr)>7:
+                if prehdr[0]==0x20:
+                    prehdrs=prehdr[:5].hex()+":"+prehdr[5:13].hex()+":"+prehdr[13:15].hex()+":"+prehdr[15:18].hex(":")+"."+prehdr[18:25].hex(":")+"@"+prehdr[25:].hex()
+                else:
+                    prehdrs=prehdr[:4].hex()+":"+prehdr[4:12].hex()+":"+prehdr[12:15].hex()+":"+prehdr[15:18].hex(":")+"."+prehdr[18:25].hex(":")+"@"+prehdr[25:].hex()
+            else:
+                prehdrs=prehdr.hex(":")
+
+            print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdrs, hdr.hex(":"), to_ascii(data, escape=True)))
 
         for (idx,(_,_,_,t)) in reversed(list(enumerate(self.multi[:]))):
             if t+5<time:
@@ -165,6 +170,7 @@ class ReassembleIDASBD(ReassembleIDA):
             for (idx,(no,cnt,p,t)) in reversed(list(enumerate(self.multi[:]))):
                 if msgno==no+1 and msgno < cnt and p.ul == ul: # could check if "typ" seems right.
                     self.multi[idx][2].data+=data
+                    self.multi[idx][2].typ+=typ
                     self.multi[idx][0]+=1
                     self.sbd_assembled+=1
                     if verb2:
@@ -199,9 +205,17 @@ class ReassembleIDASBD(ReassembleIDA):
         else:
             ult="DL"
 
-        print("%s %s <%-20s> %s"%(
-                    datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S"),
-                    ult,q.prehdr.hex(":"),to_ascii(q.data, escape=True)), file=outfile)
+        hdr="%s[%s]"%(ult,q.typ[3::4])
+        hdr="%-8s <%s>"%(hdr,q.prehdr.hex(":"))
+
+        if len(q.data)>0:
+            print("%s %-99s %s | %s"%(
+                        datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S"),
+                        hdr,q.data.hex(" "),to_ascii(q.data, dot=True)), file=outfile)
+        else:
+            print("%s %s"%(
+                        datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S"),
+                        hdr), file=outfile)
 
 acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
     b"_\x7f": "Demand mode",
