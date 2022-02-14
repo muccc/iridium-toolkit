@@ -664,15 +664,12 @@ class ReassembleIDAPP(ReassembleIDA):
 
             elif ul=='DL' and typ in ("7608","7609","760a"):
                 if typ=="7608":
-                    # <26:44:9a:01:00:ba:85>
-                    # 1: always? 26
+                    # <26:44:9a:01:00:ba:85> <20:44:9a:01:00>
+                    # 1: 26 or 20
                     # 2+3: sequence number (MTMSN)
                     # 4: number of packets in message
                     # 5: number of messages waiting to be delivered / backlog
-                    # 6+7: unknown / maybe MOMSN?
-                    #
-                    # <20:33:17:03:01>
-                    # fields same as above except 6+7
+                    # 6+7: "ack request" (answer: <50:xx:xx>) -- only for <26>
 
                     if data[0]==0x26:
 #                        prehdr=data[:7]
@@ -775,8 +772,8 @@ class ReassembleIDAPP(ReassembleIDA):
 # < 0502 Location Updating Accept (MCC/MNC/LAC)
 
 # > 0600 / 20:13:f0:10: 02 imei + momsn + msgcnt + XC + len + bytes + time + (len>0: msg)
-# < 7608 <26:00:00:00:00:xx:xx> 0 messages (xx=MTMSN?)
-# > 760c <50:xx:xx> MTMSN echoback?
+# < 7608 <26:00:00:00:00:xx:xx> 0 messages
+# > 760c <50:xx:xx> ack(xx:xx)
 # < 7605 ?
 
 
