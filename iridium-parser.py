@@ -253,12 +253,26 @@ def stats_thread(stats):
 
 selected=[]
 
+def openhook(filename, mode):
+    ext = os.path.splitext(filename)[1]
+    if ext == '.gz':
+        import gzip
+        return gzip.open(filename, 'rt')
+    elif ext == '.bz2':
+        import bz2
+        return bz2.open(filename, 'rt')
+    elif ext == '.xz':
+        import lzma
+        return lzma.open(filename, 'rt')
+    else:
+        return open(filename, 'rt')
+
 def do_input(type):
     if type=="raw":
         if do_stats:
             stats['files']=len(remainder)
             stats['fileno']=0
-        for line in fileinput.input(remainder):
+        for line in fileinput.input(remainder, openhook=openhook):
             if do_stats:
                 if fileinput.isfirstline():
                     stats['fileno']+=1
