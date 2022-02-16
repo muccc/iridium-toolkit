@@ -9,35 +9,11 @@ import fileinput
 import getopt
 import datetime
 import time
+import argparse
 import collections.abc
 
 import bitsparser
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
-                                                         'verbose',
-                                                         'good',
-                                                         'uw-ec',
-                                                         'harder',
-                                                         'confidence=',
-                                                         'input=',
-                                                         'output=',
-                                                         'perfect',
-                                                         'disable-freqclass',
-                                                         'errorfree',
-                                                         'interesting',
-                                                         'satclass',
-                                                         'plot=',
-                                                         'filter=',
-                                                         'format=',
-                                                         'errorfile=',
-                                                         'errorstats',
-                                                         'forcetype=',
-                                                         'channelize',
-                                                         'sigmf-annotate=',
-                                                         'stats',
-                                                         ])
-
-verbose = False
 perfect = False
 errorfree = False
 interesting = False
@@ -53,61 +29,95 @@ errorstats=None
 sigmffile=None
 do_stats=False
 
-for opt, arg in options:
-    if opt in ['-v', '--verbose']:
-        bitsparser.verbose = True
-    elif opt in ['-g','--good']:
-        good = True
-        min_confidence=90
-    elif opt in ['--uw-ec']:
-        bitsparser.uwec = True
-    elif opt in ['--harder']:
-        bitsparser.harder = True
-    elif opt in ['--confidence']:
-        good = True
-        min_confidence=int(arg)
-    elif opt in ['--interesting']:
-        interesting = True
-    elif opt in ['-p', '--perfect']:
-        bitsparser.perfect = True
-        perfect = True
-    elif opt in ['--disable-freqclass']:
-        bitsparser.freqclass = False
-    elif opt in ['-e', '--errorfree']:
-        errorfree = True
-    elif opt in ['-s', '--satclass']:
-        dosatclass = True
-    elif opt in ['--plot']:
-        plotargs=arg.split(',')
-    elif opt in ['--filter']:
-        linefilter['type']=arg
-        if ',' in linefilter['type']:
-            (linefilter['type'],linefilter['check'])=linefilter['type'].split(',',2)
-        if '+' in linefilter['type']:
-            (linefilter['type'],linefilter['attr'])=linefilter['type'].split('+')
-        bitsparser.linefilter=linefilter
-    elif opt in ['-i', '--input']:
-        input=arg
-    elif opt in ['-o', '--output']:
-        output=arg
-    elif opt in ['--errorfile']:
-        errorfile=arg
-        bitsparser.errorfile=arg
-    elif opt in ['--errorstats']:
-        errorstats={}
-    elif opt in ['--forcetype']:
-        bitsparser.forcetype=arg
-    elif opt in ['--channelize']:
-        bitsparser.channelize=True
-    elif opt in ['--format']:
-        ofmt=arg.split(',');
-    elif opt in ['--sigmf-annotate']:
-        sigmffile=arg
-        output="sigmf"
-    elif opt in ['--stats']:
-        do_stats=True
+remainder=None
+min_confidence=None
+
+parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=27))
+
+def parse_comma(arg):
+    return arg.split(',')
+
+def parse_filter(arg):
+    linefilter = {'type': arg, 'attr': None, 'check': None}
+    if ',' in linefilter['type']:
+        (linefilter['type'], linefilter['check']) = linefilter['type'].split(',', 2)
+    if '+' in linefilter['type']:
+        (linefilter['type'], linefilter['attr']) = linefilter['type'].split('+')
+    return linefilter
+
+
+filters = parser.add_argument_group('filters')
+
+filters.add_argument("-g", "--good",      action="store_const", const=90, dest='min_confidence',
+                     help="drop if confidence < 90")
+filters.add_argument("--confidence", type=int, dest="min_confidence", metavar='MIN',
+                     help="drop if confidence < %(metavar)s")
+filters.add_argument("--interesting",     action="store_true",
+                     help="drop uninteresting packets")
+filters.add_argument("-p", "--perfect",   action="store_true",
+                     help="drop lines which only parsed after applying error correction")
+filters.add_argument("-e", "--errorfree", action="store_true",
+                     help="drop lines that could not be parsed")
+filters.add_argument("--filter", type=parse_filter, default='All', dest='linefilter', metavar='FILTER',
+                     help="filter output by class and/or attribute")
+
+parser.add_argument("-v", "--verbose",     action="store_true",
+                    help="increase output verbosity")
+parser.add_argument("--uw-ec",             action="store_true", dest='uwec',
+                    help="enable error correction on unique word")
+parser.add_argument("--harder",            action="store_true",
+                    help="try harder to parse input")
+parser.add_argument("--disable-freqclass", action="store_false", dest='freqclass',
+                    help="turn frequency classificiation off")
+parser.add_argument("-s", "--satclass",    action="store_true", dest='dosatclass',
+                    help="enable sat classification")
+parser.add_argument("--plot", type=parse_comma, dest='plotargs', default='time,frequency', metavar='ARGS'
+                    )
+parser.add_argument("-i", "--input",  default='raw', metavar='MODE',
+                    help="input mode")
+parser.add_argument("-o", "--output", default='line', metavar='MODE', choices=['dump', 'json', 'sigmf', 'zmq', 'line', 'plot', 'err', 'sat'],
+                    help="output mode")
+parser.add_argument("--errorfile", metavar='FILE',
+                    help="divert unparsable lines to separate file")
+parser.add_argument("--errorstats", action='store_const', const={},
+                    help="output statistics about parse errors")
+parser.add_argument("--forcetype", metavar='TYPE'
+                    )
+parser.add_argument("--channelize", action="store_true"
+                    )
+parser.add_argument("--format", type=parse_comma, dest='ofmt'
+                    )
+parser.add_argument("--sigmf-annotate", dest='sigmffile'
+                    )
+parser.add_argument("--stats", action="store_true", dest="do_stats",
+                    help='enable incremental statistics on stderr')
+parser.add_argument("remainder", nargs='*',
+                    help=argparse.SUPPRESS)
+
+args = parser.parse_args()
+
+boptions=('verbose','uwec','harder','perfect','freqclass','linefilter','errorfile','forcetype','channelize')
+
+# hack to push options into bitsparser
+for arg in boptions:
+    if arg not in bitsparser.__dict__:
+        print("Could not push",x,"to bitsparser")
+    bitsparser.__dict__[arg]=args.__dict__[arg]
+
+for x in args.__dict__:
+    if x in boptions:
+        print("(bp)", end=" ", file=sys.stderr)
+    if x in globals():
+        print("Setting",x,"to",args.__dict__[x], file=sys.stderr)
+        globals()[x]=args.__dict__[x]
     else:
-        raise Exception("unknown argument?")
+        print("Skipping",x,"(%s)"%str(args.__dict__[x]), file=sys.stderr)
+
+if min_confidence:
+    good=True
+
+if sigmffile:
+    output="sigmf"
 
 if input == "dump" or output == "dump":
     import pickle as pickle
