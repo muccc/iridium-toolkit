@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
+import os
 import sys
 import re
 import fileinput
 import getopt
 import datetime
+import time
 import collections.abc
 
 import bitsparser
@@ -33,6 +35,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'forcetype=',
                                                          'channelize',
                                                          'sigmf-annotate=',
+                                                         'stats',
                                                          ])
 
 verbose = False
@@ -50,6 +53,7 @@ vdumpfile=None
 errorfile=None
 errorstats=None
 sigmffile=None
+do_stats=False
 
 for opt, arg in options:
     if opt in ['-v', '--verbose']:
@@ -104,6 +108,8 @@ for opt, arg in options:
     elif opt in ['--sigmf-annotate']:
         sigmffile=arg
         output="sigmf"
+    elif opt in ['--stats']:
+        do_stats=True
     else:
         raise Exception("unknown argument?")
 
@@ -113,6 +119,14 @@ if input == "dump" or output == "dump":
 
 if output == "sigmf":
     import json
+
+if do_stats:
+    import curses
+    curses.setupterm(fd=sys.stderr.fileno())
+    statsfile=sys.stderr
+    eol=(curses.tigetstr('el')+curses.tigetstr('cr')).decode("ascii")
+    eolnl=(curses.tigetstr('el')+b'\n').decode("ascii")
+    stats={}
 
 sigmfjson=None
 sigmfout=None
@@ -164,11 +178,54 @@ if output == "plot":
     cl=[]
     sl=[]
 
+def stats_thread(stats):
+    ltime=time.time()
+    lline=0
+    stime=stats['start']
+    stop=stats['stop']
+
+    while not stop.wait(timeout=1.0):
+        now=time.time()
+        nowl=stats['in']
+        td=now-stime
+        s=time.strftime("%Y-%m-%d %H:%M:%S",time.localtime())
+        ts="%02d:%02d:%02d"%(td/60/60,td/60%60,td%60)
+        hdr="%s [%s]"%(s, ts)
+        progress=""
+        if 'files' in stats and stats['files']>1:
+            progress+="%d/%d:"%(stats['fileno'],stats['files'])
+        if 'size' in stats and stats['size']>0:
+            pos=os.lseek(fileinput.fileno(),0,os.SEEK_CUR)
+            progress+="%4.1f%%"%(100*pos/stats['size'])
+            eta=stats['size']/(pos/td) - td
+            te="%02d:%02d"%(eta/60%60,eta%60)
+            if eta>60*60:
+                te="%02d:"%(eta/60/60)+te
+            progress+="/"+te
+        if progress:
+            hdr+=" [%s]"%progress
+        else:
+            hdr+=" l:%6d"%stats['in']
+        print (hdr, "[%.1f l/s] drop:%3d%%"%((nowl-lline)/(now-ltime),100*(1-stats['out']/(stats['in'] or 1))), end=eol, file=statsfile)
+        ltime=now
+        lline=nowl
+    if eol=='\r':
+        print(file=of)
+
 selected=[]
 
 def do_input(type):
     if type=="raw":
+        if do_stats:
+            stats['files']=len(remainder)
+            stats['fileno']=0
         for line in fileinput.input(remainder):
+            if do_stats:
+                if fileinput.isfirstline():
+                    stats['fileno']+=1
+                    stat=os.fstat(fileinput.fileno())
+                    stats['size']=stat.st_size
+                stats['in']+=1
             if good:
                 q=bitsparser.Message(line.strip())
                 try:
@@ -225,6 +282,8 @@ def perline(q):
         return
     if linefilter['check'] and not eval(linefilter['check']):
         return
+    if do_stats:
+        stats["out"]+=1
     if vdumpfile != None and type(q).__name__ == "IridiumVOMessage":
         if len(q.voice)!=312:
             raise Exception("illegal Voice frame length")
@@ -280,7 +339,22 @@ def perline(q):
 def bitdiff(a, b):
     return sum(x != y for x, y in zip(a, b))
 
-do_input(input)
+if do_stats:
+    from threading import Thread, Event
+    stats['start']=time.time()
+    stats['in']=0
+    stats['out']=0
+    stats['stop']= Event()
+    sthread = Thread(target = stats_thread, args = [stats])
+    sthread.start()
+
+try:
+    do_input(input)
+except KeyboardInterrupt:
+    pass
+
+if do_stats:
+    stats['stop'].set()
 
 if sigmffile is not None:
     import os
