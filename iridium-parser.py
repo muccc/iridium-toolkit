@@ -120,6 +120,10 @@ if input == "dump" or output == "dump":
 if output == "sigmf":
     import json
 
+if output == "zmq":
+    do_stats=True
+    errorfree=True
+
 if do_stats:
     import curses
     curses.setupterm(fd=sys.stderr.fileno())
@@ -178,6 +182,39 @@ if output == "plot":
     cl=[]
     sl=[]
 
+if output == "zmq":
+    import zmq
+
+    url = "tcp://127.0.0.1:4223"
+
+    context = zmq.Context()
+    socket = context.socket(zmq.XPUB)
+    socket.setsockopt(zmq.XPUB_VERBOSE, True)
+    socket.bind(url)
+
+    stats['clients']=0
+    def zmq_thread(socket, stats):
+        try:
+            while True:
+                event = socket.recv()
+                 # Event is one byte 0=unsub or 1=sub, followed by topic
+                if event[0] == 1:
+                    log("new subscriber for", event[1:])
+                    stats['clients'] += 1
+                elif event[0] == 0:
+                    log("unsubscribed",event[1:])
+                    stats['clients'] -= 1
+        except zmq.error.ContextTerminated:
+            pass
+
+    def log(*msg):
+        s=time.strftime("%Y-%m-%d %H:%M:%S",time.localtime())
+        print("%s:"%s,*msg, end=eolnl, file=statsfile)
+
+    from threading import Thread
+    zthread = Thread(target = zmq_thread, args = [socket, stats])
+    zthread.start()
+
 def stats_thread(stats):
     ltime=time.time()
     lline=0
@@ -206,6 +243,8 @@ def stats_thread(stats):
             hdr+=" [%s]"%progress
         else:
             hdr+=" l:%6d"%stats['in']
+        if output=='zmq':
+            hdr+=" %2d clients"%stats['clients']
         print (hdr, "[%.1f l/s] drop:%3d%%"%((nowl-lline)/(now-ltime),100*(1-stats['out']/(stats['in'] or 1))), end=eol, file=statsfile)
         ltime=now
         lline=nowl
@@ -308,6 +347,8 @@ def perline(q):
                 print(q.pretty())
             else:
                 print(" ".join([str(q.__dict__[x]) for x in ofmt]))
+    elif output == "zmq":
+        socket.send_string(q.pretty())
     elif output == "rxstats":
         print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
     elif output == "sigmf":
@@ -355,6 +396,10 @@ except KeyboardInterrupt:
 
 if do_stats:
     stats['stop'].set()
+
+if output=='zmq':
+    socket.close()
+    context.term()
 
 if sigmffile is not None:
     import os
