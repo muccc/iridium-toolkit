@@ -398,6 +398,7 @@ class LiveMap(Reassemble):
     def __init__(self):
         self.positions={}
         self.ground={}
+        self.topic="IRA"
         pass
 
     r2=re.compile(r' *sat:(\d+) beam:(\d+) (?:xyz=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+).*')
@@ -611,6 +612,7 @@ class ReassemblePPM(Reassemble):
 
 class ReassembleIDA(Reassemble):
     def __init__(self):
+        self.topic="IDA"
         pass
     def filter(self,line):
         q=super().filter(line)
@@ -1059,6 +1061,7 @@ class ReassembleIDASBD(ReassembleIDA):
     sbd_broken=0
 
     def __init__(self):
+        super().__init__()
         if 'debug' in args:
             global verb2
             verb2=True
@@ -1245,6 +1248,7 @@ acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
 # ref. http://www.hoka.it/oldweb/tech_info/systems/acars.htm
 class ReassembleIDASBDACARS(ReassembleIDASBD):
     def __init__(self):
+        super().__init__()
         import crcmod
         self.acars_crc16=crcmod.predefined.mkPredefinedCrcFun("kermit")
 
@@ -1506,6 +1510,7 @@ class ReassembleIDALAPPCAP(ReassembleIDALAP):
 
 class ReassembleIRA(Reassemble):
     def __init__(self):
+        self.topic="IRA"
         pass
     def filter(self,line):
         q=super().filter(line)
@@ -1812,4 +1817,20 @@ for x in args.keys():
     if x not in validargs:
         raise Exception("unknown -a option: "+x)
 
-zx.run(fileinput.input(ifile))
+if ifile.startswith("zmq:"):
+    try:
+        topic=zx.topic
+    except AttributeError:
+        print("mode '%s' does not support streaming"%mode, file=sys.stderr)
+        sys.exit(1)
+    import zmq
+    context = zmq.Context()
+    socket = context.socket(zmq.SUB)
+    socket.connect ("tcp://localhost:4223")
+    socket.setsockopt(zmq.SUBSCRIBE, bytes(topic,"ascii"))
+    try:
+        zx.run(iter(socket.recv_string,""))
+    except KeyboardInterrupt:
+        print("")
+else:
+    zx.run(fileinput.input(ifile))
