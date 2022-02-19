@@ -347,7 +347,7 @@ def perline(q):
         if(q.error):
             selected.append(q)
     elif output == "sat":
-        if not q.error and not q.oddbits == "1011":
+        if not q.error:
             selected.append(q)
     elif output == "dump":
         pickle.dump(q,file,1)
@@ -427,10 +427,10 @@ if output == "sat":
     sats=[]
     for m in selected:
         f=m.frequency
-        t=m.globaltime
+        t=m.globalns/1e9
         no=-1
         for s in range(len(sats)):
-            fdiff=(sats[s][0]-f)//(t-sats[s][1])
+            fdiff=(sats[s][0]-f)//(t+.000001-sats[s][1])
             if f<sats[s][0] and fdiff<250:
                 no=s
         if no>-1:
