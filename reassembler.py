@@ -22,12 +22,14 @@ base_freq=1616*10**6
 channel_width=41667
 args={}
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:sa:', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'verbose',
                                                          'help',
+                                                         'json',
                                                          'input=',
                                                          'output=',
                                                          'mode=',
+                                                         'station=',
                                                          'args=',
                                                          ])
 
@@ -38,11 +40,15 @@ for opt, arg in options:
         ifile=arg
     elif opt in ('-o', '--output'):
         ofile=arg
+    elif opt in ('-j', '--json'):
+        jsonout = True
     elif opt in ('-m', '--mode'):
         mode=arg
     elif opt in ('-a', '--args'):
         for a in arg.split(","):
             args[a]=True
+    elif opt in ('--station'):
+        station = arg
     elif opt in ('-h', '--help'):
         print("Usage:", file=sys.stderr)
         print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--args option[,...]] [--output out.txt]", file=sys.stderr)
@@ -1332,28 +1338,36 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
 
         # PRETTY-PRINT
         out=""
+        m = {}
 
         out+=datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S")
+        m['timestamp'] = datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S")
         out+=" "
 
         if len(self.hdr)>0:
             out+="[hdr: %s]"%self.hdr.hex()
+            m['header'] = self.hdr.hex()
         else:
             out+="%-23s"%""
         out+=" "
 
         if ul:
             out+="Dir:%s"%"UL"
+            m['direction'] = 'uplink'
         else:
             out+="Dir:%s"%"DL"
+            m['direction'] = 'downlink'
         out+=" "
 
         out+="Mode:%s"%self.mode.decode('latin-1')
+        m['mode'] = self.mode.decode('latin-1')
         out+=" "
 
         f_reg=self.f_reg.decode('latin-1')
+        m['tail'] = self.f_reg.decode('latin-1')
         while len(f_reg)>0 and f_reg[0]=='.':
             f_reg=f_reg[1:]
+            m['tail'] = m['tail'][1:]
         out+="REG:%-7s"%f_reg
         out+=" "
 
@@ -1361,13 +1375,16 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
             out+="NAK  "
         else:
             out+="ACK:%s"%self.ack.decode('latin-1')
+        m['ack'] = self.ack.decode('latin-1')
         out+=" "
 
         out+="Label:"
         if self.label== b'_\x7f':
             out+='_?'
+            m['label'] = '_?'
         else:
             out+=ascii(self.label, escape=True)
+            m['label'] = ascii(self.label, escape=True)
         out+=" "
 
         if self.label in acars_labels:
@@ -1377,22 +1394,35 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         out+=" "
 
         out+="bID:%s"%(ascii(self.b_id, escape=True))
+        m['block_id'] = ascii(self.b_id, escape=True)
         out+=" "
 
         if ul:
             out+="SEQ: %s, FNO: %s"%(ascii(self.seqn, escape=True), ascii(self.f_no, escape=True))
             out+=" "
+            m['msg_no'] = ascii(self.seqn, escape=True)
+            m['flight'] = ascii(self.f_no, escape=True)
 
         if len(self.txt)>0:
             out+="[%s]"%ascii(self.txt, escape=True)
+            m['text'] = ascii(self.txt, escape=True)
 
         if self.cont:
             out+=" CONT'd"
+            m['continues'] = self.cont
 
         if len(self.errors)>0:
             out+=" " + " ".join(self.errors)
+            m['errors'] = " ".join(self.errors)
 
-        print(out)
+        m['source'] = { 'transport': 'iridium', 'protocol': 'acars' }
+        if station:
+            m['source']['station_id'] = station
+
+        if jsonout:
+            print(json.dumps(m))
+        else:
+            print(out)
 
 class ReassembleIDALAP(ReassembleIDA):
     first=True
