@@ -312,10 +312,8 @@ def perline(q):
         sat=satclass.classify(q.frequency,q.globaltime)
         q.satno=int(sat.name)
     if interesting:
-        if type(q).__name__ == "IridiumMessage" or type(q).__name__ == "IridiumECCMessage" or type(q).__name__ == "IridiumBCMessage" or type(q).__name__ == "Message" or type(q).__name__ == "IridiumSYMessage" or type(q).__name__ == "IridiumMSMessage" or q.error:
+        if q.error or type(q).__name__ in ("IridiumMessage","IridiumECCMessage","IridiumBCMessage","Message","IridiumSYMessage","IridiumMSMessage"):
             return
-        del q.bitstream_raw
-        if("descrambled" in q.__dict__): del q.descrambled
         del q.descramble_extra
     if q.error:
         if isinstance(errorstats, collections.abc.Mapping):
