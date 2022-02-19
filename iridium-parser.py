@@ -311,7 +311,7 @@ def perline(q):
     if q.error:
         if isinstance(errorstats, collections.abc.Mapping):
             msg=q.error_msg[0]
-            if(msg in errorstats):
+            if msg in errorstats:
                 errorstats[msg]+=1
             else:
                 errorstats[msg]=1
@@ -335,7 +335,7 @@ def perline(q):
     if do_stats:
         stats["out"]+=1
     if output == "err":
-        if(q.error):
+        if q.error:
             selected.append(q)
     elif output == "sat":
         if not q.error:
@@ -345,7 +345,7 @@ def perline(q):
     elif output == "plot":
         selected.append(q)
     elif output == "line":
-        if (q.error):
+        if q.error:
             print(q.pretty()+" ERR:"+", ".join(q.error_msg))
         else:
             if not ofmt:
@@ -455,7 +455,7 @@ if output == "err":
     sort={}
     for m in selected:
         msg=m.error_msg[0]
-        if(msg in sort):
+        if msg in sort:
             sort[msg].append(m)
         else:
             sort[msg]=[m]
