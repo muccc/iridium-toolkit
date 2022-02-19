@@ -3,6 +3,7 @@
 import sys
 import matplotlib.pyplot as plt
 import collections
+from util import parse_channel
 
 if len(sys.argv)<2:
     f = open("/dev/stdin")
@@ -55,10 +56,17 @@ newtypes=[]
 for line in f:
     line = line.strip().split()
     ftype = line[0][:-1]
+    if ftype == "ERR":
+        continue
     #ts_base = int(line[1].split('-')[1].split('.')[0])
     ts_base = 0
     ts = ts_base + float(line[2])/1000.
-    f = int(line[3])
+    f = line[3]
+    if "|" in f:
+        f = parse_channel(f)
+    else:
+        f = int(f)
+
     #len = int(line[6])
     #strength = float(line[5])
 
