@@ -161,14 +161,14 @@ if sigmffile is not None:
 if sigmfout is None:
     sigmfout=sys.stdout
 
-if dosatclass == True:
+if dosatclass is True:
     import satclass
     satclass.init()
 
 if (linefilter['type'] != 'All') and bitsparser.harder:
     raise Exception("--harder and --filter (except type=Any) can't be use at the same time")
 
-if errorfile != None:
+if errorfile is not None:
     errorfile=open(errorfile,"w")
 
 if output == "dump":
@@ -301,7 +301,7 @@ def do_input(type):
         exit(1)
 
 def perline(q):
-    if dosatclass == True:
+    if dosatclass is True:
         sat=satclass.classify(q.frequency,q.globaltime)
         q.satno=int(sat.name)
     if interesting:
@@ -315,7 +315,7 @@ def perline(q):
                 errorstats[msg]+=1
             else:
                 errorstats[msg]=1
-        if errorfile != None:
+        if errorfile is not None:
             print(q.line+" ERR:"+", ".join(q.error_msg), file=errorfile)
             return
     if perfect:
