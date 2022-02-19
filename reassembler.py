@@ -21,6 +21,7 @@ mode= "undef"
 base_freq=1616*10**6
 channel_width=41667
 args={}
+utc = False
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'verbose',
@@ -51,7 +52,7 @@ for opt, arg in options:
     elif opt in ('--station'):
         station = arg
     elif opt in ('--utc'):
-        utc = true
+        utc = True
     elif opt in ('-h', '--help'):
         print("Usage:", file=sys.stderr)
         print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--args option[,...]] [--output out.txt]", file=sys.stderr)
