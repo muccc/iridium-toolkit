@@ -31,6 +31,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'mode=',
                                                          'station=',
                                                          'args=',
+                                                         'utc',
                                                          ])
 
 for opt, arg in options:
@@ -49,6 +50,8 @@ for opt, arg in options:
             args[a]=True
     elif opt in ('--station'):
         station = arg
+    elif opt in ('--utc'):
+        utc = true
     elif opt in ('-h', '--help'):
         print("Usage:", file=sys.stderr)
         print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--args option[,...]] [--output out.txt]", file=sys.stderr)
@@ -1340,9 +1343,13 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         out=""
         m = {}
 
-        out+=datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S")
-        m['timestamp'] = datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S")
+        if utc:
+            timestamp = datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S%z")
+        else:
+            timestamp = datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S%z")
+        out += timestamp
         out+=" "
+        m['timestamp'] = timestamp
 
         if len(self.hdr)>0:
             out+="[hdr: %s]"%self.hdr.hex()
