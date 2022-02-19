@@ -411,7 +411,6 @@ if output=='zmq':
     context.term()
 
 if sigmffile is not None:
-    import os
     print("{}]}", file=sigmfout)
     sigmfout.close()
     os.rename(sigmffile,        sigmffile+".bak")

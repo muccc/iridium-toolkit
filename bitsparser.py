@@ -5,15 +5,16 @@
 import sys
 import re
 import struct
-from bch import ndivide, nrepair, bch_repair, bch_repair1
-import crcmod
-import rs
-import rs6
 import fileinput
 import datetime
+from math import sqrt,atan2,pi,log
+
+import crcmod
+from bch import ndivide, nrepair, bch_repair, bch_repair1
+import rs
+import rs6
 
 from util import *
-from math import sqrt,atan2,pi,log
 import itl
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK

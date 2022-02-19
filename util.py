@@ -116,7 +116,6 @@ def objprint(q):
 
 def curses_eol(file=sys.stderr):
     import curses
-    import sys
     curses.setupterm(fd=file.fileno())
     el=curses.tigetstr('el')
     cr=curses.tigetstr('cr') or b'\r'
