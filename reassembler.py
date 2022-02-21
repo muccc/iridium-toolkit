@@ -901,13 +901,14 @@ class ReassembleIDAPP(ReassembleIDA):
                     prehdr+=" MOMSN=%02x%02x"%(hdr[13],hdr[14])
 
                     addlen=hdr[17]
-                elif hdr[0] in (0x10,0x40,0x70):
+                elif hdr[0] in (0x10,0x40,0x50,0x70):
                     prehdr+=","+ "".join(["%02x"%x for x in hdr[4:8]])
                     prehdr+=",%02x%02x"%(hdr[8],hdr[9])
                     prehdr+=",%02x%02x"%(hdr[10],hdr[11])
                     prehdr+=",%02x%02x%02x"%(hdr[12],hdr[13],hdr[14])
                 else:
-                    prehdr+="ERR:hdrtype"
+                    prehdr+="[ERR:hdrtype]"
+                    prehdr+=" "+hdr[4:15].hex(":")
 
                 prehdr+=" msgct:%d"%hdr[15]
                 prehdr+=" "+hdr[16:25].hex(":")
@@ -1105,8 +1106,8 @@ class ReassembleIDASBD(ReassembleIDA):
             if data[1]!=0x00:
                 print("WARN: SBD: HELLO pkt with unclear type",data.hex(":"), file=sys.stderr)
                 return
-            elif data[2] not in (0x10,0x20,0x40,0x70):
-                print("WARN: SBD: HELLO pkt with unclear sub-type",data.hex(":"), file=sys.stderr)
+            elif data[2] not in (0x10,0x20,0x40,0x50,0x70):
+                print("WARN: SBD: HELLO pkt with unknown sub-type",data.hex(":"), file=sys.stderr)
                 return
 
         self.sbd_cnt+=1
@@ -1396,7 +1397,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if len(self.errors)>0:
             out+=" " + " ".join(self.errors)
 
-        print(out)
+        print(out, file=outfile)
 
 class ReassembleIDALAP(ReassembleIDA):
     first=True
