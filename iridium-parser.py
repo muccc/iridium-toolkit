@@ -2,11 +2,13 @@
 # -*- coding: utf-8 -*-
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
+import os
 import sys
 import re
 import fileinput
 import getopt
 import datetime
+import time
 import collections.abc
 
 import bitsparser
@@ -32,6 +34,8 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'errorstats',
                                                          'forcetype=',
                                                          'channelize',
+                                                         'sigmf-annotate=',
+                                                         'stats',
                                                          ])
 
 verbose = False
@@ -48,6 +52,8 @@ plotargs=["time", "frequency"]
 vdumpfile=None
 errorfile=None
 errorstats=None
+sigmffile=None
+do_stats=False
 
 for opt, arg in options:
     if opt in ['-v', '--verbose']:
@@ -99,12 +105,58 @@ for opt, arg in options:
         bitsparser.channelize=True
     elif opt in ['--format']:
         ofmt=arg.split(',');
+    elif opt in ['--sigmf-annotate']:
+        sigmffile=arg
+        output="sigmf"
+    elif opt in ['--stats']:
+        do_stats=True
     else:
         raise Exception("unknown argument?")
 
 if input == "dump" or output == "dump":
     import pickle as pickle
     dumpfile="pickle.dump"
+
+if output == "sigmf":
+    import json
+
+if output == "zmq":
+    do_stats=True
+    errorfree=True
+
+if do_stats:
+    import curses
+    curses.setupterm(fd=sys.stderr.fileno())
+    statsfile=sys.stderr
+    eol=(curses.tigetstr('el')+curses.tigetstr('cr')).decode("ascii")
+    eolnl=(curses.tigetstr('el')+b'\n').decode("ascii")
+    stats={}
+
+sigmfjson=None
+sigmfout=None
+if sigmffile is not None:
+    try:
+        sigmfjson=json.load(open(sigmffile,'r'))
+        sigmfjson.pop('annotations', None)
+    except FileNotFoundError:
+        print("WARN: no sigmf-meta source file. Using (probably-wrong) hardcoded defaults", file=sys.stderr)
+        sigmfjson={
+            "global":
+                {"core:datatype": "cf32_le", "core:sample_rate": 10e6, "core:version": "0.0.1"},
+            "captures": [
+                {"core:sample_start": 0, "core:frequency": 1626000000}
+            ]
+        }
+    sigmfout=open(sigmffile+'.tmp','w')
+    print("{", file=sigmfout)
+    for key in sigmfjson:
+        print('"%s":'%key, file=sigmfout)
+        json.dump(sigmfjson[key],sigmfout)
+        print(',', file=sigmfout)
+    print('"%s": ['%"annotations", file=sigmfout)
+
+if sigmfout is None:
+    sigmfout=sys.stdout
 
 if dosatclass == True:
     import satclass
@@ -130,11 +182,89 @@ if output == "plot":
     cl=[]
     sl=[]
 
+if output == "zmq":
+    import zmq
+
+    url = "tcp://127.0.0.1:4223"
+
+    context = zmq.Context()
+    socket = context.socket(zmq.XPUB)
+    socket.setsockopt(zmq.XPUB_VERBOSE, True)
+    socket.bind(url)
+
+    stats['clients']=0
+    def zmq_thread(socket, stats):
+        try:
+            while True:
+                event = socket.recv()
+                 # Event is one byte 0=unsub or 1=sub, followed by topic
+                if event[0] == 1:
+                    log("new subscriber for", event[1:])
+                    stats['clients'] += 1
+                elif event[0] == 0:
+                    log("unsubscribed",event[1:])
+                    stats['clients'] -= 1
+        except zmq.error.ContextTerminated:
+            pass
+
+    def log(*msg):
+        s=time.strftime("%Y-%m-%d %H:%M:%S",time.localtime())
+        print("%s:"%s,*msg, end=eolnl, file=statsfile)
+
+    from threading import Thread
+    zthread = Thread(target = zmq_thread, args = [socket, stats])
+    zthread.start()
+
+def stats_thread(stats):
+    ltime=time.time()
+    lline=0
+    stime=stats['start']
+    stop=stats['stop']
+
+    while not stop.wait(timeout=1.0):
+        now=time.time()
+        nowl=stats['in']
+        td=now-stime
+        s=time.strftime("%Y-%m-%d %H:%M:%S",time.localtime())
+        ts="%02d:%02d:%02d"%(td/60/60,td/60%60,td%60)
+        hdr="%s [%s]"%(s, ts)
+        progress=""
+        if 'files' in stats and stats['files']>1:
+            progress+="%d/%d:"%(stats['fileno'],stats['files'])
+        if 'size' in stats and stats['size']>0:
+            pos=os.lseek(fileinput.fileno(),0,os.SEEK_CUR)
+            progress+="%4.1f%%"%(100*pos/stats['size'])
+            eta=stats['size']/(pos/td) - td
+            te="%02d:%02d"%(eta/60%60,eta%60)
+            if eta>60*60:
+                te="%02d:"%(eta/60/60)+te
+            progress+="/"+te
+        if progress:
+            hdr+=" [%s]"%progress
+        else:
+            hdr+=" l:%6d"%stats['in']
+        if output=='zmq':
+            hdr+=" %2d clients"%stats['clients']
+        print (hdr, "[%.1f l/s] drop:%3d%%"%((nowl-lline)/(now-ltime),100*(1-stats['out']/(stats['in'] or 1))), end=eol, file=statsfile)
+        ltime=now
+        lline=nowl
+    if eol=='\r':
+        print(file=of)
+
 selected=[]
 
 def do_input(type):
     if type=="raw":
+        if do_stats:
+            stats['files']=len(remainder)
+            stats['fileno']=0
         for line in fileinput.input(remainder):
+            if do_stats:
+                if fileinput.isfirstline():
+                    stats['fileno']+=1
+                    stat=os.fstat(fileinput.fileno())
+                    stats['size']=stat.st_size
+                stats['in']+=1
             if good:
                 q=bitsparser.Message(line.strip())
                 try:
@@ -191,6 +321,8 @@ def perline(q):
         return
     if linefilter['check'] and not eval(linefilter['check']):
         return
+    if do_stats:
+        stats["out"]+=1
     if vdumpfile != None and type(q).__name__ == "IridiumVOMessage":
         if len(q.voice)!=312:
             raise Exception("illegal Voice frame length")
@@ -215,8 +347,32 @@ def perline(q):
                 print(q.pretty())
             else:
                 print(" ".join([str(q.__dict__[x]) for x in ofmt]))
+    elif output == "zmq":
+        socket.send_string(q.pretty())
     elif output == "rxstats":
         print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
+    elif output == "sigmf":
+        try:
+            sr=sigmfjson['global']["core:sample_rate"]
+            center=sigmfjson['captures'][0]["core:frequency"]
+        except TypeError:
+            sr=10e6
+            center=1626000000
+        SYMBOLS_PER_SECOND = 25000
+        if q.error:
+            desc=q.error_msg[0]
+        elif "msgtype" in q.__dict__:
+            desc=q.msgtype
+        else:
+            desc=type(q).__name__
+        print(json.dumps({
+            "core:comment": type(q).__name__,
+            "core:description": desc+"#%d"%int(q.id),
+            "core:freq_lower_edge": q.frequency-20e3,
+            "core:freq_upper_edge": q.frequency+20e3,
+            "core:sample_count": int(q.symbols * (sr/SYMBOLS_PER_SECOND)),
+            "core:sample_start": int(q.timestamp * (sr/1000))
+            }), end=",\n", file=sigmfout)
     else:
         print("Unknown output mode.", file=sys.stderr)
         exit(1)
@@ -224,7 +380,33 @@ def perline(q):
 def bitdiff(a, b):
     return sum(x != y for x, y in zip(a, b))
 
-do_input(input)
+if do_stats:
+    from threading import Thread, Event
+    stats['start']=time.time()
+    stats['in']=0
+    stats['out']=0
+    stats['stop']= Event()
+    sthread = Thread(target = stats_thread, args = [stats])
+    sthread.start()
+
+try:
+    do_input(input)
+except KeyboardInterrupt:
+    pass
+
+if do_stats:
+    stats['stop'].set()
+
+if output=='zmq':
+    socket.close()
+    context.term()
+
+if sigmffile is not None:
+    import os
+    print("{}]}", file=sigmfout)
+    sigmfout.close()
+    os.rename(sigmffile,        sigmffile+".bak")
+    os.rename(sigmffile+".tmp", sigmffile)
 
 if output == "sat":
     print("SATs:")

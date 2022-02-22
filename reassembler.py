@@ -403,11 +403,12 @@ import json
 class LiveMap(Reassemble):
     intvl=60
     exptime=60*8
-    timeslot=None
+    timeslot=-1
 
     def __init__(self):
         self.positions={}
         self.ground={}
+        self.topic="IRA"
         pass
 
     r2=re.compile(r' *sat:(\d+) beam:(\d+) (?:xyz=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+).*')
@@ -458,10 +459,10 @@ class LiveMap(Reassemble):
                 del self.ground[sat][:eidx]
 
             #cleanup
-            for sat in self.positions.keys():
+            for sat in list(self.positions.keys()):
                 if len(self.positions[sat])==0:
                     del self.positions[sat]
-            for sat in self.ground.keys():
+            for sat in list(self.ground.keys()):
                 if len(self.ground[sat])==0:
                     del self.ground[sat]
 
@@ -621,6 +622,7 @@ class ReassemblePPM(Reassemble):
 
 class ReassembleIDA(Reassemble):
     def __init__(self):
+        self.topic="IDA"
         pass
     def filter(self,line):
         q=super().filter(line)
@@ -909,13 +911,14 @@ class ReassembleIDAPP(ReassembleIDA):
                     prehdr+=" MOMSN=%02x%02x"%(hdr[13],hdr[14])
 
                     addlen=hdr[17]
-                elif hdr[0] in (0x10,0x40,0x70):
+                elif hdr[0] in (0x10,0x40,0x50,0x70):
                     prehdr+=","+ "".join(["%02x"%x for x in hdr[4:8]])
                     prehdr+=",%02x%02x"%(hdr[8],hdr[9])
                     prehdr+=",%02x%02x"%(hdr[10],hdr[11])
                     prehdr+=",%02x%02x%02x"%(hdr[12],hdr[13],hdr[14])
                 else:
-                    prehdr+="ERR:hdrtype"
+                    prehdr+="[ERR:hdrtype]"
+                    prehdr+=" "+hdr[4:15].hex(":")
 
                 prehdr+=" msgct:%d"%hdr[15]
                 prehdr+=" "+hdr[16:25].hex(":")
@@ -1069,6 +1072,7 @@ class ReassembleIDASBD(ReassembleIDA):
     sbd_broken=0
 
     def __init__(self):
+        super().__init__()
         if 'debug' in args:
             global verb2
             verb2=True
@@ -1112,8 +1116,8 @@ class ReassembleIDASBD(ReassembleIDA):
             if data[1]!=0x00:
                 print("WARN: SBD: HELLO pkt with unclear type",data.hex(":"), file=sys.stderr)
                 return
-            elif data[2] not in (0x10,0x20,0x40,0x70):
-                print("WARN: SBD: HELLO pkt with unclear sub-type",data.hex(":"), file=sys.stderr)
+            elif data[2] not in (0x10,0x20,0x40,0x50,0x70):
+                print("WARN: SBD: HELLO pkt with unknown sub-type",data.hex(":"), file=sys.stderr)
                 return
 
         self.sbd_cnt+=1
@@ -1255,6 +1259,7 @@ acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
 # ref. http://www.hoka.it/oldweb/tech_info/systems/acars.htm
 class ReassembleIDASBDACARS(ReassembleIDASBD):
     def __init__(self):
+        super().__init__()
         import crcmod
         self.acars_crc16=crcmod.predefined.mkPredefinedCrcFun("kermit")
 
@@ -1428,9 +1433,9 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
             m['source']['station_id'] = station
 
         if jsonout:
-            print(json.dumps(m))
+            print(json.dumps(m), file=outfile)
         else:
-            print(out)
+            print(out, file=outfile)
 
 class ReassembleIDALAP(ReassembleIDA):
     first=True
@@ -1544,6 +1549,7 @@ class ReassembleIDALAPPCAP(ReassembleIDALAP):
 
 class ReassembleIRA(Reassemble):
     def __init__(self):
+        self.topic="IRA"
         pass
     def filter(self,line):
         q=super().filter(line)
@@ -1850,4 +1856,20 @@ for x in args.keys():
     if x not in validargs:
         raise Exception("unknown -a option: "+x)
 
-zx.run(fileinput.input(ifile))
+if ifile.startswith("zmq:"):
+    try:
+        topic=zx.topic
+    except AttributeError:
+        print("mode '%s' does not support streaming"%mode, file=sys.stderr)
+        sys.exit(1)
+    import zmq
+    context = zmq.Context()
+    socket = context.socket(zmq.SUB)
+    socket.connect ("tcp://localhost:4223")
+    socket.setsockopt(zmq.SUBSCRIBE, bytes(topic,"ascii"))
+    try:
+        zx.run(iter(socket.recv_string,""))
+    except KeyboardInterrupt:
+        print("")
+else:
+    zx.run(fileinput.input(ifile))
