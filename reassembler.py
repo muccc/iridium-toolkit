@@ -21,7 +21,7 @@ mode= "undef"
 base_freq=1616*10**6
 channel_width=41667
 args={}
-utc = False
+utc = True
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'verbose',
@@ -32,7 +32,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'mode=',
                                                          'station=',
                                                          'args=',
-                                                         'utc',
+                                                         'local-time',
                                                          ])
 
 for opt, arg in options:
@@ -51,11 +51,11 @@ for opt, arg in options:
             args[a]=True
     elif opt in ('--station'):
         station = arg
-    elif opt in ('--utc'):
-        utc = True
+    elif opt in ('--local-time'):
+        utc = False
     elif opt in ('-h', '--help'):
         print("Usage:", file=sys.stderr)
-        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--args option[,...]] [--output out.txt]", file=sys.stderr)
+        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--json] [--local-time] [--station KABC1-IRIDIUM] [--args option[,...]] [--output out.txt]", file=sys.stderr)
         exit(1)
     else:
         raise Exception("unknown argument?")
