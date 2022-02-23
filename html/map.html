@@ -1,6 +1,7 @@
 <!doctype html>
 <meta content="text/html;charset=utf-8" http-equiv="Content-Type">
 <meta content="utf-8" http-equiv="encoding">
+<link rel="shortcut icon" href="favicon.ico" />
 <html lang="en">
   <head>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/openlayers/openlayers.github.io@master/en/v6.4.3/css/ol.css" type="text/css">
@@ -245,9 +246,16 @@ parser.inject(
 	ol.geom.MultiPolygon
 );
 
-function paintbeam(coordinates, satname, newtime){
+function paintbeam(coordinates, satname, newtime, style){
 		if (!coordinates){
 			return null;
+		};
+
+		if (!style){
+			style= new ol.style.Style({
+				stroke: new ol.style.Stroke({color: 'blue', width: 1}),
+				fill: new ol.style.Fill({color: 'rgba(0,0,255,0.1)'})
+			});
 		};
 
 		// transform coords
@@ -281,26 +289,24 @@ function paintbeam(coordinates, satname, newtime){
 		});
 		var featurePoint = new ol.Feature(circle);
 
-		var satCircle=new ol.style.Style({
-				stroke: new ol.style.Stroke({color: 'blue', width: 1}),
-				fill: new ol.style.Fill({color: 'rgba(0,0,255,0.1)'})
-		});
-
-		featurePoint.setStyle(satCircle);
+		featurePoint.setStyle(style);
 		vectorSource.addFeature(featurePoint);
 		return(featurePoint);
 };
 
 function paintallbeams(beams, newtime){
+		borders= new ol.style.Style({ stroke: new ol.style.Stroke({color: 'blue', width: 1}) });
+		centers= new ol.style.Style({ fill: new ol.style.Fill({color: 'rgba(0,0,255,0.1)'}) });
 		if (!beams){
 			return null;
 		};
 		allcoords=[]
 		Object.keys(beams).forEach(function (key) {
+			paintbeam(beams[key],key,newtime,centers);
 			allcoords.push(...beams[key]);
 		})
 		console.warn(allcoords)
-		return paintbeam(allcoords,"All",newtime);
+		return paintbeam(allcoords,"All",newtime,borders);
 };
 
 var getJSON = function(url, callback) {
@@ -383,7 +389,7 @@ var displayFeatureInfo = function (pixel) {
       };
       if (!beamhover){
           if (lastData["beam"][sn]){
-              beamhover=paintbeam(lastData["beam"][sn],sn,lastData["time"]);
+              beamhover=paintbeam(lastData["beam"][sn],sn,lastData["time"],null);
           }
       }
     }
