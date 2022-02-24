@@ -24,6 +24,7 @@ args={}
 utc = True
 station = None
 do_stats=False
+sats_output_path="."
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'verbose',
@@ -36,6 +37,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'args=',
                                                          'local-time',
                                                          'stats',
+                                                         'sats-output-path='
                                                          ])
 
 for opt, arg in options:
@@ -61,9 +63,11 @@ for opt, arg in options:
         station = arg
     elif opt in ('--local-time'):
         utc = False
+    elif opt in ('--sats-output-path'):
+        sats_output_path = arg
     elif opt in ('-h', '--help'):
         print("Usage:", file=sys.stderr)
-        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--json] [--local-time] [--station KABC1-IRIDIUM] [--args option[,...]] [--output out.txt]", file=sys.stderr)
+        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--json] [--local-time] [--station KABC1-IRIDIUM] [--sats-output-path /some/path] [--args option[,...]] [--output out.txt]", file=sys.stderr)
         exit(1)
     else:
         raise Exception("unknown argument?")
@@ -511,9 +515,14 @@ class LiveMap(Reassemble):
         else:
             print("# @ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
         stats["time"]=ts
-        with open("sats.json.new", "w") as f:
+        temp_file_path="/tmp/sats.json.new"
+        if sats_output_path:
+            sats_file_path="%s/sats.json"
+        else:
+            sats_file_path="sats.json"
+        with open(temp_file_path, "w") as f:
             print(json.dumps(stats, separators=(',', ':')), file=f)
-        os.rename("sats.json.new", "sats.json")
+        os.rename(temp_file_path, sats_file_path)
 
     def consume(self,to):
         (ts,stats)=to
