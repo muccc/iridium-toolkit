@@ -517,7 +517,7 @@ class LiveMap(Reassemble):
         stats["time"]=ts
         temp_file_path="/tmp/sats.json.new"
         if sats_output_path:
-            sats_file_path="%s/sats.json"
+            sats_file_path="%s/sats.json"%(sats_output_path)
         else:
             sats_file_path="sats.json"
         with open(temp_file_path, "w") as f:
