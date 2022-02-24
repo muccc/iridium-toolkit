@@ -26,6 +26,7 @@ utc = True
 station = None
 do_stats=False
 sats_output_path="."
+jsonout=False
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'verbose',
