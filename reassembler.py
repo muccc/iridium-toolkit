@@ -22,6 +22,7 @@ base_freq=1616*10**6
 channel_width=41667
 args={}
 utc = True
+station = None
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'verbose',
