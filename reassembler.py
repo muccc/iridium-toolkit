@@ -10,6 +10,7 @@ import re
 import struct
 import math
 import os
+import shutil
 import socket
 from copy import deepcopy
 from util import fmt_iritime
@@ -522,7 +523,7 @@ class LiveMap(Reassemble):
             sats_file_path="sats.json"
         with open(temp_file_path, "w") as f:
             print(json.dumps(stats, separators=(',', ':')), file=f)
-        os.rename(temp_file_path, sats_file_path)
+        shutil.move(temp_file_path, sats_file_path)
 
     def consume(self,to):
         (ts,stats)=to
