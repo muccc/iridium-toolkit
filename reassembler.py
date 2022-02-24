@@ -23,6 +23,7 @@ channel_width=41667
 args={}
 utc = True
 station = None
+do_stats=False
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'verbose',
@@ -34,6 +35,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
                                                          'station=',
                                                          'args=',
                                                          'local-time',
+                                                         'stats',
                                                          ])
 
 for opt, arg in options:
@@ -47,6 +49,11 @@ for opt, arg in options:
         jsonout = True
     elif opt in ('-m', '--mode'):
         mode=arg
+    elif opt in ('-s', '--stats'):
+        do_stats=True
+        import curses
+        curses.setupterm(fd=sys.stderr.fileno())
+        eol=(curses.tigetstr('el')+curses.tigetstr('cr')).decode("ascii")
     elif opt in ('-a', '--args'):
         for a in arg.split(","):
             args[a]=True
@@ -493,7 +500,16 @@ class LiveMap(Reassemble):
 
     def printstats(self, timeslot, stats):
         ts=timeslot+self.intvl
-        print("# @ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
+        if do_stats:
+            sts=datetime.datetime.fromtimestamp(ts)
+            sats=len(stats['sats'])
+            ssats=", ".join([str(x) for x in sorted(stats['sats'])])
+            beams=0
+            for b in stats['beam']:
+                beams+=len(set([x['beam'] for x in stats['beam'][b]]))
+            print("%s: %d sats {%s}, %d beams"%(sts,sats,ssats,beams), end=eol, file=sys.stderr)
+        else:
+            print("# @ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
         stats["time"]=ts
         with open("sats.json.new", "w") as f:
             print(json.dumps(stats, separators=(',', ':')), file=f)
