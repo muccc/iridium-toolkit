@@ -519,7 +519,6 @@ class LiveMap(Reassemble):
         stats["time"]=ts
         temp_file_path="/tmp/sats.json.new"
         sats_file_path="%s/sats.json"%(sats_output_path)
-        print(sats_file_path, file=sys.stderr)
         with open(temp_file_path, "w") as f:
             print(json.dumps(stats, separators=(',', ':')), file=f)
         shutil.move(temp_file_path, sats_file_path)
