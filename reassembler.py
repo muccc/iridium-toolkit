@@ -14,6 +14,10 @@ import socket
 from copy import deepcopy
 from util import fmt_iritime
 
+if sys.version_info[0]==3 and sys.version_info[1]<8:
+    print("Old python detected, using replacement bytes class...", file=sys.stderr)
+    from util import mybytes as bytes
+
 verbose = False
 ifile= None
 ofile= None

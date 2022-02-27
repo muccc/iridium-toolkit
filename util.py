@@ -19,6 +19,19 @@ Z=Zulu()
 def myhex(data, sep):
     return sep.join(["%02x"%(x) for x in data])
 
+# XXX: our own slice() is in the way.
+slice_=slice
+
+#fallback class for python3 <3.8
+class mybytes(bytes):
+    def hex(self, sep=''):
+        return sep.join(["%02x"%(x) for x in self])
+    def __getitem__(self, key):
+        if isinstance(key, slice_):
+            return mybytes(super().__getitem__(key))
+        else:
+            return super().__getitem__(key)
+
 def fmt_iritime(iritime):
     # Different Iridium epochs that we know about:
     # ERA2: 2014-05-11T14:23:55Z : 1399818235 active since 2015-03-03T18:00:00Z
