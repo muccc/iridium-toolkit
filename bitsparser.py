@@ -250,7 +250,7 @@ class IridiumMessage(Message):
         # Try to detect packet type.
         # Will not detect packets with correctable bit errors at the beginning
         # unless '--harder' is specifed
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex):
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex) and not (freqclass and self.uplink):
             if data[:32] == header_messaging:
                 self.msgtype="MS"
 
@@ -258,7 +258,7 @@ class IridiumMessage(Message):
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex):
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex) and not (freqclass and self.uplink):
             if data[:96]==header_time_location:
                 self.msgtype="TL"
 
@@ -266,7 +266,7 @@ class IridiumMessage(Message):
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency < f_duplex):
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency < f_duplex) and not (freqclass and self.uplink):
             hdrlen=6
             blocklen=64
             if len(data)>hdrlen+blocklen:
@@ -295,7 +295,7 @@ class IridiumMessage(Message):
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex):
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex) and not (freqclass and self.uplink):
             firstlen=3*32
             if len(data)>=3*32:
                 (o_ra1,o_ra2,o_ra3)=de_interleave3(data[:firstlen])
@@ -311,7 +311,7 @@ class IridiumMessage(Message):
         if "msgtype" not in self.__dict__:
             if harder:
                 # try IBC
-                if len(data)>=70:
+                if len(data)>=70 and not (freqclass and self.uplink):
                     hdrlen=6
                     blocklen=64
                     (e1,_,_)=bch_repair1(hdr_poly,data[:hdrlen])
@@ -342,7 +342,7 @@ class IridiumMessage(Message):
 
                 # try for IRA
                 firstlen=3*32
-                if len(data)>=firstlen:
+                if len(data)>=firstlen and not (freqclass and self.uplink):
                     (o_ra1,o_ra2,o_ra3)=de_interleave3(data[:firstlen])
 
                     (e1,d1,b1)=bch_repair(ringalert_bch_poly,o_ra1[:31])
@@ -356,7 +356,7 @@ class IridiumMessage(Message):
                                     self.msgtype="RA"
 
                 # try ITL
-                if len(data)>=96+(8*8*12):
+                if len(data)>=96+(8*8*12) and not (freqclass and self.uplink):
                     if bitdiff(data[:96],header_time_location)<4:
                         self.ec_lcw=1
                         self.msgtype="TL"
