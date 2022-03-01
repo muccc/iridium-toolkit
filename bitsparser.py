@@ -230,14 +230,15 @@ class Message(object):
         if self.parse_error:
             return "ERR: "
         str= "RAW: "+self._pretty_header()
-#        str+= " "+self.bitstream_raw
         bs=self.bitstream_raw
-        if (bs.startswith(iridium_access)):
-            str+=" <%s>"%iridium_access
+        if "uplink" in self.__dict__:
+            str+= " %03d"%(self.symbols-len(iridium_access)//2)
+            if (self.uplink):
+                str+=" UL"
+            else:
+                str+=" DL"
+            str+=" <%s>"%bs[:len(iridium_access)]
             bs=bs[len(iridium_access):]
-        elif (bs.startswith(uplink_access)):
-            str+=" <U%s>"%uplink_access
-            bs=bs[len(uplink_access):]
         str+=" "+" ".join(slice(bs,16))
         if("extra_data" in self.__dict__):
             str+=" "+self.extra_data
