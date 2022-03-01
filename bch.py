@@ -102,6 +102,20 @@ def repair(a,b): # "repair" two bit errors by brute force.
                 return (2,bnum2str)
     return(-1,b)
 
+def nrepair1(a,b): # "repair" one bit error by brute force.
+    r=ndivide(a,b)
+    if(r==0):
+        return (0,b)
+    blen=len(b)
+    bnum=int(b,2)
+    for b1 in range(len(b)):
+        bnum1=bnum^(1<<b1)
+        r=nndivide(a,bnum1)
+        if(r==0):
+            bnum1str=("{0:0%db}"%blen).format(bnum1)
+            return (1,bnum1str)
+    return(-1,b)
+
 def nrepair(a,b): # "repair" two bit errors by brute force.
     r=ndivide(a,b)
     if(r==0):
@@ -123,6 +137,10 @@ def nrepair(a,b): # "repair" two bit errors by brute force.
                 bnum2str=("{0:0%db}"%blen).format(bnum2)
                 return (2,bnum2str)
     return(-1,b)
+
+def bch_repair1(poly,bits):
+    (errs,repaired)=nrepair1(poly,bits)
+    return (errs,repaired[:-poly.bit_length()+1],repaired[-poly.bit_length()+1:])
 
 def bch_repair(poly,bits):
     (errs,repaired)=nrepair(poly,bits)

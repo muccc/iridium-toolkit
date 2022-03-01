@@ -5,7 +5,7 @@
 import sys
 import re
 import struct
-from bch import ndivide, nrepair, bch_repair
+from bch import ndivide, nrepair, bch_repair, bch_repair1
 import crcmod
 import rs
 import rs6
@@ -319,7 +319,7 @@ class IridiumMessage(Message):
                 if len(data)>=70:
                     hdrlen=6
                     blocklen=64
-                    (e1,_,_)=bch_repair(hdr_poly,data[:hdrlen])
+                    (e1,_,_)=bch_repair1(hdr_poly,data[:hdrlen])
                     (o_bc1,o_bc2)=de_interleave(data[hdrlen:hdrlen+blocklen])
                     (e2,d2,b2)=bch_repair(ringalert_bch_poly,o_bc1[:31])
                     (e3,d3,b3)=bch_repair(ringalert_bch_poly,o_bc2[:31])
@@ -331,10 +331,10 @@ class IridiumMessage(Message):
                 # try for LCW
                 if len(data)>=64:
                     (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
-                    (e1 ,lcw1,bch)=bch_repair( 29,o_lcw1)     # BCH(7,3)
+                    (e1 ,lcw1,bch)=bch_repair1( 29,o_lcw1)     # BCH(7,3)
                     (e2a,lcw2,bch)=bch_repair(465,o_lcw2+'0') # BCH(13,16)
                     (e2b,lcw2,bch)=bch_repair(465,o_lcw2+'1')
-                    (e3 ,lcw3,bch)=bch_repair( 41,o_lcw3)     # BCH(26,21)
+                    (e3 ,lcw3,bch)=bch_repair1( 41,o_lcw3)     # BCH(26,21)
 
                     e2=e2a
                     if (e2b>=0 and e2b<e2a) or (e2a<0):
@@ -396,7 +396,7 @@ class IridiumMessage(Message):
         elif self.msgtype=="BC":
             hdrlen=6
             self.header=data[:hdrlen]
-            (e,d,bch)=bch_repair(hdr_poly,self.header)
+            (e,d,bch)=bch_repair1(hdr_poly,self.header)
 
             self.bc_type = int(d, 2)
             if e==0:
@@ -412,10 +412,10 @@ class IridiumMessage(Message):
         elif self.msgtype=="LW":
             lcwlen=46
             (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
-            (e1, self.lcw1,bch)= bch_repair( 29,o_lcw1)
+            (e1, self.lcw1,bch)= bch_repair1( 29,o_lcw1)
             (e2, self.lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit error expected
             (e2b,lcw2b,    bch)= bch_repair(465,o_lcw2+'1')  # Other bit flip?
-            (e3,self.lcw3, bch)= bch_repair( 41,o_lcw3)
+            (e3,self.lcw3, bch)= bch_repair1( 41,o_lcw3)
 
             if (e2b>=0 and e2b<=e2) or (e2<0):
                 e2=e2b
