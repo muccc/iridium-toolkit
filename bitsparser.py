@@ -325,7 +325,7 @@ class IridiumMessage(Message):
                                 self.ec_lcw=e1
 
                 # try for LCW
-                if len(data)>=64:
+                if "msgtype" not in self.__dict__ and len(data)>=64:
                     (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
                     (e1 ,lcw1,bch)=bch_repair1( 29,o_lcw1)     # BCH(7,3)
                     (e2a,lcw2,bch)=bch_repair(465,o_lcw2+'0') # BCH(13,16)
@@ -342,7 +342,7 @@ class IridiumMessage(Message):
 
                 # try for IRA
                 firstlen=3*32
-                if len(data)>=firstlen and not (freqclass and self.uplink):
+                if "msgtype" not in self.__dict__ and len(data)>=firstlen and not (freqclass and self.uplink):
                     (o_ra1,o_ra2,o_ra3)=de_interleave3(data[:firstlen])
 
                     (e1,d1,b1)=bch_repair(ringalert_bch_poly,o_ra1[:31])
@@ -356,7 +356,7 @@ class IridiumMessage(Message):
                                     self.msgtype="RA"
 
                 # try ITL
-                if len(data)>=96+(8*8*12) and not (freqclass and self.uplink):
+                if "msgtype" not in self.__dict__ and len(data)>=96+(8*8*12) and not (freqclass and self.uplink):
                     if bitdiff(data[:96],header_time_location)<4:
                         self.ec_lcw=1
                         self.msgtype="TL"
