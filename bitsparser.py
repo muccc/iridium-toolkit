@@ -361,6 +361,12 @@ class IridiumMessage(Message):
                         self.ec_lcw=1
                         self.msgtype="TL"
 
+                # try IMS
+                if "msgtype" not in self.__dict__ and len(data)>=32 and not (freqclass and self.uplink):
+                    if bitdiff(data[:32],header_messaging)<2:
+                        self.ec_lcw=1
+                        self.msgtype="MS"
+
         if "msgtype" not in self.__dict__:
             if len(data)<64:
                 raise ParserError("Iridium message too short")
