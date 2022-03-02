@@ -22,24 +22,18 @@ mode= "undef"
 base_freq=1616*10**6
 channel_width=41667
 args={}
-utc = True
 station = None
 do_stats=False
-sats_output_path="."
-jsonout=False
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vhji:o:m:sa:', [
+options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:sa:', [
                                                          'verbose',
                                                          'help',
-                                                         'json',
                                                          'input=',
                                                          'output=',
                                                          'mode=',
                                                          'station=',
                                                          'args=',
-                                                         'local-time',
-                                                         'stats',
-                                                         'sats-output-path='
+                                                         'stats'
                                                          ])
 
 for opt, arg in options:
@@ -49,8 +43,6 @@ for opt, arg in options:
         ifile=arg
     elif opt in ('-o', '--output'):
         ofile=arg
-    elif opt in ('-j', '--json'):
-        jsonout = True
     elif opt in ('-m', '--mode'):
         mode=arg
     elif opt in ('-s', '--stats'):
@@ -63,13 +55,9 @@ for opt, arg in options:
             args[a]=True
     elif opt in ('--station'):
         station = arg
-    elif opt in ('--local-time'):
-        utc = False
-    elif opt in ('--sats-output-path'):
-        sats_output_path = arg
     elif opt in ('-h', '--help'):
         print("Usage:", file=sys.stderr)
-        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--json] [--local-time] [--station KABC1-IRIDIUM] [--sats-output-path /some/path] [--args option[,...]] [--output out.txt]", file=sys.stderr)
+        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--station KABC1-IRIDIUM] [--args option[,...]] [--output out.txt]", file=sys.stderr)
         exit(1)
     else:
         raise Exception("unknown argument?")
@@ -517,9 +505,13 @@ class LiveMap(Reassemble):
         else:
             print("# @ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
         stats["time"]=ts
-        temp_file_path="/tmp/sats.json.new"
-        sats_file_path="%s/sats.json"%(sats_output_path)
-        with open(temp_file_path, "w") as f:
+        if ofile:
+            sats_file_path=ofile
+        else:
+            sats_file_path="sats.json"
+        temp_file_path="%s.tmp"%(sats_file_path)
+
+        with open("%s.tmp", "w") as f:
             print(json.dumps(stats, separators=(',', ':')), file=f)
         shutil.move(temp_file_path, sats_file_path)
 
@@ -1374,12 +1366,8 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         out=""
         m = {}
 
-        if utc:
-            timestamp = datetime.datetime.fromtimestamp(time, tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S%z")
-        else:
-            timestamp = datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S%z")
-        out += timestamp
-        out+=" "
+        timestamp = datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S%z")
+        out += timestamp + " "
         m['timestamp'] = timestamp
 
         if len(self.hdr)>0:
@@ -1457,7 +1445,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if station:
             m['source']['station_id'] = station
 
-        if jsonout:
+        if args['json']:
             print(json.dumps(m), file=outfile)
         else:
             print(out, file=outfile)
