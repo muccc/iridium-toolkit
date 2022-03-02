@@ -1312,9 +1312,9 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         else:
             self.errors.append("CRC_MISSING")
 
-        if len(data)<12:
-            self.errors.append("SHORT")
-            return
+        if len(data)<13:
+            self.errors.append("TRUNCATED")
+            return # throw away for now
 
         ok, data=parity7(data)
 
