@@ -1445,7 +1445,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if station:
             m['source']['station_id'] = station
 
-        if args['json']:
+        if 'json' in args:
             print(json.dumps(m), file=outfile)
         else:
             print(out, file=outfile)
@@ -1835,7 +1835,7 @@ elif mode == "sbd":
     validargs=('perfect', 'debug')
     zx=ReassembleIDASBD()
 elif mode == "acars":
-    validargs=('perfect', 'showerrs')
+    validargs=('json', 'perfect', 'showerrs')
     zx=ReassembleIDASBDACARS()
 elif mode == "page":
     zx=ReassembleIRA()
