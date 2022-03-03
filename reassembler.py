@@ -511,7 +511,7 @@ class LiveMap(Reassemble):
             sats_file_path="sats.json"
         temp_file_path="%s.tmp"%(sats_file_path)
 
-        with open("%s.tmp", "w") as f:
+        with open(temp_file_path, "w") as f:
             print(json.dumps(stats, separators=(',', ':')), file=f)
         shutil.move(temp_file_path, sats_file_path)
 
