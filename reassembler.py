@@ -504,9 +504,11 @@ class LiveMap(Reassemble):
         else:
             print("# @ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
         stats["time"]=ts
-        with open("sats.json.new", "w") as f:
+
+        temp_file_path="%s.tmp"%(ofile)
+        with open(temp_file_path, "w") as f:
             print(json.dumps(stats, separators=(',', ':')), file=f)
-        os.rename("sats.json.new", "sats.json")
+        os.rename(temp_file_path, ofile)
 
     def consume(self,to):
         (ts,stats)=to
@@ -1826,6 +1828,8 @@ elif mode == "live-stats":
     zx=LivePktStats()
 elif mode == "live-map":
     validargs=('perfect')
+    if ofile=='/dev/stdout':
+        ofile='sats.json'
     zx=LiveMap()
 elif mode == "ppm":
     validargs=('perfect','grafana','tdelta')
