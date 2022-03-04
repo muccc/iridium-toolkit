@@ -1073,6 +1073,14 @@ class ReassembleIDAPP(ReassembleIDA):
             print("", file=outfile)
         return
 
+class SBDObject(object):
+    def __init__(self, typ, time, ul, prehdr, data):
+        self.typ=    typ
+        self.time=   time
+        self.ul=     ul
+        self.prehdr= prehdr
+        self.data=   data
+
 verb2=False
 class ReassembleIDASBD(ReassembleIDA):
     multi=[]
@@ -1190,7 +1198,7 @@ class ReassembleIDASBD(ReassembleIDA):
                     print("SBD: Pkt weird:", end=" ")
                     print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), data.hex(":")))
 
-        pkt=[typ, time, ul, prehdr, data]
+        pkt=SBDObject(typ, time, ul, prehdr, data)
 
         if verb2 and (msgno>1 or msgcnt>1):
             print("[%f] %2d/%2d %s <%s> <%s> %s"%(time, msgno, msgcnt, typ, prehdr.hex(":"), hdr.hex(":"), ascii(data, escape=True)))
@@ -1215,17 +1223,16 @@ class ReassembleIDASBD(ReassembleIDA):
         elif msgno>1: # addon
             ok=False
             for (idx,(no,cnt,p,t)) in reversed(list(enumerate(self.multi[:]))):
-                if msgno==no+1 and msgno < cnt and p[2] == ul: # could check if "typ" seems right.
-                    self.multi[idx][2][4]+=data
+                if msgno==no+1 and msgno < cnt and p.ul == ul: # could check if "typ" seems right.
+                    self.multi[idx][2].data+=data
                     self.multi[idx][0]+=1
-                    ok=True
                     self.sbd_assembled+=1
                     if verb2:
                         print("Merged: %f s"%(time-t))
                     return None
-                elif msgno==no+1 and msgno == cnt and p[2] == ul: # could check if "typ" seems right.
-                    p[4]+=data
-                    p[0]+=typ
+                elif msgno==no+1 and msgno == cnt and p.ul == ul: # could check if "typ" seems right.
+                    p.data+=data
+                    p.typ+=typ
                     self.multi.pop(idx)
                     if verb2:
                         print("Merged & finished: %f s"%(time-t))
@@ -1237,7 +1244,7 @@ class ReassembleIDASBD(ReassembleIDA):
                 print("Couldn't attach subpkt.")
             return None
         else:
-            raise Exception("Shouldn't happen:"+str(msgno)+str(msgcnt)+str(pkt))
+            raise Exception("Shouldn't happen:"+str(msgno)+str(msgcnt)+str(pkt.__dict__))
 
     def end(self):
         super().end()
@@ -1247,16 +1254,14 @@ class ReassembleIDASBD(ReassembleIDA):
         print("SBD: %d/%d fragments could not be assembled. (%1.1f%%)."%(self.sbd_broken,self.sbd_assembled,(100*(float)(self.sbd_broken)/(self.sbd_assembled or 1))))
 
     def consume_l2(self,q):
-        (typ,time,ul,prehdr,data)=q
-
-        if ul:
+        if q.ul:
             ult="UL"
         else:
             ult="DL"
 
         print("%s %s <%-20s> %s"%(
-                    datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S"),
-                    ult,prehdr.hex(":"),ascii(data, escape=True)), file=outfile)
+                    datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S"),
+                    ult,q.prehdr.hex(":"),ascii(q.data, escape=True)), file=outfile)
 
 acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
     b"_\x7f": "Demand mode",
@@ -1276,12 +1281,10 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         self.acars_crc16=crcmod.predefined.mkPredefinedCrcFun("kermit")
 
     def consume_l2(self,q):
-        (typ,time,ul,prehdr,data)=q
-
-        if len(data)==0: # Currently not interested :)
+        if len(q.data)==0: # Currently not interested :)
             return
 
-        if data[0]!=1: # prelim. check for ACARS
+        if q.data[0]!=1: # prelim. check for ACARS
             return
 
         def parity7(data):
@@ -1292,132 +1295,128 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
                     ok=False
             return ok, bytes([x&0x7f for x in data])
 
-        self.errors=0
+        q.errors=0
 
         csum=bytes()
-        self.hdr=bytes()
-        self.errors=[]
-        data=data[1:]
+        q.hdr=bytes()
+        q.errors=[]
+        q.data=q.data[1:]
 
-        if data[-1]==0x7f:
-            csum=data[-3:-1]
-            data=data[:-3]
+        if q.data[-1]==0x7f:
+            csum=q.data[-3:-1]
+            q.data=q.data[:-3]
 
-        if data[0]==0x3: # header of unknown meaning
-            self.hdr=data[0:8]
-            data=data[8:]
+        if q.data[0]==0x3: # header of unknown meaning
+            q.hdr=q.data[0:8]
+            q.data=q.data[8:]
 
         if len(csum)>0:
-            self.the_crc=self.acars_crc16(data+csum)
-            if self.the_crc!=0:
-                self.errors.append("CRC_FAIL")
+            q.the_crc=self.acars_crc16(q.data+csum)
+            if q.the_crc!=0:
+                q.errors.append("CRC_FAIL")
         else:
-            self.errors.append("CRC_MISSING")
+            q.errors.append("CRC_MISSING")
 
-        if len(data)<13:
-            self.errors.append("TRUNCATED")
+        if len(q.data)<13:
+            q.errors.append("TRUNCATED")
             return # throw away for now
 
-        ok, data=parity7(data)
+        ok, data=parity7(q.data)
 
         if not ok:
-            self.errors.append("PARITY_FAIL")
+            q.errors.append("PARITY_FAIL")
 
-        self.mode= data[ 0: 1]
-        self.f_reg=data[ 1: 8] # address / aircraft registration
-        self.ack=  data[ 8: 9]
-        self.label=data[ 9:11]
-        self.b_id =data[11:12] # block id
+        q.mode= data[ 0: 1]
+        q.f_reg=data[ 1: 8] # address / aircraft registration
+        q.ack=  data[ 8: 9]
+        q.label=data[ 9:11]
+        q.b_id =data[11:12] # block id
 
         data=data[12:]
 
-        self.cont=False
+        q.cont=False
         if data[-1] == 0x03: # ETX
             data=data[:-1]
         elif data[-1] == 0x17: # ETB
-            self.cont=True
+            q.cont=True
             data=data[:-1]
         else:
-            self.errors.append("ETX incorrect")
+            q.errors.append("ETX incorrect")
 
         if len(data)>0 and data[0] == 2: # Additional content
             if data[0] == 2:
-                if ul:
-                    self.seqn=data[1:5] # sequence number
-                    self.f_no=data[5:11] # flight number
-                    self.txt=data[11:]
+                if q.ul:
+                    q.seqn=data[1:5] # sequence number
+                    q.f_no=data[5:11] # flight number
+                    q.txt=data[11:]
                 else:
-                    self.txt=data[1:]
+                    q.txt=data[1:]
             else:
-                self.txt=data
-                self.errors.append("STX missing")
+                q.txt=data
+                q.errors.append("STX missing")
         else:
-            self.txt=bytes()
+            q.txt=bytes()
 
-        if len(self.errors)>0 and not 'showerrs' in args:
+        if len(q.errors)>0 and not 'showerrs' in args:
             return
 
         # PRETTY-PRINT
         out=""
 
-        out+=datetime.datetime.fromtimestamp(time).strftime("%Y-%m-%dT%H:%M:%S")
-        out+=" "
+        out += q.timestamp + " "
 
-        if len(self.hdr)>0:
-            out+="[hdr: %s]"%self.hdr.hex()
+        if len(q.hdr)>0:
+            out+="[hdr: %s]"%q.hdr.hex()
         else:
             out+="%-23s"%""
         out+=" "
 
-        if ul:
+        if q.ul:
             out+="Dir:%s"%"UL"
         else:
             out+="Dir:%s"%"DL"
         out+=" "
 
-        out+="Mode:%s"%self.mode.decode('latin-1')
+        out+="Mode:%s"%q.mode.decode('latin-1')
         out+=" "
 
-        f_reg=self.f_reg.decode('latin-1')
-        while len(f_reg)>0 and f_reg[0]=='.':
-            f_reg=f_reg[1:]
-        out+="REG:%-7s"%f_reg
+        out+="REG:%-7s"%q.f_reg.decode('latin-1')
         out+=" "
 
-        if self.ack[0]==21:
+        if q.ack[0]==21:
             out+="NAK  "
         else:
-            out+="ACK:%s"%self.ack.decode('latin-1')
+            out+="ACK:%s"%q.ack.decode('latin-1')
         out+=" "
 
         out+="Label:"
-        if self.label== b'_\x7f':
+        if q.label== b'_\x7f':
             out+='_?'
         else:
-            out+=ascii(self.label, escape=True)
+            out+=ascii(q.label, escape=True)
         out+=" "
 
-        if self.label in acars_labels:
-            out+="(%s)"%acars_labels[self.label]
+        if q.label in acars_labels:
+            out+="(%s)"%acars_labels[q.label]
         else:
             out+="(?)"
         out+=" "
 
-        out+="bID:%s"%(ascii(self.b_id, escape=True))
+        out+="bID:%s"%(ascii(q.b_id, escape=True))
         out+=" "
 
-        if ul:
-            out+="SEQ: %s, FNO: %s"%(ascii(self.seqn, escape=True), ascii(self.f_no, escape=True))
+        if q.ul:
+            out+="SEQ: %s, FNO: %s"%(ascii(elf.seqn, escape=True), ascii(q.f_no, escape=True))
             out+=" "
 
-        if len(self.txt)>0:
-            out+="[%s]"%ascii(self.txt, escape=True)
+        if len(q.txt)>0:
+            out+="[%s]"%ascii(q.txt, escape=True)
 
-        if self.cont:
+        if q.cont:
             out+=" CONT'd"
 
-        if len(self.errors)>0:
-            out+=" " + " ".join(self.errors)
+        if len(q.errors)>0:
+            out+=" " + " ".join(q.errors)
 
         print(out, file=outfile)
 
