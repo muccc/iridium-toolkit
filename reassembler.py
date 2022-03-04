@@ -25,6 +25,7 @@ mode= "undef"
 base_freq=1616*10**6
 channel_width=41667
 args={}
+station = None
 do_stats=False
 
 options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:sa:', [
@@ -33,6 +34,7 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:sa:', [
                                                          'input=',
                                                          'output=',
                                                          'mode=',
+                                                         'station=',
                                                          'args=',
                                                          'stats',
                                                          ])
@@ -54,9 +56,11 @@ for opt, arg in options:
     elif opt in ('-a', '--args'):
         for a in arg.split(","):
             args[a]=True
+    elif opt in ('--station'):
+        station = arg
     elif opt in ('-h', '--help'):
         print("Usage:", file=sys.stderr)
-        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--args option[,...]] [--output out.txt]", file=sys.stderr)
+        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--station id] [--args option[,...]] [--output out.txt]", file=sys.stderr)
         exit(1)
     else:
         raise Exception("unknown argument?")
@@ -1346,8 +1350,29 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         while len(q.f_reg)>0 and q.f_reg[0:1]==b'.':
             q.f_reg=q.f_reg[1:]
 
-        # PRETTY-PRINT (ascii)
+        # PRETTY-PRINT (json)
+        if 'json' in args:
+            out={}
+            out['header']=q.hdr.hex()
+            out['errors'] = " ".join(q.errors)
 
+            for key in ('timestamp', 'mode', 'f_reg:tail', 'ack', 'label', 'b_id:block_id', 'txt:text', 'cont:continues','seqn:sequence_no','f_no:flight_no', 'ul:uplink'):
+                okey,_,jkey=key.partition(':')
+                if jkey=='':
+                    jkey=okey
+                if okey in q.__dict__:
+                    val=q.__dict__[okey]
+                    if isinstance(val, bytes):
+                        val=val.decode('ascii')
+                    out[jkey]=val
+
+            out['source'] = { 'transport': 'iridium', 'protocol': 'acars' }
+            if station:
+                out['source']['station_id'] = station
+            print(json.dumps(out), file=outfile)
+            return
+
+        # PRETTY-PRINT (ascii)
         out=""
 
         out += q.timestamp + " "
@@ -1858,7 +1883,7 @@ elif mode == "sbd":
     validargs=('perfect', 'debug')
     zx=ReassembleIDASBD()
 elif mode == "acars":
-    validargs=('perfect', 'showerrs')
+    validargs=('json', 'perfect', 'showerrs')
     zx=ReassembleIDASBDACARS()
 elif mode == "page":
     zx=ReassembleIRA()
