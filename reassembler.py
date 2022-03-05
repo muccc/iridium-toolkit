@@ -1412,7 +1412,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         out+=" "
 
         if q.ul:
-            out+="SEQ: %s, FNO: %s"%(ascii(elf.seqn, escape=True), ascii(q.f_no, escape=True))
+            out+="SEQ: %s, FNO: %s"%(ascii(q.seqn, escape=True), ascii(q.f_no, escape=True))
             out+=" "
 
         if len(q.txt)>0:
