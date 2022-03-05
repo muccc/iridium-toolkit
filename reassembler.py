@@ -1360,8 +1360,12 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if len(q.errors)>0 and not 'showerrs' in args:
             return
 
-        # PRETTY-PRINT (ascii)
         q.timestamp = datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S%z")
+
+        while len(q.f_reg)>0 and q.f_reg[0:1]==b'.':
+            q.f_reg=q.f_reg[1:]
+
+        # PRETTY-PRINT (ascii)
 
         out=""
 
