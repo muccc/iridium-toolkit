@@ -7,7 +7,7 @@ on:
     types: [opened]
 
 jobs:
-  test:
+  notify:
     runs-on: ubuntu-latest
     steps:
       - name: irc push
@@ -39,4 +39,4 @@ jobs:
           nickname: GitHub
           notice: true
           message: |
-            ${{ github.actor }} opened issue #${{ github.event.issue.number }} ${{ github.event.issue.title }} - ${{ github.event.issue.url }}
+            ${{ github.actor }} opened issue #${{ github.event.issue.number }} ${{ github.event.issue.title }} - ${{ github.event.issue.html_url }}
