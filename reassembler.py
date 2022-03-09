@@ -1715,6 +1715,7 @@ class MSGObject(object):
 
 class ReassembleMSG(Reassemble):
     def __init__(self):
+        self.topic=["MSG","MS3"]
         self.err=re.compile(r' ERR:')
         self.msg=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01 ]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]*)\.([01]*) ')
         self.ms3=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
@@ -1896,7 +1897,9 @@ for x in args.keys():
 
 if ifile.startswith("zmq:"):
     try:
-        topic=zx.topic
+        topics=zx.topic
+        if not isinstance(topics,list):
+            topics=[topics]
     except AttributeError:
         print("mode '%s' does not support streaming"%mode, file=sys.stderr)
         sys.exit(1)
@@ -1904,7 +1907,8 @@ if ifile.startswith("zmq:"):
     context = zmq.Context()
     socket = context.socket(zmq.SUB)
     socket.connect ("tcp://localhost:4223")
-    socket.setsockopt(zmq.SUBSCRIBE, bytes(topic,"ascii"))
+    for topic in topics:
+        socket.setsockopt(zmq.SUBSCRIBE, bytes(topic,"ascii"))
     try:
         zx.run(iter(socket.recv_string,""))
     except KeyboardInterrupt:
