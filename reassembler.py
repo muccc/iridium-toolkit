@@ -12,7 +12,7 @@ import math
 import os
 import socket
 from copy import deepcopy
-from util import fmt_iritime, to_ascii
+from util import fmt_iritime, to_ascii, slice_extra
 
 if sys.version_info[0]==3 and sys.version_info[1]<8:
     print("Old python detected, using replacement bytes class...", file=sys.stderr)
@@ -1661,53 +1661,103 @@ class InfoIRAMAP(ReassembleIRA):
 
         print("%d matches. Avg distance: %5.2fkm"%(self.stats_cnt,self.stats_sum/self.stats_cnt))
 
+class MSGObject(object):
+    def __init__(self, line):
+        self.ric=  line.msg_ric
+        self.fmt=  line.fmt
+        self.seq=  line.msg_seq
+        self.id=   line.id
+        self.pcnt= line.msg_ctr_max
+        self.csum= line.msg_checksum
+        self.time= line.time
+
+        self.done= False
+        self.sent= False
+        self.parts = [None]*(self.pcnt+1)
+        if self.fmt not in (3,5):
+            raise ValueError("unknown message format")
+
+    def add(self, nr, content):
+        self.done= False
+        self.parts[nr]=content
+
+    @property
+    def complete(self):
+        return None not in self.parts
+
+    @property
+    def content(self):
+        if self.fmt==5:
+            txt=b''.join(self.parts)
+            while txt[-1]==3: # remove ETX at end
+                txt=txt[:-1]
+            return txt
+        elif self.fmt==3:
+            txt=''.join(self.parts)
+            while txt[-1]=='c': # remove c's at end
+                txt=txt[:-1]
+            return txt
+
+    def messagechecksum(self, msg):
+        csum=0
+        for x in msg:
+            csum=(csum+x)%128
+        return (~csum)%128
+
+    @property
+    def correct(self):
+        if self.fmt==5:
+            txt=self.content
+            return self.csum == self.messagechecksum(txt)
+        elif self.fmt==3:
+            txt=self.content
+            return txt.isdigit()
+
 class ReassembleMSG(Reassemble):
     def __init__(self):
-        pass
+        self.err=re.compile(r' ERR:')
+        self.msg=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01 ]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]*)\.([01]*) ')
+        self.ms3=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
+
     def filter(self,line):
         q=super().filter(line)
         if q == None: return None
+        if self.err.search(q.data): return None
+        if q.typ != "MSG:" and q.typ != "MS3:":
+            return None
+
         if q.typ == "MSG:":
-            p=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]+)\.([01]*) ')
-            m=p.match(q.data)
+            m=self.msg.match(q.data)
             if(not m):
                 print("Couldn't parse MSG: ",q.data, file=sys.stderr)
-            else:
-                q.msg_ric=     int(m.group(1))
-                q.fmt=         int(m.group(2))
-                q.msg_seq=     int(m.group(3))
-                q.msg_ctr=     int(m.group(4))
-                q.msg_ctr_max= int(m.group(5))
-                q.msg_checksum=int(m.group(6),16)
-                q.msg_hex=         m.group(7)
-                q.msg_brest=       m.group(8)
-                q.enrich()
+                return None
 
+            q.msg_ric=     int(m.group(1))
+            q.fmt=         int(m.group(2))
+            q.msg_seq=     int(m.group(3))
+            q.msg_ctr=     int(m.group(4))
+            q.msg_ctr_max= int(m.group(5))
+            q.msg_checksum=int(m.group(6),16)
+            q.msg_hex=         m.group(7)
+            q.msg_brest=       m.group(8)
+            q.enrich()
 
-                q.msg_msgdata = ''.join(["{0:08b}".format(int(q.msg_hex[i:i+2], 16)) for i in range(0, len(q.msg_hex), 2)])
-                q.msg_msgdata+=q.msg_brest
+            q.msg_msgdata = ''.join(["{0:08b}".format(int(q.msg_hex[i:i+2], 16)) for i in range(0, len(q.msg_hex), 2)])
+            q.msg_msgdata+=q.msg_brest
 
-                # convert to 7bit thingies
-                m=re.compile(r'(\d{7})').findall(q.msg_msgdata)
-                q.msg_ascii=""
-                q.msg=[]
-                for (group) in m:
-                    character = int(group, 2)
-                    q.msg.append(character)
-                    if(character<32 or character==127):
-                        q.msg_ascii+="[%d]"%character
-                    else:
-                        q.msg_ascii+=chr(character)
-                if len(q.msg_msgdata)%7:
-                    q.msg_rest=q.msg_msgdata[-(len(q.msg_msgdata)%7):]
-                else:
-                    q.msg_rest=""
-                return q
+            # convert to 7bit thingies
+            message, rest= slice_extra(q.msg_msgdata, 7)
+            q.msg_bytes=bytes([int(c, 2) for c in message])
+            if rest != "": # could check if all 1
+                pass
+
+            return q
+
         if q.typ == "MS3:":
-            p=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
-            m=p.match(q.data)
+            m=self.ms3.match(q.data)
             if(not m):
                 print("Couldn't parse MS3: ",q.data, file=sys.stderr)
+                return None
             else:
                 q.msg_ric=     int(m.group(1))
                 q.fmt=         int(m.group(2))
@@ -1715,63 +1765,78 @@ class ReassembleMSG(Reassemble):
                 q.msg_ctr=     0
                 q.msg_ctr_max= 0
                 q.msg_checksum=-1
-                q.msg_ascii=         m.group(4)
+                q.msg_bytes=         m.group(4)
                 q.enrich()
                 return q
+
     buf={}
-    ricseq={}
-    wrapmargin=10
     def process(self,m):
-        # msg_seq wraps around after 61, detect it, and fix it.
-        if m.msg_ric in self.ricseq:
-            if (m.msg_seq + self.wrapmargin) < self.ricseq[m.msg_ric][1]: # seq wrapped around
-                self.ricseq[m.msg_ric][0]+=62
-            if (m.msg_seq + self.wrapmargin - 62) > self.ricseq[m.msg_ric][1]: # "wrapped back" (out-of-order old message)
-                self.ricseq[m.msg_ric][0]-=62
-        else:
-            self.ricseq[m.msg_ric]=[0,0]
-        self.ricseq[m.msg_ric][1]=m.msg_seq
-        id="%07d %04d"%(m.msg_ric,(m.msg_seq+self.ricseq[m.msg_ric][0]))
-        ts=m.time
-        if id in self.buf:
-            if self.buf[id].msg_checksum != m.msg_checksum:
-                print("Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%(id,self.buf[id].time,self.buf[id].msg_checksum,m.time,m.msg_checksum))
-                # "Wrap around" to not miss the changed packet.
-                self.ricseq[m.msg_ric][0]+=62
-                id="%07d %04d"%(m.msg_ric,(m.msg_seq+self.ricseq[m.msg_ric][0]))
-                m.msgs=['[MISSING]']*3
-                self.buf[id]=m
-        else:
-            m.msgs=['[MISSING]']*3
-            self.buf[id]=m
-        self.buf[id].msgs[m.msg_ctr]=m.msg_ascii
+        idstr="%07d %04d"%(m.msg_ric,m.msg_seq)
 
-    def messagechecksum(self,msg):
-        csum=0
-        for x in msg:
-            csum=(csum+ord(x))%128
-        return (~csum)%128
+        if idstr in self.buf and self.buf[idstr].csum != m.msg_checksum:
+            print("Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%
+                    (idstr,self.buf[idstr].time,self.buf[idstr].csum,m.time,m.msg_checksum))
 
-    def consume(self,q):
-        print("consume()")
-        pass
+        if idstr not in self.buf:
+            m.id=idstr
+            msg=MSGObject(m)
+            self.buf[idstr]=msg
 
-    def end(self): # XXX should be rewritten to consume
-        for b in sorted(self.buf, key=lambda x: self.buf[x].time):
-            msg="".join(self.buf[b].msgs[:1+self.buf[b].msg_ctr_max])
-            str="Message %s @%s (len:%d)"%(b,datetime.datetime.fromtimestamp(self.buf[b].time).strftime("%Y-%m-%dT%H:%M:%S"),self.buf[b].msg_ctr_max)
-            if self.buf[b].fmt==5:
-                msg=re.sub(r"(\[3\])+$","",msg) # XXX: should be done differently
-                cmsg=re.sub(r"\[10\]","\n",msg) # XXX: should be done differently
-                csum=self.messagechecksum(cmsg)
-                str+= " %3d"%self.buf[b].msg_checksum
-                str+= (" fail"," OK  ")[self.buf[b].msg_checksum == csum]
-            elif self.buf[b].fmt==3:
-                msg=re.sub(r"c+$","",msg) # XXX: should be done differently
-                str+= " BCD"
-                str+= " OK  "
-            str+= ": %s"%(msg)
-            print(str, file=outfile)
+        self.buf[idstr].add(m.msg_ctr, m.msg_bytes)
+
+        for idx, msg in self.buf.copy().items():
+            if msg.complete and not msg.done and not msg.sent:
+                msg.done=True
+                if msg.correct:
+                    msg.sent=True
+                    return [msg]
+
+            if msg.time+2000<=m.time: # expire after ~ 30 mins
+                del self.buf[idx]
+                if not msg.sent:
+                    if not msg.done:
+                        if verbose:
+                            print("timeout incomplete @",m.time,"(",msg.__dict__,")")
+                        if 'incomplete' in args:
+                            for x,y in enumerate(msg.parts):
+                                if y is None:
+                                    msg.parts[x]=b'[MISSING]'
+                            return [msg]
+                    else:
+                        if verbose:
+                            print("timeout failed @",m.time,"(",msg.__dict__,")")
+                        return [msg]
+                break
+
+    def consume(self, msg):
+        date= datetime.datetime.fromtimestamp(msg.time).strftime("%Y-%m-%dT%H:%M:%S")
+        str="Message %07d %02d @%s (len:%d)"%(msg.ric, msg.seq, date, msg.pcnt)
+        txt= msg.content
+        if msg.fmt==5:
+            out=to_ascii(txt, escape=True)
+            str+= " %3d"%msg.csum
+        elif msg.fmt==3:
+            out=txt
+            str+= " BCD"
+        str+= (" fail:","   OK:")[msg.correct]
+        str+= " %s"%(out)
+        print(str, file=outfile)
+
+    def end(self): # flush()
+        for msg in self.buf.values():
+            if not msg.sent:
+                if not msg.done:
+                    if verbose:
+                        print("flush incomplete @",m.time,"(",msg.__dict__,")")
+                    if 'incomplete' in args:
+                        for x,y in enumerate(msg.parts):
+                            if y is None:
+                                msg.parts[x]=b'[MISSING]'
+                        self.consume(msg)
+                else:
+                    if verbose:
+                        print("flush failed @",m.time,"(",msg.__dict__,")")
+                    self.consume(msg)
 
 validargs=()
 zx=None
@@ -1805,6 +1870,7 @@ elif mode == "satmap":
     import numpy as np
     zx=InfoIRAMAP()
 elif mode == "msg":
+    validargs=('incomplete')
     zx=ReassembleMSG()
 elif mode == "stats-snr":
     validargs=('perfect')
