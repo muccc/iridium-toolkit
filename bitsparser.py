@@ -1077,7 +1077,7 @@ class IridiumECCMessage(IridiumMessage):
             if errs>0:
                 self.fixederrs+=1
 
-            self.bitstream_bch+=data
+            self.bitstream_bch+=data # TBD: keep blocks?
 
         if len(self.bitstream_bch) == 0:
             self._new_error("BCH decode failed")
@@ -1483,119 +1483,175 @@ class IridiumMSMessage(IridiumECCMessage):
     def __init__(self,imsg):
         # Ref: US5596315
         self.__dict__=imsg.__dict__
+        blocks= slice(self.bitstream_bch,21)
 
-        if len(self.bitstream_bch) < 21:
-            raise ParserError("Not enough data received")
+        self.ms_type=    int(blocks[0][0],     2) # 1 if Acq group
+        self.zero1 =         blocks[0][ 1: 5]
+        self.block =     int(blocks[0][ 5: 9], 2) # Block number in the super frame
+        self.frame =     int(blocks[0][ 9:15], 2) # Current frame number (OR: Current cell number)
+        self.bch_blocks= int(blocks[0][15:19], 2) # Number of (42-bit) BCH blocks in this message
 
-        self.ms_type=self.bitstream_bch[0]
-        self.zero1 = self.bitstream_bch[1:5]
-        if self.zero1 != '0000':
-            self._new_error("zero1 not 0000")
-
-        self.block =     int(self.bitstream_bch[5:9], 2)   # Block number in the super frame
-        self.frame =     int(self.bitstream_bch[9:15], 2)  # Current frame number (OR: Current cell number)
-        self.bch_blocks= int(self.bitstream_bch[15:19], 2) # Number of BCH blocks in this message
-
-        if self.ms_type=="1":
+        if self.ms_type==1:
             self.group="A"
             self.group_int=0
-            self.unknown1  = self.bitstream_bch[19]        # ?
-            self.secondary = int(self.bitstream_bch[20])   # Something like secondary SV
-            if len(self.bitstream_bch) < 38:
-                raise ParserError("Not enough data received")
+            self.unknown1  = blocks[0][19]        # ?
+            self.secondary = int(blocks[0][20])   # Something like secondary SV
         else:
-            self.group=int(self.bitstream_bch[19:21],2)
-            self.group_int=1+self.group
+            self.group=      int(blocks[0][19:21], 2)
+            self.group_int= 1+self.group
+
+        if self.zero1 != '0000':
+            self._new_error("zero1 not 0000")
 
         self.tdiff=((self.block*5+self.group_int)*48+self.frame)*90
 
         if self.bch_blocks < 2:
             raise ParserError("length field in header too small") # in-packet size too small
 
-        if len(self.bitstream_bch) < self.bch_blocks * 42:
-            self._new_error("Incorrect amount of data received.")
-            self._new_error("Need %d, got %d" % (self.bch_blocks * 42, len(self.bitstream_bch)))
+        self.bch_extra=""
+        if self.bch_blocks*2 > len(blocks):
+            self._new_error("Not enough data received")
+            self._new_error("Need %d, got %d" % (self.bch_blocks*2, len(blocks)))
+#            raise ParserError("")
+        elif self.bch_blocks*2 < len(blocks):
+            self.trailer="{EXTRA}"
+            self.bch_extra=self.bitstream_bch[self.bch_blocks*42:]
+            blocks=blocks[:2*self.bch_blocks]
 
-        rest = self.bitstream_bch[21:self.bch_blocks * 42]
-
-        # Acquisition group messages have 2 "blocks" pre-message a.k.a. block header message
+        myodd="".join([x[:1] for x in blocks]) # collect "oddbits"
         if self.group=="A":
-            self.msg_pre=rest[:2*42]
-            self.ctr1=int(self.msg_pre[0:12],2)
-            preblocks=slice(self.msg_pre,21)
-            rest=rest[42*2:]
+            myodd=myodd[0]+"_"+myodd[1:5]+"_"+myodd[5:]
         else:
-            self.msg_pre=""
+            myodd=myodd[0]+myodd[1:]
+#x#        print("IMS_ %d %s %s"%(self.bch_blocks,self.group,myodd), end=" ")
+        blocks.pop(0)
 
-        blocks=slice(rest,21)
+        # Acquisition group messages have 2 "42-bit blocks" pre-message a.k.a. block header message
+        if self.group=="A":
+            if len(blocks)<2:
+                raise ParserError("not enough data in acquisition group message")
+            if len(blocks)>=4:
+                self.ablocks=blocks.pop(0),blocks.pop(0),blocks.pop(0),blocks.pop(0)
+            else:
+                self.ablocks=blocks.pop(0),blocks.pop(0)
+#            self.ctr1=int(self.ablocks[0][0:12],2)
 
         # Message may have up to two "all-1" trailer blocks
-        self.msg_trailer=""
-        if(len(blocks)>0 and blocks[-1][0]=="1"):
-            self.msg_trailer=blocks[-1][1:]
-            if(self.msg_trailer != "1"*20):
+        self.msg_trailer=0
+        trailer=""
+        if len(blocks)>0 and blocks[-1][0]=="1":
+            trailer=blocks.pop()
+            if(trailer != "1"*21):
                 self._new_error("trailer exists, but not all-1")
-            blocks=blocks[:-1]
-            if(len(blocks)>0 and blocks[-1][0]=="1"):
-                self.msg_trailer=blocks[-1][1:]+self.msg_trailer
-                if(self.msg_trailer != "1"*40):
+            self.msg_trailer+=1
+            if len(blocks)>0 and blocks[-1][0]=="1":
+                trailer=blocks.pop()
+                if(trailer != "1"*21):
                     self._new_error("second trailer exists, but not all-1")
-                blocks=blocks[:-1]
+                self.msg_trailer+=1
+
+#x#        print("T:%d"%(self.msg_trailer),"BR:",len(blocks),end=" ")
+
+        self.blocks=blocks
+
+    def upgrade(self):
+        if len(self.blocks)>0:
+            try:
+                return IridiumMSMessageBody(self).upgrade()
+            except ParserError as e:
+                self._new_error(str(e), e.cls)
+        return self
+
+    def _pretty_header(self):
+        str= super()._pretty_header()
+        str+= " %1d:%s:%02d" % (self.block, self.group, self.frame)
+        str+= " len:%02d" % (self.bch_blocks)
+        str+= "/T%d" % (self.msg_trailer)
+        str+= "/F%02d" % (self.fill)
+        if(self.group == "A"):
+            str+= " %s %s %-87s" % (self.unknown1, self.secondary, " ".join(self.ablocks))
+        else:
+            str+= " %s %s %-87s" % (" "," "," ")
+        return str
+
+    def _pretty_trailer(self):
+        str= super()._pretty_trailer()
+        if "bch_extra" in self.__dict__ and self.bch_extra!="":
+            str+= " bch_extra:"+self.bch_extra
+        return str
+
+    def pretty(self):
+        str= "IMS: "+self._pretty_header()
+        str+=self._pretty_trailer()
+        return str
+
+class IridiumMSMessageBody(IridiumMSMessage):
+    def __init__(self, imsg):
+        self.__dict__=imsg.__dict__
+
+        blocks=self.blocks
 
         self.msg_odd="".join([x[:1] for x in blocks]) # collect "oddbits"
         rest="".join([x[1:] for x in blocks]) # remove "oddbits"
 
-        if len(rest)>27:
-            self.msg_ric=int(rest[0:22][::-1],2)
-            self.msg_format=int(rest[22:27],2)
-            self.msg_data=rest[27:]
+        if len(rest)<=27:
+            raise ParserError("message too short(body)")
 
-    def upgrade(self):
-        if self.error: return self
-        try:
-            if("msg_format" in self.__dict__):
-                if(self.msg_format == 5):
-                    if len(self.msg_data)>38:
-                        return IridiumMessagingAscii(self).upgrade()
-                elif(self.msg_format == 3):
-                    return IridiumMessagingBCD(self).upgrade()
-                else:
-                    self._new_error("unknown msg_format")
-        except ParserError as e:
-            self._new_error(str(e), e.cls)
-            return self
-        return self
-    def _pretty_header(self):
-        str= super()._pretty_header()
-        str+= " %1d:%s:%02d" % (self.block, self.group,self.frame)
-        str+= " len=%02d" % (self.bch_blocks)
-        str+= " T%d" % (len(self.msg_trailer)//20)
-        if(self.group == "A"):
-            str+= " %s %s %-87s" % (self.unknown1, self.secondary, group(self.msg_pre,21))
-        else:
-            str+= " %s %s %-87s" % (" "," "," ")
-        if("msg_format" in self.__dict__):
-            str += " m_odd:%-26s" % (self.msg_odd)
-            str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
-        return str
-    def pretty(self):
-        str= "IMS: "+self._pretty_header()
-        if("msg_format" in self.__dict__):
-            str+= " "+group(self.msg_data,20)
-        str+=self._pretty_trailer()
-        return str
+        self.msg_ric=int(rest[0:22][::-1],2)
+        self.msg_format=int(rest[22:27],2)
+        rest=rest[27:]
 
-class IridiumMessagingAscii(IridiumMSMessage):
-    def __init__(self,immsg):
-        self.__dict__=immsg.__dict__
-        rest=self.msg_data
+        if len(rest)<=16:
+            self._new_error("incomplete MSG body")
+            return
+
         self.msg_seq=int(rest[0:6],2) # 0-61 (62/63 seem unused)
         self.msg_zero1=int(rest[6:10],2)
         if(self.msg_zero1 != 0):
             self._new_error("zero1 is not all-zero")
-        self.msg_unknown1=rest[10:20]
-        self.msg_len_bit=rest[20]
-        rest=rest[21:]
+        self.msg_unknown1=rest[10:16]
+
+        self.msg_data=rest[16:]
+
+    def upgrade(self):
+        if "msg_data" in self.__dict__ and len(self.msg_data) >= 5:
+            try:
+                if(self.msg_format == 5):
+                    return IridiumMessagingAscii(self).upgrade()
+                elif(self.msg_format == 3):
+                    return IridiumMessagingBCD(self).upgrade()
+                self._new_error("unknown msg_format")
+            except ParserError as e:
+                self._new_error(str(e), e.cls)
+        return self
+
+    def _pretty_header(self):
+        str= super()._pretty_header()
+        str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
+        if "msg_seq" in self.__dict__:
+            str += " seq:%02d %6s"%(self.msg_seq,self.msg_unknown1)
+        return str
+
+    def _pretty_trailer(self):
+        str= super()._pretty_trailer()
+        return str
+
+    def pretty(self):
+        str= "MSG: "+self._pretty_header()
+        if "msg_data" in self.__dict__:
+            str+= " "+group(self.msg_data,20)
+        str+=self._pretty_trailer()
+        return str
+
+class IridiumMessagingAscii(IridiumMSMessageBody):
+    def __init__(self,immsg):
+        self.__dict__=immsg.__dict__
+
+        rest=self.msg_data
+
+        self.msg_unknown2=rest[0:4]
+        self.msg_len_bit=rest[4]
+        rest=rest[5:]
         if(self.msg_len_bit=="1"):
             lfl=int(rest[0:4],2)
             self.msg_len_field_len=lfl
@@ -1603,7 +1659,7 @@ class IridiumMessagingAscii(IridiumMSMessage):
                 raise ParserError("len_field_len unexpectedly 0")
             self.msg_ctr=    int(rest[4:4+lfl],2)
             if len(rest[4+lfl:4+lfl*2])==0:
-                raise ParserError("IridiumMessagingAscii message too short")
+                raise ParserError("message too short(lfl)")
             self.msg_ctr_max=int(rest[4+lfl:4+lfl*2],2)
             rest=rest[4+lfl*2:]
             if(lfl<1 or lfl>2):
@@ -1612,15 +1668,20 @@ class IridiumMessagingAscii(IridiumMSMessage):
             self.msg_len=0
             self.msg_ctr=0
             self.msg_ctr_max=0
+
+        if len(rest) < 8:
+            raise ParserError("message too short(ascii)")
+
         self.msg_zero2=rest[0]
         if(self.msg_zero2 != "0"):
             self._new_error("zero2 is not zero")
         self.msg_checksum=int(rest[1:8],2)
         self.msg_msgdata=rest[8:]
-        m=re.compile(r'(\d{7})').findall(self.msg_msgdata)
+
+        chars, self.msg_rest= slice_extra(self.msg_msgdata, 7)
         self.msg_ascii=""
         end=0
-        for (group) in m:
+        for (group) in chars:
             character = int(group, 2)
             if(character==3):
                 end=1
@@ -1630,17 +1691,13 @@ class IridiumMessagingAscii(IridiumMSMessage):
                 self.msg_ascii+="[%d]"%character
             else:
                 self.msg_ascii+=chr(character)
-        if len(self.msg_msgdata)%7:
-            self.msg_rest=self.msg_msgdata[-(len(self.msg_msgdata)%7):]
-        else:
-            self.msg_rest=""
-        #TODO: maybe checksum checks
     def upgrade(self):
         if self.error: return self
         return self
     def _pretty_header(self):
         str= super()._pretty_header()
-        str+= " seq:%02d %10s %1d/%1d"%(self.msg_seq,self.msg_unknown1,self.msg_ctr,self.msg_ctr_max)
+        str+=" "
+        str+= "%4s %1d/%1d"%(self.msg_unknown2,self.msg_ctr,self.msg_ctr_max)
         (full,rest)=slice_extra(self.msg_msgdata,8)
         msgx="".join(["%02x"%int(x,2) for x in full])
         return str+ " csum:%02x msg:%s.%s"%(self.msg_checksum,msgx,rest)
@@ -1650,18 +1707,12 @@ class IridiumMessagingAscii(IridiumMSMessage):
        str+= self._pretty_trailer()
        return str
 
-class IridiumMessagingBCD(IridiumMSMessage):
+class IridiumMessagingBCD(IridiumMSMessageBody):
     def __init__(self,immsg):
         self.__dict__=immsg.__dict__
+
         rest=self.msg_data
-        if len(rest) < 11:
-            raise ParserError("Not enough data received")
-        self.msg_seq=int(rest[0:6],2)
-        self.msg_zero1=int(rest[6:10],2)
-        if(self.msg_zero1 != 0):
-            self._new_error("zero1 is not all-zero")
-        self.msg_unknown1=rest[10:16]
-        rest=rest[16:]
+
         self.msg_unknown2=rest[:1] # msg_len_bit ?
         self.msg_msgdata=rest[1:]
         bcd=slice(self.msg_msgdata,4)
@@ -1671,7 +1722,7 @@ class IridiumMessagingBCD(IridiumMSMessage):
         return self
     def _pretty_header(self):
         str= super()._pretty_header()
-        return str+ " seq:%02d %6s %s"%(self.msg_seq,self.msg_unknown1,self.msg_unknown2)
+        return str+ " %s"%(self.msg_unknown2)
     def pretty(self):
        str= "MS3: "+self._pretty_header()
        str+= " BCD: %-65s"%self.bcd
