@@ -128,8 +128,15 @@ if do_stats:
     import curses
     curses.setupterm(fd=sys.stderr.fileno())
     statsfile=sys.stderr
-    eol=(curses.tigetstr('el')+curses.tigetstr('cr')).decode("ascii")
-    eolnl=(curses.tigetstr('el')+b'\n').decode("ascii")
+    el=curses.tigetstr('el')
+    cr=curses.tigetstr('cr') or b'\r'
+    nl=curses.tigetstr('nl') or b'\n'
+    if el is None:
+        eol=  (nl).decode("ascii")
+        eolnl=(nl).decode("ascii")
+    else:
+        eol=  (el+cr).decode("ascii")
+        eolnl=(el+nl).decode("ascii")
     stats={}
 
 sigmfjson=None
@@ -248,8 +255,7 @@ def stats_thread(stats):
         print (hdr, "[%.1f l/s] filtered:%3d%%"%((nowl-lline)/(now-ltime),100*(1-stats['out']/(stats['in'] or 1))), end=eol, file=statsfile)
         ltime=now
         lline=nowl
-    if eol=='\r':
-        print(file=of)
+    print (hdr, "[%.1f l/s] drop:%3d%%"%((nowl)/(now-stime),100*(1-stats['out']/(stats['in'] or 1))), end=eolnl, file=statsfile)
 
 selected=[]
 
