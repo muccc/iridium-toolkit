@@ -212,7 +212,7 @@ if output == "zmq":
         print("%s:"%s,*msg, end=eolnl, file=statsfile)
 
     from threading import Thread
-    zthread = Thread(target = zmq_thread, args = [socket, stats])
+    zthread = Thread(target = zmq_thread, args = [socket, stats], daemon= True, name='zmq')
     zthread.start()
 
 def stats_thread(stats):
@@ -400,7 +400,7 @@ if do_stats:
     stats['in']=0
     stats['out']=0
     stats['stop']= Event()
-    sthread = Thread(target = stats_thread, args = [stats])
+    sthread = Thread(target = stats_thread, args = [stats], daemon= True, name= 'stats')
     sthread.start()
 
 try:
