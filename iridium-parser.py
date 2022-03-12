@@ -410,6 +410,7 @@ except KeyboardInterrupt:
 
 if do_stats:
     stats['stop'].set()
+    sthread.join()
 
 if output=='zmq':
     socket.close()
