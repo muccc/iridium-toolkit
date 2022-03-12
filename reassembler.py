@@ -1772,7 +1772,7 @@ class ReassembleMSG(Reassemble):
 
     buf={}
     def process(self,m):
-        idstr="%07d %04d"%(m.msg_ric,m.msg_seq)
+        idstr="%07d %04d %d"%(m.msg_ric,m.msg_seq,m.fmt)
 
         if idstr in self.buf and self.buf[idstr].csum != m.msg_checksum:
             print("Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%
