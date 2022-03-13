@@ -245,7 +245,7 @@ def stats_thread(stats):
             hdr+=" l:%6d"%stats['in']
         if output=='zmq':
             hdr+=" %2d clients"%stats['clients']
-        print (hdr, "[%.1f l/s] drop:%3d%%"%((nowl-lline)/(now-ltime),100*(1-stats['out']/(stats['in'] or 1))), end=eol, file=statsfile)
+        print (hdr, "[%.1f l/s] filtered:%3d%%"%((nowl-lline)/(now-ltime),100*(1-stats['out']/(stats['in'] or 1))), end=eol, file=statsfile)
         ltime=now
         lline=nowl
     if eol=='\r':
