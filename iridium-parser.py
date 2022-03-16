@@ -336,7 +336,8 @@ def perline(q):
         if q.error:
             return
         q.descramble_extra=""
-    if linefilter['type']!="All" and type(q).__name__ != linefilter['type']:
+#    if linefilter['type']!="All" and type(q).__name__ != linefilter['type']:
+    if linefilter['type']!="All" and not issubclass(type(q),globals()['bitsparser'].__dict__[linefilter['type']]):
         return
     if linefilter['attr'] and linefilter['attr'] not in q.__dict__:
         return
