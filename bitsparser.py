@@ -1591,13 +1591,14 @@ class IridiumMSMessageBody(IridiumMSMessage):
 
         blocks=self.blocks
 
+
         self.msg_odd="".join([x[:1] for x in blocks]) # collect "oddbits"
         rest="".join([x[1:] for x in blocks]) # remove "oddbits"
 
         if len(rest)<=27:
             raise ParserError("message too short(body)")
 
-        self.msg_ric=int(rest[0:22][::-1],2)
+        self.msg_ric=int(rest[0:22][::-1],2) # XXX: rest[20:22] maybe not part of RIC?
         self.msg_format=int(rest[22:27],2)
         rest=rest[27:]
 
@@ -1609,7 +1610,7 @@ class IridiumMSMessageBody(IridiumMSMessage):
         self.msg_zero1=int(rest[6:10],2)
         if(self.msg_zero1 != 0):
             self._new_error("zero1 is not all-zero")
-        self.msg_unknown1=rest[10:16]
+        self.pkt_cs1=rest[10:16]
 
         self.msg_data=rest[16:]
 
@@ -1629,7 +1630,7 @@ class IridiumMSMessageBody(IridiumMSMessage):
         str= super()._pretty_header()
         str += " ric:%07d fmt:%02d"%(self.msg_ric,self.msg_format)
         if "msg_seq" in self.__dict__:
-            str += " seq:%02d %6s"%(self.msg_seq,self.msg_unknown1)
+            str += " seq:%02d"%(self.msg_seq)
         return str
 
     def _pretty_trailer(self):
@@ -1643,13 +1644,33 @@ class IridiumMSMessageBody(IridiumMSMessage):
         str+=self._pretty_trailer()
         return str
 
+# MSG checksum:
+def msg_checksum(blocks):
+    csum_val=int((blocks[0][-3:]+blocks[1][1:8])[::-1], 2)
+    csum=0
+    # sum of each 21-bit BCH block, split into 8,8,5 bit values
+    # need to exclude the actual checksum bits from the sum
+    for idx,contents in enumerate(blocks):
+        if idx!=1:
+            csum+=int(contents[:8],   2) # including "odd" bit
+        csum+=int(contents[8:16], 2)
+        if idx!=0:
+            csum+=int(contents[16:],  2) # 5 bits
+
+    # this sum plus the 10-bit checksum value should be 1023
+    csum_ok= (csum_val+csum) % 1024 == 1023
+    return (csum_ok, csum_val)
+
 class IridiumMessagingAscii(IridiumMSMessageBody):
     def __init__(self,immsg):
         self.__dict__=immsg.__dict__
 
         rest=self.msg_data
 
-        self.msg_unknown2=rest[0:4]
+        # first block (ric) is not part of the checksum
+        self.pkt_csum_ok, self.pkt_csum= msg_checksum(self.blocks[1:])
+
+        pkt_cs2=rest[0:4]
         self.msg_len_bit=rest[4]
         rest=rest[5:]
         if(self.msg_len_bit=="1"):
@@ -1697,7 +1718,11 @@ class IridiumMessagingAscii(IridiumMSMessageBody):
     def _pretty_header(self):
         str= super()._pretty_header()
         str+=" "
-        str+= "%4s %1d/%1d"%(self.msg_unknown2,self.msg_ctr,self.msg_ctr_max)
+        if self.pkt_csum_ok:
+            str+= "C:OK/%04d"%(self.pkt_csum)
+        else:
+            str+= "C:no/%04d"%(self.pkt_csum)
+        str+= " %1d/%1d"%(self.msg_ctr,self.msg_ctr_max)
         (full,rest)=slice_extra(self.msg_msgdata,8)
         msgx="".join(["%02x"%int(x,2) for x in full])
         return str+ " csum:%02x msg:%s.%s"%(self.msg_checksum,msgx,rest)
@@ -1722,6 +1747,7 @@ class IridiumMessagingBCD(IridiumMSMessageBody):
         return self
     def _pretty_header(self):
         str= super()._pretty_header()
+        str+= " %6s"%(self.pkt_cs1)
         return str+ " %s"%(self.msg_unknown2)
     def pretty(self):
        str= "MS3: "+self._pretty_header()
