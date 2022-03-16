@@ -1742,7 +1742,7 @@ class ReassembleMSG(Reassemble):
     def __init__(self):
         self.topic=["MSG","MS3"]
         self.err=re.compile(r' ERR:')
-        self.msg=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01 ]+ (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]*)\.([01]*) ')
+        self.msg=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) (?:C:(..)\S*|[01 ]+) (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]*)\.([01]*) ')
         self.ms3=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
 
     def filter(self,line):
@@ -1755,17 +1755,21 @@ class ReassembleMSG(Reassemble):
         if q.typ == "MSG:":
             m=self.msg.match(q.data)
             if(not m):
-                print("Couldn't parse MSG: ",q.data, file=sys.stderr)
+                print("Couldn't parse MSG: ",q.data, file=sys.stderr, end="")
                 return None
+
+            q.line_ok=         m.group(4)
+            if q.line_ok is not None and q.line_ok != "OK":
+                return None # Don't bother with broken packets
 
             q.msg_ric=     int(m.group(1))
             q.fmt=         int(m.group(2))
             q.msg_seq=     int(m.group(3))
-            q.msg_ctr=     int(m.group(4))
-            q.msg_ctr_max= int(m.group(5))
-            q.msg_checksum=int(m.group(6),16)
-            q.msg_hex=         m.group(7)
-            q.msg_brest=       m.group(8)
+            q.msg_ctr=     int(m.group(5))
+            q.msg_ctr_max= int(m.group(6))
+            q.msg_checksum=int(m.group(7),16)
+            q.msg_hex=         m.group(8)
+            q.msg_brest=       m.group(9)
             q.enrich()
 
             q.msg_msgdata = ''.join(["{0:08b}".format(int(q.msg_hex[i:i+2], 16)) for i in range(0, len(q.msg_hex), 2)])
