@@ -1,4 +1,4 @@
-from util import bitdiff
+from util import bitdiff, hex2bin
 
 PRS_V2="e54d94cea9597683f8e86708b8d254cf"
 
@@ -541,9 +541,9 @@ MAP_PLANE=    dict(zip(PRS_PLANES, range(1,len(PRS_PLANES)+1)))
 MAP_PRS=      dict(zip(PRS_LIST,   list(range(128))*4))
 MAP_PRS_TYPE= dict(zip(PRS_LIST,   [0]*128+[1]*128+[2]*128+[3]*128))
 
-BIN_V2=      f'{int(PRS_V2,16):0{len(PRS_V2)*4}b}'
-BIN_PLANES= [f'{int(x,16):0{len(x)*4}b}' for x in PRS_PLANES]
-BIN_PRS=    [f'{int(x,16):0{len(x)*4}b}' for x in PRS_LIST]
+BIN_V2=      hex2bin(PRS_V2)
+BIN_PLANES= [hex2bin(x) for x in PRS_PLANES]
+BIN_PRS=    [hex2bin(x) for x in PRS_LIST]
 
 def map_sat(num):
     if num ==77:

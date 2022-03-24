@@ -32,6 +32,10 @@ class mybytes(bytes):
         else:
             return super().__getitem__(key)
 
+def hex2bin(hexstr):
+    l= len(hexstr)*4
+    return ("{0:0%db}"%l).format(int(hexstr,16))
+
 def fmt_iritime(iritime):
     # Different Iridium epochs that we know about:
     # ERA2: 2014-05-11T14:23:55Z : 1399818235 active since 2015-03-03T18:00:00Z
