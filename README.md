@@ -2,7 +2,7 @@
 
 ### Requisites
 
- * Python (3.x)
+ * Python (3.7+) (may work with older 3.x, but this is untested)
  * NumPy (scipy)
  * crcmod
 
