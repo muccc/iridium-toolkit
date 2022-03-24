@@ -566,11 +566,11 @@ if __name__ == "__main__":
             print("Sat: %s M%02d"%(s,m))
         except KeyError:
             print("Key: %s no exact match"%(seq))
-            bseq=f'{int(seq,16):096b}'
+            bseq=hex2bin(seq)
             for i,b in enumerate(BIN_PRS):
                 if bitdiff(bseq,b)<10:
                     print("but: %s (%03d/%d) matched with %d bits difference"%(
-                                f'{int(b,2):024x}',i%128,i//128,bitdiff(bseq,b))
+                                '{0:024x}'.format(int(b,2)),i%128,i//128,bitdiff(bseq,b))
                          )
                     break
         except ValueError:
