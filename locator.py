@@ -48,10 +48,10 @@ for line in ibc_pos:
 
     last_observation[s] = (tu, s, xyz, dt)
 
-    # Find all SVs which we saw in the last 10 seconds
+    # Find all SVs which we saw in the last 60 seconds
     concurent_observation = {}
     for lo in last_observation.values():
-        if tu - lo[0] < 10:
+        if tu - lo[0] < 60:
             concurent_observation[lo[1]] = lo
 
     # If we have more than 3, try to solve
@@ -86,7 +86,7 @@ for line in ibc_pos:
 
 print("good", len(good), "bad", bad, "known_bad", known_bad)
 
-print("average cartesian error:", numpy.average(errors), "(", numpy.average(height_error), ")")
+print("average cartesian error:", numpy.average(errors), "(", numpy.average(height_errors), ")")
 
 average_position = numpy.average(good, 0)
 

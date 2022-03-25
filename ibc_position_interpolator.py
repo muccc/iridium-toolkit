@@ -20,8 +20,8 @@ ppm = 0
 
 
 # create input file like this:
-# iridium-parser.py -p --filter=IridiumBCMessage+iri_time_ux --format=timens,iri_time_ux,slot,sv_id,beam_id iridium.bits > iridium.ibc
-# iridium-parser.py -p --filter=IridiumRAMessage,'q.ra_alt>7100' --format timens,ra_sat,ra_cell,ra_alt,ra_pos_x,ra_pos_y,ra_pos_z iridium.bits > iridium.ira
+# iridium-parser.py -p --filter=IridiumBCMessage+iri_time_ux --format=globalns,iri_time_ux,slot,sv_id,beam_id iridium.bits > iridium.ibc
+# iridium-parser.py -p --filter=IridiumRAMessage,'q.ra_alt>7100' --format=globalns,ra_sat,ra_cell,ra_alt,ra_pos_x,ra_pos_y,ra_pos_z iridium.bits > iridium.ira
 
 # call like this:
 # python3 ibc_position_interpolator.py iridium.ibc iridium.ira > iridium.ibc_pos_interp
