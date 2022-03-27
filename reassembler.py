@@ -1672,6 +1672,8 @@ class InfoIRAMAP(ReassembleIRA):
         if not q.name in self.sats[q.sat]:
             self.sats[q.sat][q.name]=0
         self.sats[q.sat][q.name]+=1
+        if q.name=="NONE":
+            return
         self.stats_cnt+=1
         self.stats_sum+=q.sep
 
@@ -1684,7 +1686,10 @@ class InfoIRAMAP(ReassembleIRA):
             for n in sorted(self.sats[x]):
                 print("%03d seen: %5d times - matched to %-20s %5.1f%%"%(x,sum,n,self.sats[x][n]/float(sum)*100))
 
-        print("%d matches. Avg distance: %5.2fkm"%(self.stats_cnt,self.stats_sum/self.stats_cnt))
+        if self.stats_cnt==0:
+            print("No matches. Wrong input file?")
+        else:
+            print("%d matches. Avg distance: %5.2fkm"%(self.stats_cnt,self.stats_sum/self.stats_cnt))
 
 class MSGObject(object):
     def __init__(self, line):
