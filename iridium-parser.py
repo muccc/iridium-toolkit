@@ -376,11 +376,16 @@ def perline(q):
         if q.error:
             desc=q.error_msg[0]
         elif "msgtype" in q.__dict__:
-            desc=q.msgtype
+            desc=""
+            if q.uplink:
+                desc+="UL"
+            else:
+                desc+="DL"
+            desc+="_"+q.msgtype
         else:
             desc=type(q).__name__
         print(json.dumps({
-            "core:comment": type(q).__name__,
+            "core:comment": "Frame #%d: "%int(q.id)+type(q).__name__,
             "core:description": desc+"#%d"%int(q.id),
             "core:freq_lower_edge": q.frequency-20e3,
             "core:freq_upper_edge": q.frequency+20e3,
