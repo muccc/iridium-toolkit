@@ -4,7 +4,7 @@
 from __future__ import print_function
 import sys
 import fileinput
-import getopt
+import argparse
 import datetime
 import re
 import struct
@@ -18,52 +18,48 @@ if sys.version_info[0]==3 and sys.version_info[1]<8:
     print("Old python detected, using replacement bytes class...", file=sys.stderr)
     from util import mybytes as bytes
 
-verbose = False
-ifile= None
-ofile= None
-mode= "undef"
 base_freq=1616*10**6
 channel_width=41667
-args={}
-station = None
-do_stats=False
 
-options, remainder = getopt.getopt(sys.argv[1:], 'vhi:o:m:sa:', [
-                                                         'verbose',
-                                                         'help',
-                                                         'input=',
-                                                         'output=',
-                                                         'mode=',
-                                                         'station=',
-                                                         'args=',
-                                                         'stats',
-                                                         ])
+parser = argparse.ArgumentParser()
 
-for opt, arg in options:
-    if opt in ('-v', '--verbose'):
-        verbose = True
-    elif opt in ('-i', '--input'):
-        ifile=arg
-    elif opt in ('-o', '--output'):
-        ofile=arg
-    elif opt in ('-m', '--mode'):
-        mode=arg
-    elif opt in ('-s', '--stats'):
-        do_stats=True
-        import curses
-        curses.setupterm(fd=sys.stderr.fileno())
-        eol=(curses.tigetstr('el')+curses.tigetstr('cr')).decode("ascii")
-    elif opt in ('-a', '--args'):
-        for a in arg.split(","):
-            args[a]=True
-    elif opt in ('--station'):
-        station = arg
-    elif opt in ('-h', '--help'):
-        print("Usage:", file=sys.stderr)
-        print("\t",os.path.basename(sys.argv[0]),"[-v] [--input foo.parsed] --mode [ida|idapp|lap|sbd|acars|page|msg|stats-pkt|ppm|satmap] [--station id] [--args option[,...]] [--output out.txt]", file=sys.stderr)
-        exit(1)
-    else:
-        raise Exception("unknown argument?")
+def parse_comma(arg):
+    return arg.split(',')
+
+parser.add_argument("-v", "--verbose",     action="store_true",
+        help="increase output verbosity")
+parser.add_argument("-i", "--input",       default=None,
+        help="input filename")
+parser.add_argument("-o", "--output",      default=None,
+        help="output filename")
+parser.add_argument("-m", "--mode",        default=None, required=True,
+        help="processing mode")
+parser.add_argument("-a", "--args",        default=[], type=parse_comma,
+        help="comma separated additional arguments")
+parser.add_argument("-s", "--stats",       action="store_true",
+        help="enable statistics")
+
+parser.add_argument("--station",           default=None,
+        help="optional station ID for acars")
+
+parser.add_argument("remainder", nargs='*',
+        help=argparse.SUPPRESS)
+
+config=parser.parse_args()
+
+verbose=   config.verbose
+ifile=     config.input
+ofile=     config.output
+mode=      config.mode
+args=      config.args
+do_stats=  config.stats
+station=   config.station
+remainder= config.remainder
+
+if do_stats:
+    import curses
+    curses.setupterm(fd=sys.stderr.fileno())
+    eol=(curses.tigetstr('el')+curses.tigetstr('cr')).decode("ascii")
 
 basename=None
 if ifile == None:
@@ -2032,7 +2028,7 @@ else:
     print("Unknown mode selected", file=sys.stderr)
     sys.exit(1)
 
-for x in args.keys():
+for x in args:
     if x not in validargs:
         raise Exception("unknown -a option: "+x)
 
