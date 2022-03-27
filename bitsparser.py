@@ -217,7 +217,7 @@ class Message(object):
         if "snr" not in self.__dict__:
             return "%s %s %3d%% %7.3f"%(hdr,self.freq_print,self.confidence,self.level)
         else:
-            return "%s %s %3d%% %05.1f|%06.1f|%04.1f"%(hdr,self.freq_print,self.confidence,self.leveldb,self.noise,self.snr)
+            return "%s %s %3d%% %06.2f|%07.2f|%05.2f"%(hdr,self.freq_print,self.confidence,self.leveldb,self.noise,self.snr)
     def _pretty_trailer(self):
         return ""
     def pretty(self):
