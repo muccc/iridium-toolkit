@@ -1,6 +1,19 @@
 from util import bitdiff, hex2bin
 
-PRS_V2="e54d94cea9597683f8e86708b8d254cf"
+PRS_HDR=[
+    "00000000000000000000000000000000",
+    "e7d196e0bcac4dca95d85d394c3ccb4b",
+    "e54d94cea9597683f8e86708b8d254cf"  # since ~2017-11
+]
+
+PRS_PLANES_V1=[
+    "674b6cb1b852341dc3510be6d3cc856ab5c0b6c6913f6282b4c16f1c725e8aaf",
+    "b8d2979c0a45a7e89723b09574abae4d1b33e91b8846c7495df72ce0aef4f462",
+    "ebaed865729cdab479b0aa371d687b00ab1b10873b1088b94bae6da244fa8f1c",
+    "04f49492541b4cd3e394d1516a9d9aba2750751876d1dcd97c16dacd81ca81bc",
+    "a7ed609b6afd47dd52defd2bb03d3895fae70a32550cee8e5765123b335656d3",
+    "59914d0ff9029c5cbaa8d5b64097515c48599778ca58adb8bb2c204e9f373a50",
+]
 
 PRS_PLANES=[
     "e714d314fd1c1d36b0bd51a660d4c952eeca584cdd7832d417529ca4ea3d63a1",
@@ -9,6 +22,137 @@ PRS_PLANES=[
     "8cb9c8d52a2cad2e536fc1146536e0093b372e83aa2580561eb66d23b3c0a25e",
     "11d3170497fb8c42ca88ded85fa79f47d0634a572723c884f40a2dea1490e4ac",
     "4237b94f144e643837785d0e9ca995f53368e02b328fa3c6fb43de96d0e6d143",
+]
+
+PRS_LIST_V1=[
+    "7684a3001c4e94a96cffea2b",
+    "2751be51c953c57c71ae3f36",
+    "1e622d68fac0fc4fe2970ca5",
+    "42f7e4346f09a0da2bcb996c",
+    "2cb1005a29edce9ccfa5df88",
+    "1b92726d0a9ff9bfbd92fcfa",
+    "0003cb769b26e22e04896d43",
+    "4dc7173b5ffaafead8c4a99f",
+    "6b25791dbd948908b6e24bf1",
+    "78544e0ecca39a7981f13ac6",
+    "31e0d5477838d3cd1ab88e5d",
+    "55369823ae75b71b57dc5810",
+    "768b5c0013b194a693ffe5d4",
+    "275e4151c6acc5738eae30c9",
+    "1e6dd268f53ffc401d97035a",
+    "42f81b3460f6a0d5d4cb9693",
+    "2cbeff5a2612ce9330a5d077",
+    "1b9d8d6d0560f9b04292f305",
+    "000c347694d9e221fb8962bc",
+    "4dc8e83b5005afe527c4a660",
+    "6b2a861db26b890749e2440e",
+    "785bb10ec35c9a767ef13539",
+    "31ef2a4777c7d3c2e5b881a2",
+    "55396723a18ab714a8dc57ef",
+    "7684a3ffe3b194a96c0015d4",
+    "2751beae36acc57c7151c0c9",
+    "1e622d97053ffc4fe268f35a",
+    "42f7e4cb90f6a0da2b346693",
+    "2cb100a5d612ce9ccf5a2077",
+    "1b927292f560f9bfbd6d0305",
+    "0003cb8964d9e22e047692bc",
+    "4dc717c4a005afead83b5660",
+    "6b2579e2426b8908b61db40e",
+    "78544ef1335c9a79810ec539",
+    "31e0d5b887c7d3cd1a4771a2",
+    "553698dc518ab71b5723a7ef",
+    "768b5cffec4e94a693001a2b",
+    "275e41ae3953c5738e51cf36",
+    "1e6dd2970ac0fc401d68fca5",
+    "42f81bcb9f09a0d5d434696c",
+    "2cbeffa5d9edce93305a2f88",
+    "1b9d8d92fa9ff9b0426d0cfa",
+    "000c34896b26e221fb769d43",
+    "4dc8e8c4affaafe5273b599f",
+    "6b2a86e24d948907491dbbf1",
+    "785bb1f13ca39a767e0ecac6",
+    "31ef2ab88838d3c2e5477e5d",
+    "553967dc5e75b714a823a810",
+    "7684a3001c4e6b56930015d4",
+    "2751be51c9533a838e51c0c9",
+    "1e622d68fac003b01d68f35a",
+    "42f7e4346f095f25d4346693",
+    "2cb1005a29ed3163305a2077",
+    "1b92726d0a9f0640426d0305",
+    "0003cb769b261dd1fb7692bc",
+    "4dc7173b5ffa5015273b5660",
+    "6b25791dbd9476f7491db40e",
+    "78544e0ecca365867e0ec539",
+    "31e0d54778382c32e54771a2",
+    "55369823ae7548e4a823a7ef",
+    "768b5c0013b16b596c001a2b",
+    "275e4151c6ac3a8c7151cf36",
+    "1e6dd268f53f03bfe268fca5",
+    "42f81b3460f65f2a2b34696c",
+    "2cbeff5a2612316ccf5a2f88",
+    "1b9d8d6d0560064fbd6d0cfa",
+    "000c347694d91dde04769d43",
+    "4dc8e83b5005501ad83b599f",
+    "6b2a861db26b76f8b61dbbf1",
+    "785bb10ec35c6589810ecac6",
+    "31ef2a4777c72c3d1a477e5d",
+    "55396723a18a48eb5723a810",
+    "7684a3ffe3b16b5693ffea2b",
+    "2751beae36ac3a838eae3f36",
+    "1e622d97053f03b01d970ca5",
+    "42f7e4cb90f65f25d4cb996c",
+    "2cb100a5d612316330a5df88",
+    "1b927292f56006404292fcfa",
+    "0003cb8964d91dd1fb896d43",
+    "4dc717c4a005501527c4a99f",
+    "6b2579e2426b76f749e24bf1",
+    "78544ef1335c65867ef13ac6",
+    "31e0d5b887c72c32e5b88e5d",
+    "553698dc518a48e4a8dc5810",
+    "768b5cffec4e6b596cffe5d4",
+    "275e41ae39533a8c71ae30c9",
+    "1e6dd2970ac003bfe297035a",
+    "42f81bcb9f095f2a2bcb9693",
+    "2cbeffa5d9ed316ccfa5d077",
+    "1b9d8d92fa9f064fbd92f305",
+    "000c34896b261dde048962bc",
+    "4dc8e8c4affa501ad8c4a660",
+    "6b2a86e24d9476f8b6e2440e",
+    "785bb1f13ca3658981f13539",
+    "31ef2ab888382c3d1ab881a2",
+    "553967dc5e7548eb57dc57ef",
+    "89bb5b7de391dde692b8781d",
+    "d86e462c368c8c338fe9ad00",
+    "e15dd515051fb5001cd09e93",
+    "bdc81c4990d6e995d58c0b5a",
+    "d38ef827d63287d331e24dbe",
+    "e4ad8a10f540b0f043d56ecc",
+    "ff3c330b64f9ab61faceff75",
+    "b2f8ef46a025e6a526833ba9",
+    "941a8160424bc04748a5d9c7",
+    "876bb673337cd3367fb6a8f0",
+    "cedf2d3a87e79a82e4ff1c6b",
+    "aa09605e51aafe54a99bca26",
+    "89b4a47dec6edde96db877e2",
+    "d861b92c39738c3c70e9a2ff",
+    "e1522a150ae0b50fe3d0916c",
+    "bdc7e3499f29e99a2a8c04a5",
+    "d3810727d9cd87dccee24241",
+    "e4a27510fabfb0ffbcd56133",
+    "ff33cc0b6b06ab6e05cef08a",
+    "b2f71046afdae6aad9833456",
+    "94157e604db4c048b7a5d638",
+    "876449733c83d33980b6a70f",
+    "ced0d23a88189a8d1bff1394",
+    "aa069f5e5e55fe5b569bc5d9",
+    "89bb5b821c6edde6924787e2",
+    "d86e46d3c9738c338f1652ff",
+    "e15dd5eafae0b5001c2f616c",
+    "bdc81cb66f29e995d573f4a5",
+    "d38ef8d829cd87d3311db241",
+    "e4ad8aef0abfb0f0432a9133",
+    "ff3c33f49b06ab61fa31008a",
+    "b2f8efb95fdae6a5267cc456",
 ]
 
 PRS_EVEN_1=[
@@ -537,23 +681,34 @@ PRS_ODD_2=[
 
 PRS_LIST= PRS_EVEN_1+PRS_EVEN_2+PRS_ODD_1+PRS_ODD_2
 
+MAP_PLANE_V1= dict(zip(PRS_PLANES_V1, range(1,len(PRS_PLANES_V1)+1)))
 MAP_PLANE=    dict(zip(PRS_PLANES, range(1,len(PRS_PLANES)+1)))
+MAP_PRS_V1=   dict(zip(PRS_LIST_V1, list(range(128))))
 MAP_PRS=      dict(zip(PRS_LIST,   list(range(128))*4))
 MAP_PRS_TYPE= dict(zip(PRS_LIST,   [0]*128+[1]*128+[2]*128+[3]*128))
 
-BIN_V2=      hex2bin(PRS_V2)
+BIN_HDR=    [hex2bin(x) for x in PRS_HDR]
 BIN_PLANES= [hex2bin(x) for x in PRS_PLANES]
 BIN_PRS=    [hex2bin(x) for x in PRS_LIST]
 
-def map_sat(num):
-    if num ==77:
-        return ("---",8)
-    elif num<66:
-        satno=num%11
-        msgno=num//11
-        return ("S%02d"%(satno+1),msgno+1)
-    else:
-        raise ValueError
+def map_sat(num, version):
+    if version==2:
+        if num==77:
+            return ("---",8)
+        elif num<66:
+            satno=num%11
+            msgno=num//11
+            return ("S%02d"%(satno+1),msgno+1)
+        else:
+            raise ValueError
+    elif version==1:
+        if num<88:
+            satno=num%11
+            msgno=num//11
+            return ("S%02d"%(satno+1),msgno+1)
+        else:
+            raise ValueError
+    assert False, "unexpected itl version"
 
 if __name__ == "__main__":
     print("PLANES:", len(MAP_PLANE))

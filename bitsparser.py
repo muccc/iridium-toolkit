@@ -476,7 +476,10 @@ class IridiumMessage(Message):
     def pretty(self):
         sstr= "IRI: "+self._pretty_header()
         sstr+= " %2s"%self.msgtype
-        if self.descrambled!="":
+        if self.msgtype == "TL" and "i" in self.__dict__:
+            sstr+= " <"+" ".join(self.i)+">"
+            sstr+= " <"+" ".join(self.q)+">"
+        elif self.descrambled!="":
             sstr+= " ["
             sstr+=".".join(["%02x"%int("0"+x,2) for x in slice("".join(self.descrambled), 8) ])
             sstr+="]"
@@ -682,10 +685,40 @@ class IridiumSTLMessage(IridiumMessage):
         self.i=["".join(x) for x in (i_list[:16],i_list[16:])]
         self.q=["".join(x) for x in slice(q_list,12)]
 
-        if not harder:
-            if self.i[0]!=itl.PRS_V2:
-                raise ParserError("ITL initial PRS unknown")
+        if harder:
+            MAX_DIFF=10
+            self.ib=[bin(int(x, 16))[2:].zfill(len(x*4)) for x in self.i]
 
+        # Try to determine ITL version
+        self.itl_version= None
+        try:
+            self.itl_version= itl.PRS_HDR.index(self.i[0])
+        except ValueError:
+            if harder: # harder only supports V2
+                if bitdiff(self.ib[0],itl.BIN_HDR[2])<MAX_DIFF:
+                    self.fixederrs+= 1
+                    self.itl_version= 2
+
+        if self.itl_version==0: # No decoding yet
+            self.i= ["".join(x) for x in slice(i_list,16)]
+            self.q= ["".join(x) for x in slice(q_list,16)]
+            self.header="V%d"%self.itl_version
+            return
+        elif self.itl_version==1:
+            try:
+                self.plane= itl.MAP_PLANE_V1[self.i[1]]
+            except KeyError:
+                raise ParserError("ITL plane PRS unknown")
+
+            self.msg=[]
+            for i,x in enumerate(self.q):
+                if x in itl.MAP_PRS_V1:
+                    self.msg.append(itl.MAP_PRS_V1[x])
+                else:
+                    if i==0 or self.msg[0]<77: # M8 does not contain normal PRS'
+                        raise ParserError("ITL PRS #%d unknown"%i)
+                    self.msg.append(x)
+        elif self.itl_version==2 and not harder:
             try:
                 self.plane= itl.MAP_PLANE[self.i[1]]
                 self.msg= [itl.MAP_PRS[x] for x in self.q]
@@ -700,20 +733,9 @@ class IridiumSTLMessage(IridiumMessage):
             else:
                 if sanity not in ("2301","3210"):
                     raise ParserError("ITL wrong PRS found")
-
-        else: # harder
-            MAX_DIFF=10
+        elif self.itl_version==2 and harder:
             self.plane=None
             self.msg=[None]*4
-
-            self.ib=[bin(int(x, 16))[2:].zfill(len(x*4)) for x in self.i]
-
-            if self.i[0]==itl.PRS_V2:
-                pass
-            elif bitdiff(self.ib[0],itl.BIN_V2)<MAX_DIFF:
-                self.fixederrs+=1
-            else:
-                raise ParserError("ITL initial PRS unknown")
 
             if self.i[1] in itl.MAP_PLANE:
                 self.plane= itl.MAP_PLANE[self.i[1]]
@@ -761,12 +783,14 @@ class IridiumSTLMessage(IridiumMessage):
                             self.fixederrs+=1
                             break
                 if self.msg[qidx] is None:
-                    self._new_error("ITL PRS unknown")
+                    self._new_error("ITL PRS #%d unknown"%qidx)
                     raise ParserError("ITL PRS dist=%d"%mindist)
+        else:
+            raise ParserError("ITL initial PRS unknown")
 
-        self.header="V2"
+        self.header="V%d"%self.itl_version
         try:
-            (self.sat, self.mt)= itl.map_sat(self.msg[0])
+            (self.sat, self.mt)= itl.map_sat(self.msg[0], self.itl_version)
         except ValueError:
             raise ParserError("ITL invalid sat ID")
         self.msg=self.msg[1:]
@@ -776,9 +800,22 @@ class IridiumSTLMessage(IridiumMessage):
     def pretty(self):
         st= "ITL: "+self._pretty_header()
 
-        st+=" OK P%d"%self.plane
-        st+=" "+self.sat+" M%d"%self.mt
-        st+=" "+" ".join(["{0:07b}".format(x) for x in self.msg])
+        if self.itl_version==0:
+            st+= " -"
+            st+= " <"+" ".join(self.i)+">"
+            st+= " <"+" ".join(self.q)+">"
+        elif self.itl_version==1:
+            st+= " OK P%d"%self.plane
+            st+= " "+self.sat+" M%d"%self.mt
+            for x in self.msg:
+                try:
+                    st+= " "+"{0:07b}".format(x)
+                except ValueError:
+                    st+= " "+x
+        else:
+            st+=" OK P%d"%self.plane
+            st+=" "+self.sat+" M%d"%self.mt
+            st+=" "+" ".join(["{0:07b}".format(x) for x in self.msg])
 
         st+=self._pretty_trailer()
         return st
