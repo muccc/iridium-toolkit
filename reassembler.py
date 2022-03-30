@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
-from __future__ import print_function
 import sys
 import fileinput
 import argparse
@@ -11,6 +10,7 @@ import struct
 import math
 import os
 import socket
+from os.path import splitext, basename
 from copy import deepcopy
 from util import fmt_iritime, to_ascii, slice_extra
 
@@ -47,43 +47,32 @@ parser.add_argument("remainder", nargs='*',
 
 config=parser.parse_args()
 
-verbose=   config.verbose
-ifile=     config.input
-ofile=     config.output
-mode=      config.mode
-args=      config.args
-do_stats=  config.stats
-station=   config.station
-remainder= config.remainder
-
-if do_stats:
+if config.stats:
     import curses
     curses.setupterm(fd=sys.stderr.fileno())
     eol=(curses.tigetstr('el')+curses.tigetstr('cr')).decode("ascii")
 
-basename=None
-if ifile == None:
-    if not remainder:
-        basename="stdin"
-        ifile = "/dev/stdin"
+
+if config.input == None:
+    if not config.remainder:
+        config.input = "/dev/stdin"
     else:
-        ifile = remainder[0]
+        config.input = config.remainder[0]
 
-if not basename:
-    basename=re.sub(r'\.[^.]*$','',ifile)
-#    basename=os.path.basename(re.sub(r'\.[^.]*$','',ifile))
+config.outbase, _= splitext(config.input)
+if config.outbase.startswith('/dev'):
+    config.outbase=basename(config.outbase)
 
-if ofile == None:
-    ofile="/dev/stdout"
+if config.output is None:
     outfile=sys.stdout
-elif ofile == "" or ofile == "=":
-    ofile="%s.%s" % (basename, mode)
-    outfile=open(ofile,"w")
+elif config.output == "" or config.output == "=":
+    config.output="%s.%s" % (config.outbase, config.mode)
+    outfile=open(config.output,"w")
 else:
-    outfile=open(ofile,"w")
+    outfile=open(config.output,"w")
 
 state=None
-if 'state' in args:
+if 'state' in config.args:
     import pickle
     statefile="%s.state" % (mode)
     try:
@@ -91,11 +80,6 @@ if 'state' in args:
             state=pickle.load(f)
     except (IOError, EOFError):
         pass
-
-if verbose:
-    print("ifile",ifile)
-    print("ofile",ofile)
-    print("basen",basename)
 
 class Zulu(datetime.tzinfo):
     def utcoffset(self, dt):
@@ -171,7 +155,7 @@ class MyObject(object):
                 self.perfect=True
             else:
                 self.perfect=False
-            if 'perfect' in args:
+            if 'perfect' in config.args:
                 global pwarn
                 if pwarn is False:
                     pwarn = True
@@ -224,7 +208,7 @@ class StatsSNR(Reassemble):
 
         q.enrich()
 
-        if 'perfect' in args:
+        if 'perfect' in config.args:
             if not q.perfect: return None
 
         return q
@@ -326,7 +310,7 @@ class LivePktStats(Reassemble):
 
         q.enrich()
 
-        if 'perfect' in args:
+        if 'perfect' in config.args:
             if not q.perfect: return None
 
         return q
@@ -382,7 +366,7 @@ class LivePktStats(Reassemble):
         self.printstats(ts, stats, skip=skip)
 
     def end(self):
-        if 'state' in args:
+        if 'state' in config.args:
             with open(statefile,'w') as f:
                 state=pickle.dump([self.timeslot,self.stats],f)
 
@@ -410,7 +394,7 @@ class LiveMap(Reassemble):
 
         q.enrich()
 
-        if 'perfect' in args:
+        if 'perfect' in config.args:
             if not q.perfect: return None
 
         return q
@@ -481,7 +465,7 @@ class LiveMap(Reassemble):
 
     def printstats(self, timeslot, stats):
         ts=timeslot+self.intvl
-        if do_stats:
+        if config.stats:
             sts=datetime.datetime.fromtimestamp(ts)
             sats=len(stats['sats'])
             ssats=", ".join([str(x) for x in sorted(stats['sats'])])
@@ -521,7 +505,7 @@ class ReassemblePPM(Reassemble):
         q.enrich()
         if q.confidence<95: return None
 
-        if 'perfect' in args:
+        if 'perfect' in config.args:
             if not q.perfect: return None
 
         m=self.r1.match(q.data)
@@ -577,13 +561,13 @@ class ReassemblePPM(Reassemble):
             self.tmin=tdelta
         if tdelta > self.tmax:
             self.tmax=tdelta
-        if 'tdelta' in args:
+        if 'tdelta' in config.args:
             print("tdelta %sZ %f"%(data[0].isoformat(),tdelta))
 
         # "interactive" statistics per INVTL(600)
         if (data[1]-self.cur[1]).total_seconds() > 600:
             (irun,toff,ppm)=self.onedelta(self.cur,data, verbose=False)
-            if 'grafana' in args:
+            if 'grafana' in config.args:
                 print("iridium.live.ppm %.5f %d"%(ppm,(data[1]-datetime.datetime.fromtimestamp(0)).total_seconds()))
                 sys.stdout.flush()
             else:
@@ -660,7 +644,7 @@ class InfoITLSatMap(Reassemble):
 
         if abs(self.itl.mstime - self.ira.mstime)<0.01:
             df=self.ira.frequency-self.itl.frequency
-            if verbose:
+            if config.verbose:
                 print("Match: delta_f=%d"%df)
                 print("- IRA",self.ira.mstime,self.ira.frequency,self.ira.freq_print,self.ira.sat)
                 print("- ITL",self.itl.mstime,self.itl.frequency,self.itl.freq_print,"P%dS%02d"%(self.itl.plane,self.itl.satno))
@@ -760,7 +744,7 @@ class ReassembleIDA(Reassemble):
         # rudimentary De-Dupe
         if (self.otime-1)<=m.time<=(self.otime+1) and self.odata==m.data and (self.ofreq-200)<m.frequency<(self.ofreq+200):
             self.stat_dupes+=1
-            if verbose:
+            if config.verbose:
                 print("dupe: ",m.time,"(",m.cont,m.ctr,")",m.data)
             return
         self.otime=m.time
@@ -777,7 +761,7 @@ class ReassembleIDA(Reassemble):
                     self.buf.append([m.frequency,time,m.ctr,dat,m.cont,m.ul])
                 else:
                     self.stat_ok+=1
-                    if verbose:
+                    if config.verbose:
                         print(">assembled: [%s] %s"%(",".join(["%s"%x for x in time+[m.time]]),dat))
                     data=bytes().fromhex( dat.replace('.',' ').replace('!',' ') )
                     return [[data,m.time,ul,m.level,freq]]
@@ -787,19 +771,19 @@ class ReassembleIDA(Reassemble):
         if ok:
             pass
         elif m.ctr==0 and not m.cont:
-            if verbose:
+            if config.verbose:
                 print(">single: [%s] %s"%(m.time,m.data))
             data=bytes().fromhex( m.data.replace('.',' ').replace('!',' ') )
             return [[data,m.time,m.ul,m.level,m.frequency]]
         elif m.ctr==0 and m.cont: # New long packet
             self.stat_fragments+=1
-            if verbose:
+            if config.verbose:
                 print("initial: ",m.time,"(",m.cont,m.ctr,")",m.data)
             self.buf.append([m.frequency,[m.time],m.ctr,m.data,m.cont,m.ul])
         elif m.ctr>0:
             self.stat_broken+=1
             self.stat_fragments+=1
-            if verbose:
+            if config.verbose:
                 print("orphan: ",m.time,"(",m.cont,m.ctr,")",m.data)
             pass
         else:
@@ -809,7 +793,7 @@ class ReassembleIDA(Reassemble):
             if time[-1]+1000<=m.time:
                 self.stat_broken+=1
                 del self.buf[idx]
-                if verbose:
+                if config.verbose:
                     print("timeout:",time,"(",cont,ctr,")",dat)
                 data=bytes().fromhex( dat.replace('.',' ').replace('!',' ') )
                 #could be put into assembled if long enough to be interesting?
@@ -1179,7 +1163,7 @@ class ReassembleIDASBD(ReassembleIDA):
 
     def __init__(self):
         super().__init__()
-        if 'debug' in args:
+        if 'debug' in config.args:
             global verb2
             verb2=True
             print("DEBUG ENABLED")
@@ -1443,7 +1427,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         else:
             q.txt=bytes()
 
-        if len(q.errors)>0 and not 'showerrs' in args:
+        if len(q.errors)>0 and not 'showerrs' in config.args:
             return
 
         q.timestamp = datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S%z")
@@ -1452,7 +1436,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
             q.f_reg=q.f_reg[1:]
 
         # PRETTY-PRINT (json)
-        if 'json' in args:
+        if 'json' in config.args:
             out={}
             out['header']=q.hdr.hex()
             out['errors'] = " ".join(q.errors)
@@ -1468,8 +1452,8 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
                     out[jkey]=val
 
             out['source'] = { 'transport': 'iridium', 'protocol': 'acars' }
-            if station:
-                out['source']['station_id'] = station
+            if config.station:
+                out['source']['station_id'] = config.station
             print(json.dumps(out), file=outfile)
             return
 
@@ -1591,7 +1575,7 @@ class ReassembleIDALAP(ReassembleIDA):
         pkt=self.gsmwrap(q)
         self.sock.sendto(pkt, ("127.0.0.1", 4729)) # 4729 == GSMTAP
 
-        if verbose:
+        if config.verbose:
             if ul:
                 ul="UL"
             else:
@@ -1620,7 +1604,7 @@ class ReassembleIDALAPPCAP(ReassembleIDALAP):
 
         # Filter non-GSM packets (see IDA-GSM.txt)
         (data,time,ul,_,_)=q
-        if 'all' in args:
+        if 'all' in config.args:
             pass
         else:
             if data[0]&0xf==6 or data[0]&0xf==8 or (data[0]>>8)==7: # XXX: should be >>4?
@@ -1688,12 +1672,12 @@ class InfoIRAMAP(ReassembleIRA):
     def __init__(self):
         filename="tracking/iridium-NEXT.txt"
         self.satlist = load.tle_file(filename)
-        if verbose:
+        if config.verbose:
             print(("%i satellites loaded into list"%len(self.satlist)))
         self.epoc = self.satlist[0].epoch
         self.ts=load.timescale(builtin=True)
 
-        if verbose:
+        if config.verbose:
             tnow = self.ts.utc(datetime.datetime.now(datetime.timezone.utc))
             days = tnow - self.epoc
             print('TLE file is %.2f days old'%days)
@@ -1747,7 +1731,7 @@ class InfoIRAMAP(ReassembleIRA):
             days = t - self.epoc
             if abs(days)>3:
                 print('WARNING: TLE relative age is %.2f days. Expect poor results.'%abs(days), file=sys.stderr)
-            elif verbose:
+            elif config.verbose:
                 print('TLE relative age is %.2f days'%abs(days))
 
         if "xyz" not in q.__dict__: # Compat for old parsed files
@@ -1763,7 +1747,7 @@ class InfoIRAMAP(ReassembleIRA):
         return [q]
 
     def consume(self,q):
-        if verbose:
+        if config.verbose:
 #            print("%s: sat %02d beam %02d [%d %4.2f %4.2f %s] matched %-20s @ %5.2f°"%( datetime.datetime.utcfromtimestamp(q.time), q.sat,q.beam,q.time,q.lat,q.lon,q.alt,q.name,q.sep))
             print("%s: sat %02d beam %02d [%d %8.4f %8.4f %s] matched %-20s @ %5fkm"%( datetime.datetime.utcfromtimestamp(q.time), q.sat,q.beam,q.time,q.lat,q.lon,q.alt,q.name,q.sep))
         if q.sep > self.MAX_DIST:
@@ -1931,15 +1915,15 @@ class ReassembleMSG(Reassemble):
                 del self.buf[idx]
                 if not msg.sent:
                     if not msg.done:
-                        if verbose:
+                        if config.verbose:
                             print("timeout incomplete @",m.time,"(",msg.__dict__,")")
-                        if 'incomplete' in args:
+                        if 'incomplete' in config.args:
                             for x,y in enumerate(msg.parts):
                                 if y is None:
                                     msg.parts[x]=b'[MISSING]'
                             return [msg]
                     else:
-                        if verbose:
+                        if config.verbose:
                             print("timeout failed @",m.time,"(",msg.__dict__,")")
                         return [msg]
                 break
@@ -1962,42 +1946,42 @@ class ReassembleMSG(Reassemble):
         for msg in self.buf.values():
             if not msg.sent:
                 if not msg.done:
-                    if verbose:
+                    if config.verbose:
                         print("flush incomplete @",m.time,"(",msg.__dict__,")")
-                    if 'incomplete' in args:
+                    if 'incomplete' in config.args:
                         for x,y in enumerate(msg.parts):
                             if y is None:
                                 msg.parts[x]=b'[MISSING]'
                         self.consume(msg)
                 else:
-                    if verbose:
+                    if config.verbose:
                         print("flush failed @",m.time,"(",msg.__dict__,")")
                     self.consume(msg)
 
 validargs=()
 zx=None
 
-if mode == "ida":
+if config.mode == "ida":
     zx=ReassembleIDA()
-elif mode == "idapp":
+elif config.mode == "idapp":
     zx=ReassembleIDAPP()
-elif mode == "gsmtap":
+elif config.mode == "gsmtap":
     zx=ReassembleIDALAP()
-elif mode == "lap":
+elif config.mode == "lap":
     validargs=('all')
     if outfile == sys.stdout: # Force file, since it's binary
-        ofile="%s.%s" % (basename, "pcap")
-    outfile=open(ofile,"wb")
+        config.output="%s.%s" % (config.outbase, "pcap")
+    outfile=open(config.output,"wb")
     zx=ReassembleIDALAPPCAP()
-elif mode == "sbd":
+elif config.mode == "sbd":
     validargs=('perfect', 'debug')
     zx=ReassembleIDASBD()
-elif mode == "acars":
+elif config.mode == "acars":
     validargs=('json', 'perfect', 'showerrs')
     zx=ReassembleIDASBDACARS()
-elif mode == "page":
+elif config.mode == "page":
     zx=ReassembleIRA()
-elif mode == "satmap":
+elif config.mode == "satmap":
     from skyfield.api import load, utc, Topos
     from skyfield.sgp4lib import TEME_to_ITRF
     from sgp4.api import SatrecArray
@@ -2005,34 +1989,34 @@ elif mode == "satmap":
     from skyfield.constants import tau, DAY_S
     import numpy as np
     zx=InfoIRAMAP()
-elif mode == "msg":
+elif config.mode == "msg":
     validargs=('incomplete')
     zx=ReassembleMSG()
-elif mode == "stats-snr":
+elif config.mode == "stats-snr":
     validargs=('perfect')
     zx=StatsSNR()
-elif mode == "live-stats":
+elif config.mode == "live-stats":
     validargs=('perfect','state')
     zx=LivePktStats()
-elif mode == "live-map":
+elif config.mode == "live-map":
     validargs=('perfect')
     if ofile=='/dev/stdout':
         ofile='sats.json'
     zx=LiveMap()
-elif mode == "ppm":
+elif config.mode == "ppm":
     validargs=('perfect','grafana','tdelta')
     zx=ReassemblePPM()
-elif mode == "itlmap":
+elif config.mode == "itlmap":
     zx=InfoITLSatMap()
 else:
     print("Unknown mode selected", file=sys.stderr)
     sys.exit(1)
 
-for x in args:
+for x in config.args:
     if x not in validargs:
         raise Exception("unknown -a option: "+x)
 
-if ifile.startswith("zmq:"):
+if config.input.startswith("zmq:"):
     try:
         topics=zx.topic
         if not isinstance(topics,list):
@@ -2046,9 +2030,11 @@ if ifile.startswith("zmq:"):
     socket.connect ("tcp://localhost:4223")
     for topic in topics:
         socket.setsockopt(zmq.SUBSCRIBE, bytes(topic,"ascii"))
-    try:
-        zx.run(iter(socket.recv_string,""))
-    except KeyboardInterrupt:
-        print("")
+    config.iobj=iter(socket.recv_string,"")
 else:
-    zx.run(fileinput.input(ifile))
+    config.iobj=fileinput.input(config.input)
+
+try:
+    zx.run(config.iobj)
+except KeyboardInterrupt:
+    print("")
