@@ -3,6 +3,7 @@
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
 import re
+import sys
 import types
 import datetime
 
@@ -102,3 +103,18 @@ def objprint(q):
         if isinstance(attr, types.MethodType):
             continue
         print("%s: %s"%(i,attr))
+
+def curses_eol(file=sys.stderr):
+    import curses
+    import sys
+    curses.setupterm(fd=file.fileno())
+    el=curses.tigetstr('el')
+    cr=curses.tigetstr('cr') or b'\r'
+    nl=curses.tigetstr('nl') or b'\n'
+    if el is None:
+        eol=  (nl).decode("ascii")
+        eolnl=(nl).decode("ascii")
+    else:
+        eol=  (el+cr).decode("ascii")
+        eolnl=(el+nl).decode("ascii")
+    return eol
