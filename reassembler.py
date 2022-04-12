@@ -83,18 +83,7 @@ zx=None
 iridiumtk.config.outfile=config.outfile
 iridiumtk.config.config=config
 
-def get_plugins(base_ns):
-    _path=base_ns.__path__
-    _name=base_ns.__name__
-
-    return  {
-        name: importlib.import_module(name)
-        for finder, name, ispkg
-        in pkgutil.iter_modules(_path, _name + ".")
-        if not name.startswith(_name + '._')
-    }
-
-plugins = get_plugins(iridiumtk.reassembler)
+plugins = iridiumtk.reassembler.get_plugins(iridiumtk.reassembler)
 
 modes={}
 for s, v in plugins.items():
