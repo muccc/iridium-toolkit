@@ -67,6 +67,12 @@ class ReassembleMSG(Reassemble):
         self.err=re.compile(r' ERR:')
         self.msg=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) (?:C:(..)\S*|[01 ]+) (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]*)\.([01]*) ')
         self.ms3=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
+        if 'noburst' in config.args:
+            global base64
+            import base64
+            import crcmod
+            self.crc16 = crcmod.predefined.mkPredefinedCrcFun("xmodem")
+            self.BURST_TRANS = bytes.maketrans(b'*-',b'/=')
 
     def filter(self,line):
         q=super().filter(line)
@@ -127,8 +133,9 @@ class ReassembleMSG(Reassemble):
         idstr="%07d %04d %d"%(m.msg_ric,m.msg_seq,m.fmt)
 
         if idstr in self.buf and self.buf[idstr].csum != m.msg_checksum:
-            print("Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%
-                    (idstr,self.buf[idstr].time,self.buf[idstr].csum,m.time,m.msg_checksum))
+            if config.verbose:
+                print("Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%
+                        (idstr,self.buf[idstr].time,self.buf[idstr].csum,m.time,m.msg_checksum))
 
         if idstr not in self.buf:
             m.id=idstr
@@ -162,9 +169,23 @@ class ReassembleMSG(Reassemble):
                 break
 
     def consume(self, msg):
+        if 'fail' not in config.args:
+            if not msg.correct:
+                return
+
         date= datetime.datetime.fromtimestamp(msg.time).strftime("%Y-%m-%dT%H:%M:%S")
         str="Message %07d %02d @%s (len:%d)"%(msg.ric, msg.seq, date, msg.pcnt)
         txt= msg.content
+        if 'noburst' in config.args:
+            try:
+                ct = txt.translate(self.BURST_TRANS)
+                dec = base64.b64decode(ct)
+                crcv = self.crc16(dec)
+                if crcv == 0:
+                    return
+            except Exception:
+                pass
+
         if msg.fmt==5:
             out=to_ascii(txt, escape=True)
             str+= " %3d"%msg.csum
@@ -192,5 +213,5 @@ class ReassembleMSG(Reassemble):
                     self.consume(msg)
 
 modes=[
-["msg",        ReassembleMSG,         ('incomplete') ],
+["msg",        ReassembleMSG,         ('incomplete', 'fail', 'noburst') ],
 ]
