@@ -367,8 +367,6 @@ def perline(q):
                 print(" ".join([str(q.__dict__[x]) for x in ofmt]))
     elif output == "zmq":
         socket.send_string(q.pretty())
-    elif output == "rxstats":
-        print("RX","X",q.globaltime, q.frequency,"X","X", q.confidence, q.level, q.symbols, q.error, type(q).__name__)
     elif output == "sigmf":
         try:
             sr=sigmfjson['global']["core:sample_rate"]
