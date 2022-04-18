@@ -6,31 +6,12 @@ import os
 import sys
 import re
 import fileinput
-import getopt
 import datetime
 import time
 import argparse
 import collections.abc
 
 import bitsparser
-
-perfect = False
-errorfree = False
-interesting = False
-good = False
-dosatclass = False
-input= "raw"
-output= "line"
-ofmt= None
-linefilter={ 'type': 'All', 'attr': None, 'check': None }
-plotargs=["time", "frequency"]
-errorfile=None
-errorstats=None
-sigmffile=None
-do_stats=False
-
-remainder=None
-min_confidence=None
 
 parser = argparse.ArgumentParser(formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=27))
 
@@ -96,41 +77,24 @@ parser.add_argument("remainder", nargs='*',
 
 args = parser.parse_args()
 
-boptions=('verbose','uwec','harder','perfect','freqclass','linefilter','errorfile','forcetype','channelize')
+# push options into bitsparser
+bitsparser.set_opts(args)
 
-# hack to push options into bitsparser
-for arg in boptions:
-    if arg not in bitsparser.__dict__:
-        print("Could not push",x,"to bitsparser")
-    bitsparser.__dict__[arg]=args.__dict__[arg]
+if args.sigmffile:
+    args.output="sigmf"
 
-for x in args.__dict__:
-    if x in boptions:
-        print("(bp)", end=" ", file=sys.stderr)
-    if x in globals():
-        print("Setting",x,"to",args.__dict__[x], file=sys.stderr)
-        globals()[x]=args.__dict__[x]
-    else:
-        print("Skipping",x,"(%s)"%str(args.__dict__[x]), file=sys.stderr)
-
-if min_confidence:
-    good=True
-
-if sigmffile:
-    output="sigmf"
-
-if input == "dump" or output == "dump":
+if args.input == "dump" or args.output == "dump":
     import pickle as pickle
     dumpfile="pickle.dump"
 
-if output == "sigmf":
+if args.output == "sigmf":
     import json
 
-if output == "zmq":
-    do_stats=True
-    errorfree=True
+if args.output == "zmq":
+    args.do_stats=True
+    args.errorfree=True
 
-if do_stats:
+if args.do_stats:
     import curses
     curses.setupterm(fd=sys.stderr.fileno())
     statsfile=sys.stderr
@@ -147,9 +111,9 @@ if do_stats:
 
 sigmfjson=None
 sigmfout=None
-if sigmffile is not None:
+if args.sigmffile is not None:
     try:
-        sigmfjson=json.load(open(sigmffile,'r'))
+        sigmfjson=json.load(open(args.sigmffile,'r'))
         sigmfjson.pop('annotations', None)
     except FileNotFoundError:
         print("WARN: no sigmf-meta source file. Using (probably-wrong) hardcoded defaults", file=sys.stderr)
@@ -160,7 +124,7 @@ if sigmffile is not None:
                 {"core:sample_start": 0, "core:frequency": 1626000000}
             ]
         }
-    sigmfout=open(sigmffile+'.tmp','w')
+    sigmfout=open(args.sigmffile+'.tmp','w')
     print("{", file=sigmfout)
     for key in sigmfjson:
         print('"%s":'%key, file=sigmfout)
@@ -171,20 +135,20 @@ if sigmffile is not None:
 if sigmfout is None:
     sigmfout=sys.stdout
 
-if dosatclass is True:
+if args.dosatclass is True:
     import satclass
     satclass.init()
 
-if (linefilter['type'] != 'All') and bitsparser.harder:
+if (args.linefilter['type'] != 'All') and args.harder:
     raise Exception("--harder and --filter (except type=Any) can't be use at the same time")
 
-if errorfile is not None:
-    errorfile=open(errorfile,"w")
+if args.errorfile is not None:
+    args.errorfile=open(args.errorfile,"w")
 
-if output == "dump":
+if args.output == "dump":
     file=open(dumpfile,"wb")
 
-if output == "plot":
+if args.output == "plot":
     import matplotlib.pyplot as plt
     import matplotlib.ticker as ticker
     xl=[]
@@ -192,7 +156,7 @@ if output == "plot":
     cl=[]
     sl=[]
 
-if output == "zmq":
+if args.output == "zmq":
     import zmq
 
     url = "tcp://127.0.0.1:4223"
@@ -253,7 +217,7 @@ def stats_thread(stats):
             hdr+=" [%s]"%progress
         else:
             hdr+=" l:%6d"%stats['in']
-        if output=='zmq':
+        if args.output=='zmq':
             hdr+=" %2d clients"%stats['clients']
         print (hdr, "[%.1f l/s] filtered:%3d%%"%((nowl-lline)/(now-ltime),100*(1-stats['out']/(stats['in'] or 1))), end=eol, file=statsfile)
         ltime=now
@@ -278,20 +242,20 @@ def openhook(filename, mode):
 
 def do_input(type):
     if type=="raw":
-        if do_stats:
-            stats['files']=len(remainder)
+        if args.do_stats:
+            stats['files']=len(args.remainder)
             stats['fileno']=0
-        for line in fileinput.input(remainder, openhook=openhook):
-            if do_stats:
+        for line in fileinput.input(args.remainder, openhook=openhook):
+            if args.do_stats:
                 if fileinput.isfirstline():
                     stats['fileno']+=1
                     stat=os.fstat(fileinput.fileno())
                     stats['size']=stat.st_size
                 stats['in']+=1
-            if good:
+            if args.min_confidence is not None:
                 q=bitsparser.Message(line.strip())
                 try:
-                    if q.confidence<min_confidence:
+                    if q.confidence<args.min_confidence:
                         continue
                 except AttributeError:
                     continue
@@ -311,61 +275,61 @@ def do_input(type):
         exit(1)
 
 def perline(q):
-    if dosatclass is True:
+    if args.dosatclass is True:
         sat=satclass.classify(q.frequency,q.globaltime)
         q.satno=int(sat.name)
-    if interesting:
+    if args.interesting:
         if q.error or type(q).__name__ in ("IridiumMessage","IridiumECCMessage","IridiumBCMessage","Message","IridiumSYMessage","IridiumMSMessage"):
             return
         del q.descramble_extra
     if q.error:
-        if isinstance(errorstats, collections.abc.Mapping):
+        if isinstance(args.errorstats, collections.abc.Mapping):
             msg=q.error_msg[0]
-            if msg in errorstats:
-                errorstats[msg]+=1
+            if msg in args.errorstats:
+                args.errorstats[msg]+=1
             else:
-                errorstats[msg]=1
-        if errorfile is not None:
-            print(q.line+" ERR:"+", ".join(q.error_msg), file=errorfile)
+                args.errorstats[msg]=1
+        if args.errorfile is not None:
+            print(q.line+" ERR:"+", ".join(q.error_msg), file=args.errorfile)
             return
-    if perfect:
+    if args.perfect:
         if q.error or ("fixederrs" in q.__dict__ and q.fixederrs>0):
             return
         q.descramble_extra=""
-    if errorfree:
+    if args.errorfree:
         if q.error:
             return
         q.descramble_extra=""
 #    if linefilter['type']!="All" and type(q).__name__ != linefilter['type']:
-    if linefilter['type']!="All" and not issubclass(type(q),globals()['bitsparser'].__dict__[linefilter['type']]):
+    if args.linefilter['type']!="All" and not issubclass(type(q),globals()['bitsparser'].__dict__[args.linefilter['type']]):
         return
-    if linefilter['attr'] and linefilter['attr'] not in q.__dict__:
+    if args.linefilter['attr'] and args.linefilter['attr'] not in q.__dict__:
         return
-    if linefilter['check'] and not eval(linefilter['check']):
+    if args.linefilter['check'] and not eval(args.linefilter['check']):
         return
-    if do_stats:
+    if args.do_stats:
         stats["out"]+=1
-    if output == "err":
+    if args.output == "err":
         if q.error:
             selected.append(q)
-    elif output == "sat":
+    elif args.output == "sat":
         if not q.error:
             selected.append(q)
-    elif output == "dump":
+    elif args.output == "dump":
         pickle.dump(q,file,1)
-    elif output == "plot":
+    elif args.output == "plot":
         selected.append(q)
-    elif output == "line":
+    elif args.output == "line":
         if q.error:
             print(q.pretty()+" ERR:"+", ".join(q.error_msg))
         else:
-            if not ofmt:
+            if not args.ofmt:
                 print(q.pretty())
             else:
-                print(" ".join([str(q.__dict__[x]) for x in ofmt]))
-    elif output == "zmq":
+                print(" ".join([str(q.__dict__[x]) for x in args.ofmt]))
+    elif args.output == "zmq":
         socket.send_string(q.pretty())
-    elif output == "sigmf":
+    elif args.output == "sigmf":
         try:
             sr=sigmfjson['global']["core:sample_rate"]
             center=sigmfjson['captures'][0]["core:frequency"]
@@ -399,7 +363,7 @@ def perline(q):
 def bitdiff(a, b):
     return sum(x != y for x, y in zip(a, b))
 
-if do_stats:
+if args.do_stats:
     from threading import Thread, Event
     stats['start']=time.time()
     stats['in']=0
@@ -409,25 +373,25 @@ if do_stats:
     sthread.start()
 
 try:
-    do_input(input)
+    do_input(args.input)
 except KeyboardInterrupt:
     pass
 
-if do_stats:
+if args.do_stats:
     stats['stop'].set()
     sthread.join()
 
-if output=='zmq':
+if args.output=='zmq':
     socket.close()
     context.term()
 
-if sigmffile is not None:
+if args.sigmffile is not None:
     print("{}]}", file=sigmfout)
     sigmfout.close()
-    os.rename(sigmffile,        sigmffile+".bak")
-    os.rename(sigmffile+".tmp", sigmffile)
+    os.rename(args.sigmffile,        args.sigmffile+".bak")
+    os.rename(args.sigmffile+".tmp", args.sigmffile)
 
-if output == "sat":
+if args.output == "sat":
     print("SATs:")
     sats=[]
     for m in selected:
@@ -452,14 +416,14 @@ if output == "sat":
         for m in selected:
             if m.satno == s: print(m.pretty())
 
-if isinstance(errorstats, collections.abc.Mapping):
+if isinstance(args.errorstats, collections.abc.Mapping):
     total=0
-    for (msg,count) in sorted(errorstats.items()):
+    for (msg,count) in sorted(args.errorstats.items()):
         total+=count
         print("%7d: %s"%(count, msg), file=sys.stderr)
     print("%7d: %s"%(total, "Total"), file=sys.stderr)
 
-if output == "err":
+if args.output == "err":
     print("### ")
     print("### Error listing:")
     print("### ")
@@ -480,29 +444,29 @@ def plotsats(plt, _s, _e):
         for v in satclass.timelist(ts):
             plt.scatter( x=v[0], y=v[1], c=int(v[2]), alpha=0.3, edgecolor="none", vmin=10, vmax=90)
 
-if output == "plot":
-    name="%s over %s"%(plotargs[1],plotargs[0])
-    if len(plotargs)>2:
-        name+=" with %s"%plotargs[2]
+if args.output == "plot":
+    name="%s over %s"%(args.plotargs[1],args.plotargs[0])
+    if len(args.plotargs)>2:
+        name+=" with %s"%args.plotargs[2]
     filter=""
-    if len(linefilter)>0 and linefilter['type']!="All":
-        filter+="type==%s"%linefilter['type']
-        name=("%s "%linefilter['type'])+name
-    if linefilter['attr']:
-        filter+=" containing %s"%linefilter['attr']
-        name+=" having %s"%linefilter['attr']
-    if linefilter['check']:
-        x=linefilter['check']
+    if len(args.linefilter)>0 and args.linefilter['type']!="All":
+        filter+="type==%s"%args.linefilter['type']
+        name=("%s "%args.linefilter['type'])+name
+    if args.linefilter['attr']:
+        filter+=" containing %s"%args.linefilter['attr']
+        name+=" having %s"%args.linefilter['attr']
+    if args.linefilter['check']:
+        x=args.linefilter['check']
         if x.startswith("q."):
             x=x[2:]
         filter+=" and %s"%x
         name+=" where %s"%x
     plt.suptitle(filter)
-    plt.xlabel(plotargs[0])
-    plt.ylabel(plotargs[1])
-    if plotargs[0]=="time":
-        plotargs[0]="globalns"
-        def format_date(x, pos=None):
+    plt.xlabel(args.plotargs[0])
+    plt.ylabel(args.plotargs[1])
+    if args.plotargs[0]=="time":
+        args.plotargs[0]="globalns"
+        def format_date(x, _pos=None):
             return datetime.datetime.fromtimestamp(x/10**9).strftime('%Y-%m-%d %H:%M:%S')
         plt.gca().xaxis.set_major_formatter(ticker.FuncFormatter(format_date))
         plt.gcf().autofmt_xdate()
@@ -511,14 +475,14 @@ if output == "plot":
         plotsats(plt,selected[0].globaltime,selected[-1].globaltime)
 
     for m in selected:
-        xl.append(m.__dict__[plotargs[0]])
-        yl.append(m.__dict__[plotargs[1]])
-        if len(plotargs)>2:
-            cl.append(m.__dict__[plotargs[2]])
+        xl.append(m.__dict__[args.plotargs[0]])
+        yl.append(m.__dict__[args.plotargs[1]])
+        if len(args.plotargs)>2:
+            cl.append(m.__dict__[args.plotargs[2]])
 
-    if len(plotargs)>2:
+    if len(args.plotargs)>2:
         plt.scatter(x = xl, y= yl, c= cl)
-        plt.colorbar().set_label(plotargs[2])
+        plt.colorbar().set_label(args.plotargs[2])
     else:
         plt.scatter(x = xl, y= yl)
 

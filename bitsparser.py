@@ -37,15 +37,12 @@ sdr_ppm=  100e-6 # SDR freq offset
 f_simplex = (1626104e3 - f_doppler - f_jitter ) * (1- sdr_ppm) # lower bound for simplex channel
 f_duplex  = (1625979e3 + f_doppler + f_jitter ) * (1+ sdr_ppm) # upper bound for duplex cannel
 
-verbose = False
-perfect = False
-uwec = False
-harder = False
-linefilter={ 'type': 'All', 'attr': None, 'check': None }
-errorfile=None
-forcetype=None
-channelize=False
-freqclass=True
+# commandline arguments
+args = None
+
+def set_opts(new_args):
+    global args
+    args = new_args
 
 class ParserError(Exception):
     def __init__(self, message):
@@ -64,7 +61,7 @@ class Message(object):
         self.error_msg=[]
         self.lineno=fileinput.lineno()
         m=self.p.match(line)
-        if(errorfile != None):
+        if(args.errorfile != None):
             self.line=line
         if(not m):
             self._new_error("Couldn't parse: "+line)
@@ -79,7 +76,7 @@ class Message(object):
             self._new_error("Timestamp out of range")
         self.frequency=int(m.group(4))
 
-        if channelize:
+        if args.channelize:
             fbase=self.frequency-base_freq
             self.fchan=int(fbase/channel_width)
             self.foff=fbase%channel_width
@@ -165,7 +162,7 @@ class Message(object):
         elif(self.bitstream_raw.startswith(uplink_access)):
             self.uplink=1
         else:
-            if uwec and len(self.bitstream_raw)>=len(iridium_access):
+            if args.uwec and len(self.bitstream_raw)>=len(iridium_access):
                 access=de_dqpsk(self.bitstream_raw[:len(iridium_access)])
 
                 if bitdiff(access,UW_DOWNLINK) <4:
@@ -194,7 +191,7 @@ class Message(object):
             self.error_msg.append(msg)
     def _pretty_header(self):
         flags=""
-        if uwec or harder or not perfect:
+        if args.uwec or args.harder or not args.perfect:
             flags="-e"
             if("ec_uw" in self.__dict__):
                 flags+="%d"%self.ec_uw
@@ -250,23 +247,23 @@ class IridiumMessage(Message):
         # Try to detect packet type.
         # Will not detect packets with correctable bit errors at the beginning
         # unless '--harder' is specifed
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex) and not (freqclass and self.uplink):
+        if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
             if data[:32] == header_messaging:
                 self.msgtype="MS"
 
-        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumMSMessage":
+        if "msgtype" not in self.__dict__ and args.linefilter['type'] == "IridiumMSMessage":
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex) and not (freqclass and self.uplink):
+        if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
             if data[:96]==header_time_location:
                 self.msgtype="TL"
 
-        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumSTLMessage":
+        if "msgtype" not in self.__dict__ and args.linefilter['type'] == "IridiumSTLMessage":
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency < f_duplex) and not (freqclass and self.uplink):
+        if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency < f_duplex) and not (args.freqclass and self.uplink):
             hdrlen=6
             blocklen=64
             if len(data)>hdrlen+blocklen:
@@ -276,11 +273,11 @@ class IridiumMessage(Message):
                         if ndivide(ringalert_bch_poly,o_bc2[:31])==0:
                             self.msgtype="BC"
 
-        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumBCMessage":
+        if "msgtype" not in self.__dict__ and args.linefilter['type'] == "IridiumBCMessage":
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency < f_duplex):
+        if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency < f_duplex):
             if len(data)>64: # XXX: heuristic based on LCW / first BCH block, can we do better?
                 (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
                 if ndivide( 29,o_lcw1)==0:
@@ -291,11 +288,11 @@ class IridiumMessage(Message):
                         if e2==0:
                             self.msgtype="LW"
 
-        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumLCWMessage":
+        if "msgtype" not in self.__dict__ and args.linefilter['type'] == "IridiumLCWMessage":
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency > f_simplex) and not (freqclass and self.uplink):
+        if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
             firstlen=3*32
             if len(data)>=3*32:
                 (o_ra1,o_ra2,o_ra3)=de_interleave3(data[:firstlen])
@@ -304,18 +301,18 @@ class IridiumMessage(Message):
                         if ndivide(ringalert_bch_poly,o_ra3[:31])==0:
                             self.msgtype="RA"
 
-        if "msgtype" not in self.__dict__ and linefilter['type'] == "IridiumRAMessage":
+        if "msgtype" not in self.__dict__ and args.linefilter['type'] == "IridiumRAMessage":
             self._new_error("filtered message")
             return
 
-        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency < f_duplex) and self.uplink:
+        if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency < f_duplex) and self.uplink:
             if len(data)>=2*26 and len(data)<2*50:
                 self.msgtype="AQ"
 
         if "msgtype" not in self.__dict__:
-            if harder:
+            if args.harder:
                 # try IBC
-                if len(data)>=70 and not (freqclass and self.uplink):
+                if len(data)>=70 and not (args.freqclass and self.uplink):
                     hdrlen=6
                     blocklen=64
                     (e1,_,_)=bch_repair1(hdr_poly,data[:hdrlen])
@@ -346,7 +343,7 @@ class IridiumMessage(Message):
 
                 # try for IRA
                 firstlen=3*32
-                if "msgtype" not in self.__dict__ and len(data)>=firstlen and not (freqclass and self.uplink):
+                if "msgtype" not in self.__dict__ and len(data)>=firstlen and not (args.freqclass and self.uplink):
                     (o_ra1,o_ra2,o_ra3)=de_interleave3(data[:firstlen])
 
                     (e1,d1,b1)=bch_repair(ringalert_bch_poly,o_ra1[:31])
@@ -360,13 +357,13 @@ class IridiumMessage(Message):
                                     self.msgtype="RA"
 
                 # try ITL
-                if "msgtype" not in self.__dict__ and len(data)>=96+(8*8*12) and not (freqclass and self.uplink):
+                if "msgtype" not in self.__dict__ and len(data)>=96+(8*8*12) and not (args.freqclass and self.uplink):
                     if bitdiff(data[:96],header_time_location)<4:
                         self.ec_lcw=1
                         self.msgtype="TL"
 
                 # try IMS
-                if "msgtype" not in self.__dict__ and len(data)>=32 and not (freqclass and self.uplink):
+                if "msgtype" not in self.__dict__ and len(data)>=32 and not (args.freqclass and self.uplink):
                     if bitdiff(data[:32],header_messaging)<2:
                         self.ec_lcw=1
                         self.msgtype="MS"
@@ -375,8 +372,8 @@ class IridiumMessage(Message):
             if len(data)<64:
                 raise ParserError("Iridium message too short")
 
-        if forcetype:
-            self.msgtype=forcetype.partition(':')[0]
+        if args.forcetype:
+            self.msgtype=args.forcetype.partition(':')[0]
 
         if "msgtype" not in self.__dict__:
             raise ParserError("unknown Iridium message type")
@@ -442,7 +439,7 @@ class IridiumMessage(Message):
             self.ft=int(self.lcw1,2) # Frame type
 
             if e1<0 or e2<0 or e3<0:
-                if not ( forcetype and ':' in forcetype):
+                if not ( args.forcetype and ':' in args.forcetype):
                     self._new_error("LCW decode failed")
                 self.header="LCW(%s_%s/%01dE%d,%s_%sx/%03dE%d,%s_%s/%06dE%d)"%(o_lcw1[:3],o_lcw1[3:],int(self.lcw1,2),e1,o_lcw2[:6],o_lcw2[6:],int(self.lcw2,2),e2,o_lcw3[:21],o_lcw3[21:],int(self.lcw3,2),e3)
 
@@ -501,8 +498,8 @@ class IridiumLCWMessage(IridiumMessage):
     def __init__(self,msg):
         self.__dict__=msg.__dict__
 
-        if forcetype and ':' in forcetype:
-            self.ft=int(forcetype.partition(':')[2])
+        if args.forcetype and ':' in args.forcetype:
+            self.ft=int(args.forcetype.partition(':')[2])
 
         data=self.descrambled
         self.pretty_lcw()
@@ -557,7 +554,7 @@ class IridiumLCWMessage(IridiumMessage):
             self._new_error("No data to descramble")
 
     def upgrade(self):
-        if linefilter['type']=='IridiumLCW3Message' and self.msgtype!="U3":
+        if args.linefilter['type']=='IridiumLCW3Message' and self.msgtype!="U3":
             self._new_error("filtered message")
         if self.error: return self
         try:
@@ -734,7 +731,7 @@ class IridiumSTLMessage(IridiumMessage):
         self.i=["".join(x) for x in (i_list[:16],i_list[16:])]
         self.q=["".join(x) for x in slice(q_list,12)]
 
-        if harder:
+        if args.harder:
             MAX_DIFF=10
             self.ib=[bin(int(x, 16))[2:].zfill(len(x*4)) for x in self.i]
 
@@ -743,7 +740,7 @@ class IridiumSTLMessage(IridiumMessage):
         try:
             self.itl_version= itl.PRS_HDR.index(self.i[0])
         except ValueError:
-            if harder: # harder only supports V2
+            if args.harder: # harder only supports V2
                 if bitdiff(self.ib[0],itl.BIN_HDR[2])<MAX_DIFF:
                     self.fixederrs+= 1
                     self.itl_version= 2
@@ -767,7 +764,7 @@ class IridiumSTLMessage(IridiumMessage):
                     if i==0 or self.msg[0]<77: # M8 does not contain normal PRS'
                         raise ParserError("ITL PRS #%d unknown"%i)
                     self.msg.append(x)
-        elif self.itl_version==2 and not harder:
+        elif self.itl_version==2 and not args.harder:
             try:
                 self.plane= itl.MAP_PLANE[self.i[1]]
                 self.msg= [itl.MAP_PRS[x] for x in self.q]
@@ -782,7 +779,7 @@ class IridiumSTLMessage(IridiumMessage):
             else:
                 if sanity not in ("2301","3210"):
                     raise ParserError("ITL wrong PRS found")
-        elif self.itl_version==2 and harder:
+        elif self.itl_version==2 and args.harder:
             self.plane=None
             self.msg=[None]*4
 
@@ -1168,7 +1165,7 @@ class IridiumECCMessage(IridiumMessage):
                 break
 
             if ((data+bch+parity).count('1') % 2)==1:
-                if harder:
+                if args.harder:
                     errs+=1
                 else:
                     if errs>0:
