@@ -383,6 +383,8 @@ try:
     do_input(args.input)
 except KeyboardInterrupt:
     pass
+except BrokenPipeError as e:
+    print(e, file=sys.stderr, end=eolnl if args.do_stats else None)
 
 if args.do_stats:
     stats['stop'].set()
