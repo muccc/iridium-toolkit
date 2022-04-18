@@ -473,5 +473,11 @@ if args.output == "plot":
 
     mng = plt.get_current_fig_manager()
     mng.resize(*mng.window.maxsize())
-    plt.savefig(re.sub(r'[/ ]','_',name)+".png")
+
+    fname = re.sub(r'[/ ]', '_', name)
+
+    c = plt.gcf().canvas
+    c.get_default_filename = lambda: '%s.%s' % (fname, c.get_default_filetype())
+
+    plt.savefig(fname+".png")
     plt.show()
