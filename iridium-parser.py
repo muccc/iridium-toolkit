@@ -28,7 +28,6 @@ options, remainder = getopt.getopt(sys.argv[1:], 'vgi:o:pes', [
                                                          'satclass',
                                                          'plot=',
                                                          'filter=',
-                                                         'voice-dump=',
                                                          'format=',
                                                          'errorfile=',
                                                          'errorstats',
@@ -49,7 +48,6 @@ output= "line"
 ofmt= None
 linefilter={ 'type': 'All', 'attr': None, 'check': None }
 plotargs=["time", "frequency"]
-vdumpfile=None
 errorfile=None
 errorstats=None
 sigmffile=None
@@ -88,8 +86,6 @@ for opt, arg in options:
         if '+' in linefilter['type']:
             (linefilter['type'],linefilter['attr'])=linefilter['type'].split('+')
         bitsparser.linefilter=linefilter
-    elif opt in ['--voice-dump']:
-        vdumpfile=arg
     elif opt in ['-i', '--input']:
         input=arg
     elif opt in ['-o', '--output']:
@@ -171,9 +167,6 @@ if dosatclass == True:
 
 if (linefilter['type'] != 'All') and bitsparser.harder:
     raise Exception("--harder and --filter (except type=Any) can't be use at the same time")
-
-if vdumpfile != None:
-    vdumpfile=open(vdumpfile,"wb")
 
 if errorfile != None:
     errorfile=open(errorfile,"w")
@@ -341,12 +334,6 @@ def perline(q):
         return
     if do_stats:
         stats["out"]+=1
-    if vdumpfile != None and type(q).__name__ == "IridiumVOMessage":
-        if len(q.voice)!=312:
-            raise Exception("illegal Voice frame length")
-        for bits in slice(q.voice, 8):
-            byte = int(bits[::-1],2)
-            vdumpfile.write(chr(byte))
     if output == "err":
         if(q.error):
             selected.append(q)
