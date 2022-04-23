@@ -327,10 +327,10 @@ class IridiumMessage(Message):
                 # try for LCW
                 if "msgtype" not in self.__dict__ and len(data)>=64:
                     (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:46])
-                    (e1 ,lcw1,bch)=bch_repair1( 29,o_lcw1)     # BCH(7,3)
+                    (e1 ,lcw1,bch)=bch_repair( 29,o_lcw1)     # BCH(7,3)
                     (e2a,lcw2,bch)=bch_repair(465,o_lcw2+'0') # BCH(13,16)
                     (e2b,lcw2,bch)=bch_repair(465,o_lcw2+'1')
-                    (e3 ,lcw3,bch)=bch_repair1( 41,o_lcw3)     # BCH(26,21)
+                    (e3 ,lcw3,bch)=bch_repair( 41,o_lcw3)     # BCH(26,21)
 
                     e2=e2a
                     if (e2b>=0 and e2b<e2a) or (e2a<0):
@@ -421,10 +421,10 @@ class IridiumMessage(Message):
         elif self.msgtype=="LW":
             lcwlen=46
             (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
-            (e1, self.lcw1,bch)= bch_repair1( 29,o_lcw1)
+            (e1, self.lcw1,bch)= bch_repair( 29,o_lcw1)
             (e2, self.lcw2,bch)= bch_repair(465,o_lcw2+'0')  # One bit error expected
             (e2b,lcw2b,    bch)= bch_repair(465,o_lcw2+'1')  # Other bit flip?
-            (e3,self.lcw3, bch)= bch_repair1( 41,o_lcw3)
+            (e3,self.lcw3, bch)= bch_repair( 41,o_lcw3)
 
             if (e2b>=0 and e2b<=e2) or (e2<0):
                 e2=e2b
