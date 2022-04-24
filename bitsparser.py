@@ -11,7 +11,6 @@ import rs
 import rs6
 import fileinput
 import datetime
-from inspect import stack
 
 from util import *
 from math import sqrt,atan2,pi,log
@@ -50,7 +49,7 @@ freqclass=True
 class ParserError(Exception):
     def __init__(self, message):
         super().__init__(message)
-        self.cls=stack()[1][0].f_locals['self'].__class__.__name__
+        self.cls=sys._getframe(1).f_locals['self'].__class__.__name__
 
 tswarning=False
 tsoffset=0
