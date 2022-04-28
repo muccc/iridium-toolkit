@@ -368,7 +368,6 @@ class ReassembleIDAPP(ReassembleIDA):
 
             else:
                 prehdr="<ERR:nomatch>"
-            print("%-22s %-10s "%(prehdr,hdr), end=' ', file=outfile)
 
             if typ != "0600" and len(data)>0:
                 if data[0]==0x10:
@@ -383,6 +382,8 @@ class ReassembleIDAPP(ReassembleIDA):
                     hdr="<"+hdr.hex(":")+">"
                 else:
                     print("ERR:no_0x10", end=" ", file=outfile)
+
+            print("%-22s %-10s "%(prehdr,hdr), end=' ', file=outfile)
 
             if addlen is not None and len(data)!=addlen:
                 print("ERR:len(%d!=%d)"%(len(data),addlen), end=" ", file=outfile)
