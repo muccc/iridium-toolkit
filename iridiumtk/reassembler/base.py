@@ -5,15 +5,13 @@ import sys
 import datetime
 import math
 
+from util import base_freq, channel_width, channelize_str, parse_channel
 from ..config import config
 
 if sys.version_info[0]==3 and sys.version_info[1]<8:
     print("Old python detected, using replacement bytes class...", file=sys.stderr)
     from util import mybytes
     globals()['bytes']=mybytes
-
-base_freq=1616*10**6
-channel_width=41667
 
 class Zulu(datetime.tzinfo):
     def utcoffset(self, dt):
@@ -29,18 +27,10 @@ pwarn=False
 
 class MyObject(object):
     def enrich(self, channelize=False):
-        if "|" in self.frequency:
-            chan, off=self.frequency.split('|')
-            self.frequency=base_freq+channel_width*int(chan)+int(off)
-        else:
-            self.frequency=int(self.frequency)
+        self.frequency=parse_channel(self.frequency)
 
         if channelize:
-            fbase=self.frequency-base_freq
-            self.freq_chan=int(fbase/channel_width)
-            foff =fbase%channel_width
-            self.freq_off=foff-(channel_width/2)
-            self.freq_print="%3d|%+06d"%(self.freq_chan,self.freq_off)
+            self.freq_print=channelize_str(self.frequency)
 
         if len(self.name) > 3 and self.name[1]=='-':
             self.ftype=self.name[0]

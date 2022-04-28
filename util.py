@@ -149,3 +149,41 @@ def xyz(data, skip=0):
     alt = sqrt(loc_x**2+loc_y**2+loc_z**2)*4
 
     return dict(x=loc_x, y=loc_y, z=loc_z, lat=lat, lon=lon, alt=alt)
+
+base_freq=1616*(10**6)   # int
+channel_width=1e7/(30*8) # 30 sub-bands with 8 "frequency accesses" each
+
+def channelize(freq):
+    fbase=freq-base_freq
+    freq_chan=int(fbase/channel_width)
+    foff =fbase%channel_width
+    freq_off=foff-(channel_width/2)
+    return (freq_chan,freq_off)
+
+def channelize_str(freq):
+    fbase=freq-base_freq
+    freq_chan=int(fbase/channel_width)
+    sb=int(freq_chan/8)+1
+    fa=(freq_chan%8)+1
+    sx=freq_chan-30*8+1
+    foff =fbase%channel_width
+    freq_off=foff-(channel_width/2)
+    if sb>30:
+        return f"S.{sx:02}|{freq_off:+06.0f}"
+    else:
+        return f"{sb:02}.{fa:1}|{freq_off:+06.0f}"
+
+def parse_channel(fstr):
+    if "|" in fstr:
+        chan, off=fstr.split('|')
+        if '.' in chan:
+            sb, fa=chan.split('.')
+            if sb=='S':
+                frequency=base_freq+channel_width*(int(fa)-1+8*30)+int(off)+channel_width/2
+            else:
+                frequency=base_freq+channel_width*(int(fa)-1+8*(int(sb)-1))+int(off)+channel_width/2
+        else:
+            frequency=base_freq+channel_width*int(chan)+int(off)+channel_width/2
+    else:
+        frequency=int(fstr)
+    return frequency

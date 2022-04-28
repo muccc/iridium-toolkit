@@ -27,8 +27,6 @@ messaging_bch_poly=1897
 ringalert_bch_poly=1207
 acch_bch_poly=3545 # 1207 also works?
 hdr_poly=29 # IBC header
-base_freq=1616e6
-channel_width=41667
 
 f_doppler= 36e3  # maximum doppler_shift
 f_jitter=   1e3  # iridium-extractor precision
@@ -77,10 +75,7 @@ class Message(object):
         self.frequency=int(m.group(4))
 
         if args.channelize:
-            fbase=self.frequency-base_freq
-            self.fchan=int(fbase/channel_width)
-            self.foff=fbase%channel_width
-            self.freq_print="%3d|%05d"%(self.fchan,self.foff)
+            self.freq_print=channelize_str(self.frequency)
         else:
             self.freq_print="%010d"%(self.frequency)
 

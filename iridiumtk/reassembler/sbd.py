@@ -10,9 +10,6 @@ from .base import *
 from .ida import ReassembleIDA
 from ..config import config, outfile
 
-base_freq=1616*10**6
-channel_width=41667
-
 class SBDObject(object):
     def __init__(self, typ, time, ul, prehdr, data):
         self.typ=    typ

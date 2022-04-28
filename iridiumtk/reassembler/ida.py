@@ -6,13 +6,10 @@ import datetime
 import re
 import struct
 import socket
-from util import fmt_iritime, to_ascii, xyz
+from util import fmt_iritime, to_ascii, xyz, channelize, channelize_str
 
 from .base import *
 from ..config import config, outfile
-
-base_freq=1616*10**6
-channel_width=41667
 
 class ReassembleIDA(Reassemble):
     def __init__(self):
@@ -125,10 +122,7 @@ class ReassembleIDA(Reassemble):
         str=""
         str+=to_ascii(data,True)
 
-        fbase=freq-base_freq
-        fchan=int(fbase/channel_width)
-        foff =fbase%channel_width
-        freq_print="%3d|%05d"%(fchan,foff)
+        freq_print=channelize_str(freq)
 
         print("%15.6f %s %s %s | %s"%(time,freq_print,ul,data.hex(" "),str), file=outfile)
 
@@ -453,10 +447,7 @@ class ReassembleIDAPP(ReassembleIDA):
         if len(data)<2:
             return
 
-        fbase=freq-base_freq
-        fchan=int(fbase/channel_width)
-        foff =fbase%channel_width
-        freq_print="%3d|%05d"%(fchan,foff)
+        freq_print=channelize_str(freq)
 
         if ul:
             ul="UL"
@@ -870,9 +861,7 @@ class ReassembleIDALAP(ReassembleIDA):
         if olvl<-126:
             olvl=-126
 
-        fbase=freq-base_freq
-        fchan=int(fbase/channel_width)
-        foff =fbase%channel_width
+        fchan, foff = channelize(freq)
 
         # GSMTAP:
         #
