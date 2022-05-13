@@ -47,7 +47,10 @@ for line in fileinput.input(infile):
     if line[0] == 'VOC:':
         if int(line[6]) < 179:
             continue
-        data = line[10]
+        if line[9][0].startswith("["):
+            data = line[9]
+        else:
+            data = line[10]
         if (data[0] == "["):
             for pos in range(1,len(data),3):
                 byte=int(data[pos:pos+2],16)
