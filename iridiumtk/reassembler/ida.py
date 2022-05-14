@@ -332,26 +332,27 @@ class ReassembleIDAPP(ReassembleIDA):
         if tmaj=="83" or tmaj=="89": # Transaction Identifier set (destination side)
             tmin="%02x%02x"%(data[0]&0x7f,data[1])
         data=data[2:]
-        majmap={
-            "03": "CC",
+        majmap={ # 04.07 - Table 11.2
+            "03": "CC",       # Call Control
             "83": "CC(dest)",
-            "05": "MM",
-            "06": "06",
-            "08": "08",
-            "09": "SMS",
+            "05": "MM",       # Mobility Management
+            "06": "06",       # Iridium-specific (Radio Resource)
+            "08": "08",       # Iridium-specific (GPRS Mobility mgmt)
+            "09": "SMS",      # SMS
             "89": "SMS(dest)",
-            "76": "SBD",
+            "76": "SBD",      # Iridum-specific
         }
         minmap={
-            "0301": "Alerting",
+            "0301": "Alerting", # 04.08 - Table 10.3
             "0302": "Call Proceeding",
             "0303": "Progress",
             "0305": "Setup",
+            "0308": "Call Confirmed",
             "030f": "Connect Acknowledge",
             "0325": "Disconnect",
             "032a": "Release Complete",
             "032d": "Release",
-            "0502": "Location Updating Accept",
+            "0502": "Location Updating Accept", # 04.08 - Table 10.2
             "0504": "Location Updating Reject",
             "0508": "Location Updating Request",
             "0512": "Authentication Request",
@@ -360,10 +361,11 @@ class ReassembleIDAPP(ReassembleIDA):
             "0519": "Identity response",
             "051a": "TMSI Reallocation Command",
             "0524": "CM Service Request",
-            "0600": "Register/SBD:uplink",
-            "0901": "CP-DATA",
+            "0901": "CP-DATA", # 04.11 - Table 8.1
             "0904": "CP-ACK",
             "0910": "CP-ERROR",
+            "0600": "Register/SBD:uplink", # no spec
+            "0605": "(info)",
             "7605": "Access notification",
             "7608": "downlink #1",
             "7609": "downlink #2",
@@ -692,7 +694,7 @@ class ReassembleIDAPP(ReassembleIDA):
 
                 (rv,data)=p_mi_iei(data)
                 print("%s"%(rv), end=' ', file=outfile)
-        elif typ=="051a": # TMSI realloc.
+        elif typ=="051a": # TMSI realloc. 9.2.17
             (rv,data)=p_lai(data)
             print("%s"%(rv), end=' ', file=outfile)
             (rv,data)=p_mi_iei(data)
