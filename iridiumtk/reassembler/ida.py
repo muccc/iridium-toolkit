@@ -215,6 +215,102 @@ def p_disc(disc):
 
         return (str,disc[3:])
 
+def p_bearer_capa(data):
+    iei_len = data[0]
+    txt=""
+    ext        = (data[1]&0b10000000)>>7
+    rcr        = (data[1]&0b01100000)>>5
+    coding     = (data[1]&0b00010000)>>4
+    trans_mode = (data[1]&0b00001000)>>3
+    trans_capa = (data[1]&0b00000111)>>0
+
+    txt = ["rate:reserved", "full rate only", "half rate pref.", "full rate pref."][rcr]
+    if coding != 0:
+        txt +=",coding:reserved"
+    if trans_mode != 0:
+        txt += ","
+        txt +=["mode:packet"]
+    txt += ","
+    if trans_capa<4:
+        txt +=["speech", "digital", "3.1 kHz audio", "fax" ][trans_capa]
+    else:
+        txt += "transfer:%x"%trans_capa
+
+    if iei_len>1:
+        txt += ":"+data[2:1+iei_len].hex(":")
+
+    return (txt,data[1+iei_len:])
+
+def p_bcd_num(data):
+    iei_len = data[0]
+    if len(data)<1+iei_len:
+        return ("PARSE_FAIL",data)
+
+    txt=""
+    ext        = (data[1]&0b10000000)>>7
+    numtype    = (data[1]&0b01110000)>>4
+    numplan    = (data[1]&0b00001111)>>0
+
+    num=data[2:1+iei_len]
+    if ext==0: # Table 10.5.120 / technically only for calling party
+        pi        = (data[2]&0b01100000)>>5
+        si        = (data[2]&0b00000011)>>7
+        if pi != 0:
+            txt += "present=%d "%pi
+        if si != 0:
+            txt += "screen=%d "%pi
+        num=data[3:1+iei_len]
+
+    # BCD
+    num="".join("%x%x"%((x)&0xf,(x)>>4) for x in num)
+    if num[-1]=="f":
+        num=num[:-1]
+
+    # 04.08 Table 10.5.118
+    num.replace('a', '*')
+    num.replace('b', '#')
+    num.replace('c', 'a')
+    num.replace('d', 'b')
+    num.replace('e', 'f')
+
+    if numtype == 1: # international
+        num="+"+num
+    elif numtype == 0: # unspecified
+        pass
+    else:
+        txt+="type:%d "%numtype
+
+    if numplan !=1:
+        txt+="plan:%d "%numplan
+
+    txt+=num
+    return (txt, data[1+iei_len:])
+
+def p_progress(data):
+    iei_len = data[0]
+    if len(data)<1+iei_len:
+        return ("PARSE_FAIL",data)
+
+    txt = ""
+    ext        = (data[1]&0b10000000)>>7
+    cs         = (data[1]&0b01100000)>>5
+    loc        = (data[1]&0b00001111)>>0
+
+    progress = data[2] & 0x7f
+
+    if cs != 3:
+        txt =  "cs:%d "%cs
+
+    if loc != 2:
+        txt +=  "loc:%x"%loc
+
+    if progress == 3:
+        txt += "Origination address is non-local"
+    else:
+        txt +=  "progress:%02x"%(progress)
+    return (txt, data[1+iei_len:])
+
+# Ad-Hoc parsing of the reassembled LAPDm-like frames
 class ReassembleIDAPP(ReassembleIDA):
     def consume(self,q):
         (data,time,ul,_,freq)=q
@@ -470,6 +566,93 @@ class ReassembleIDAPP(ReassembleIDA):
 # < 7608 <26:00:00:00:00:xx:xx> 0 messages (xx=MTMSN?)
 # > 760c <50:xx:xx> MTMSN echoback?
 # < 7605 ?
+
+
+
+
+        elif typ=="0305": # CC Setup 04.08 9.3.23
+            # Repeat indicator 10.5.4.22
+            if len(data)>0 and data[0]&0xf0 == 0xd0:
+                ri = data[0] & 0xf
+                data = data[1:]
+                print("repeat indi.: %d"%ri, end=' ', file=outfile)
+
+            # Bearer capa #1 10.5.4.5
+            if len(data)>0 and data[0] == 0x04:
+                data = data[1:]
+                (rv,data)=p_bearer_capa(data)
+                print("BC1[%s]"%(rv), end=' ', file=outfile)
+
+            # Bearer capa #2 10.5.4.5
+            if len(data)>0 and data[0] == 0x04:
+                data = data[1:]
+                (rv,data)=p_bearer_capa(data)
+                print("BC2[%s]"%(rv), end=' ', file=outfile)
+
+            str=""
+            while len(data) > 0:
+                if (data[0] & 0xf0) == 0xD0:
+                    str+=","+data[0:1].hex()
+                    data=data[1:]
+                elif (data[0] & 0xf0) == 0x80: # Priority 10.5.1.11
+                    pv=data[0]&0x7
+                    str+=",prio:"+["none", "4", "3", "2", "1", "0", "B", "A"][pv]
+                    data=data[1:]
+                elif len(data) == 1:
+                    str+=",short?"
+                    break
+                elif data[0] == 0x5c: # Calling party BCD num. 10.5.4.9
+                    data = data[1:]
+                    (rv,data)=p_bcd_num(data)
+                    print("src:[%s]"%(rv), end=' ', file=outfile)
+                elif data[0] == 0x5e: # Called party BCD num. 10.5.4.7
+                    data = data[1:]
+                    (rv,data)=p_bcd_num(data)
+                    print("dest:[%s]"%(rv), end=' ', file=outfile)
+                elif data[0] == 0x1e: # Progress indicator 10.5.4.21
+                    data = data[1:]
+                    (rv,data)=p_progress(data)
+                    print("[%s]"%(rv), end=' ', file=outfile)
+                elif data[0] in (0x1c, 0x1e, 0x34, 0x5c, 0x5d, 0x5e, 0x6d, 0x74, 0x75, 0x7c, 0x7d, 0x7e, 0x19):
+                    l=data[1]
+                    str+=(",%02x:"%(data[0]))+data[2:2+l].hex()
+                    data=data[2+l:]
+                elif data[0] in (0x34,): # Signal
+                    str+=(",%02x:%02x"%(data[0]),data[1])
+                    data=data[2:]
+                else:
+                    str+=",ERR(%02x)!"%(data[0])
+                    break
+            if len(str) > 0:
+                print("[%s]"%(str[1:]), end=' ', file=outfile)
+
+
+        elif typ=="0308": # CC Call Confirmed 04.08 9.3.2
+            # Repeat indicator 10.5.4.22
+            if len(data)>0 and data[0]&0xf0 == 0xd0:
+                ri = data[0] & 0xf
+                data = data[1:]
+                print("repeat indi.: %d"%ri, end=' ', file=outfile)
+
+            # Bearer capa #1 10.5.4.5
+            if len(data)>0 and data[0] == 0x04:
+                data = data[1:]
+                (rv,data)=p_bearer_capa(data)
+                print("BC1[%s]"%(rv), end=' ', file=outfile)
+
+            # Bearer capa #2 10.5.4.5
+            if len(data)>0 and data[0] == 0x04:
+                data = data[1:]
+                (rv,data)=p_bearer_capa(data)
+                print("BC2[%s]"%(rv), end=' ', file=outfile)
+
+            # Cause 10.5.4.11
+            if len(data)>0 and data[0] == 0x08:
+                pass # TBD
+
+            # CC capa 10.5.4.5a
+            if len(data)>0 and data[0] == 0x15:
+                pass # TBD
 
         elif typ=="032d": # CC Release
             if len(data)==4 and data[0]==8:
