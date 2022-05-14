@@ -161,12 +161,15 @@ def p_mi_iei(data):
     else:
         return ("PARSE_FAIL",data)
 
-def p_lai(lai):
+def p_lai(lai): # 10.5.1.3
     if lai[1]>>4 != 15 or len(lai)<4:
         return ("PARSE_FAIL",lai)
     else:
         str="MCC=%d%d%d"%(lai[0]&0xf,lai[0]>>4,lai[1]&0xf)
-        str+="/MNC=%d%d"%(lai[2]>>4,lai[2]&0xf)
+        if lai[1]>>4 == 0xf:
+            str+="/MNC=%d%d"%(lai[2]&0xf,lai[2]>>4)
+        else:
+            str+="/MNC=%d%d%d"%(lai[2]&0xf,lai[2]>>4,lai[1]>>4)
         str+="/LAC=%02x%02x"%(lai[3],lai[4])
         return (str,lai[5:])
 
