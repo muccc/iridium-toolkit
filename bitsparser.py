@@ -101,7 +101,6 @@ class MessageInterface(object):
         if self.swapped:
             self.bitstream_raw = symbol_reverse(self.bitstream_raw)
         self.symbols = len(self.bitstream_raw) // 2
-        print(self.bitstream_raw, self.symbols)
 
         self.fileinfo = "p-{:d}".format(timestamp_global)
         self.globalns = timestamp_global
