@@ -9,8 +9,8 @@ from os.path import splitext, basename
 import importlib
 import pkgutil
 
-import iridium.config
-import iridium.reassembler
+import iridiumtk.config
+import iridiumtk.reassembler
 
 parser = argparse.ArgumentParser()
 
@@ -80,8 +80,8 @@ if 'state' in config.args:
 validargs=()
 zx=None
 
-iridium.config.outfile=config.outfile
-iridium.config.config=config
+iridiumtk.config.outfile=config.outfile
+iridiumtk.config.config=config
 
 def get_plugins(base_ns):
     _path=base_ns.__path__
@@ -94,7 +94,7 @@ def get_plugins(base_ns):
         if not name.startswith(_name + '._')
     }
 
-plugins = get_plugins(iridium.reassembler)
+plugins = get_plugins(iridiumtk.reassembler)
 
 modes={}
 for s, v in plugins.items():
