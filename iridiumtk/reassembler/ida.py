@@ -255,7 +255,11 @@ def p_bcd_num(data):
     if ext==0: # Table 10.5.120 / technically only for calling party
         pi        = (data[2]&0b01100000)>>5
         si        = (data[2]&0b00000011)>>7
-        if pi != 0:
+        if pi == 2:
+            txt += "Number_not_available "
+            if numplan == 0:
+                numplan = 1 # XXX: Skip unneccessary output
+        elif pi != 0:
             txt += "present=%d "%pi
         if si != 0:
             txt += "screen=%d "%pi
@@ -263,7 +267,7 @@ def p_bcd_num(data):
 
     # BCD
     num="".join("%x%x"%((x)&0xf,(x)>>4) for x in num)
-    if num[-1]=="f":
+    if len(num)>0 and num[-1]=="f":
         num=num[:-1]
 
     # 04.08 Table 10.5.118
