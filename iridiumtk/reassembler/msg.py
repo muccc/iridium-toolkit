@@ -207,7 +207,7 @@ class ReassembleMSG(Reassemble):
             if not msg.sent:
                 if not msg.done:
                     if config.verbose:
-                        print("flush incomplete @",m.time,"(",msg.__dict__,")")
+                        print("flush incomplete @",msg.time,"(",msg.__dict__,")")
                     if 'incomplete' in config.args:
                         for x,y in enumerate(msg.parts):
                             if y is None:
@@ -215,7 +215,7 @@ class ReassembleMSG(Reassemble):
                         self.consume(msg)
                 else:
                     if config.verbose:
-                        print("flush failed @",m.time,"(",msg.__dict__,")")
+                        print("flush failed @",msg.time,"(",msg.__dict__,")")
                     self.consume(msg)
 
 modes=[
