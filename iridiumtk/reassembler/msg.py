@@ -136,6 +136,12 @@ class ReassembleMSG(Reassemble):
             if config.verbose:
                 print("Whoa! Checksum changed? Message %s (1: @%d checksum %d/2: @%d checksum %d)"%
                         (idstr,self.buf[idstr].time,self.buf[idstr].csum,m.time,m.msg_checksum))
+            tdiff = m.time-self.buf[idstr].time
+            if tdiff > 600: # Older than 10 minutes, throw away existing fragments.
+                del self.buf[idstr]
+            elif m.msg_ctr >= len(self.buf[idstr].parts):
+                # We have to keep the longer one
+                del self.buf[idstr]
 
         if idstr not in self.buf:
             m.id=idstr
