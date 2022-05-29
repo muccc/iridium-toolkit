@@ -411,41 +411,57 @@ class ReassembleIDAPP(ReassembleIDA):
                 data=data[29:]
                 prehdr="<"+hdr[0:4].hex(":")
 
-                if hdr[0]==0x20:
-                    prehdr+=",%02x"%hdr[4]
+                if hdr[0] in (0x20,):
+                    prehdr+=" %02x"%hdr[4]
                     bcd=["%x"%(x>>s&0xf) for x in hdr[5:13] for s in (0,4)]
                     prehdr+=","+bcd[0]+",imei:"+"".join(bcd[1:])
                     prehdr+=" MOMSN=%02x%02x"%(hdr[13],hdr[14])
+                    prehdr+=" msgct:%d"%hdr[15]
 
                     addlen=hdr[17]
-                elif hdr[0] in (0x10,0x40,0x50,0x70):
-                    prehdr+=","+ "".join(["%02x"%x for x in hdr[4:8]])
-                    prehdr+=",%02x%02x"%(hdr[8],hdr[9])
-                    prehdr+=",%02x%02x"%(hdr[10],hdr[11])
-                    prehdr+=",%02x%02x%02x"%(hdr[12],hdr[13],hdr[14])
-                else:
-                    prehdr+="[ERR:hdrtype]"
-                    prehdr+=" "+hdr[4:15].hex(":")
 
-                prehdr+=" msgct:%d"%hdr[15]
-                if hdr[0] in (0x10,0x40,0x50,0x70):
-                    pos=xyz(hdr[16:])
-                    prehdr+=" xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z'])
-                    prehdr+=",%x"%(hdr[20]&0xf)
-                    prehdr+=" pos=(%+06.2f/%+07.2f)"%(pos['lat'],pos['lon'])
-                    prehdr+=" alt=%03d"%(pos['alt']-6378+23)
-                else:
                     prehdr+=" "+hdr[16:17].hex(":")
                     prehdr+=" len="+hdr[17:18].hex(":")
                     prehdr+=" "+hdr[18:19].hex(":")
                     prehdr+=" mid=("+hdr[19:21].hex(":")+")"
 
-                prehdr+=" "+hdr[21:25].hex(":")
+                    prehdr+=" "+hdr[21:25].hex(":")
 
-                ts=hdr[25:]
-                tsi=int(ts.hex(), 16)
-                _, strtime=fmt_iritime(tsi)
-                prehdr+=" t:"+strtime
+                    ts=hdr[25:]
+                    tsi=int(ts.hex(), 16)
+                    _, strtime=fmt_iritime(tsi)
+                    prehdr+=" t:"+strtime
+                elif hdr[0] in (0x10,0x40,0x50,0x70):
+                    prehdr+=" tmsi:"+ "".join(["%02x"%x for x in hdr[4:8]])
+                    prehdr+=",lac1:%02x%02x"%(hdr[8],hdr[9])
+                    prehdr+=",lac2:%02x%02x"%(hdr[10],hdr[11])
+                    prehdr+=",%02x%02x%02x"%(hdr[12],hdr[13],hdr[14])
+                    prehdr+=" msgct:%d"%hdr[15]
+
+                    pos=xyz(hdr[16:])
+                    prehdr+=" xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z'])
+                    prehdr+=",%x"%(hdr[20]&0xf)
+                    if pos['x'] == -1 and pos['y'] == -1 and pos['z'] == -1:
+                        pass
+                    else:
+                        prehdr+=" pos=(%+06.2f/%+07.2f)"%(pos['lat'],pos['lon'])
+                        prehdr+=" alt=%03d"%(pos['alt']-6378+23)
+
+                    prehdr+=" "+hdr[21:25].hex(":")
+
+                    ts=hdr[25:]
+                    tsi=int(ts.hex(), 16)
+                    _, strtime=fmt_iritime(tsi)
+                    prehdr+=" t:"+strtime
+                else:
+                    prehdr+="[ERR:hdrtype]"
+                    prehdr+=" "+hdr[4:15].hex(":")
+                    prehdr+=" msgct:%d"%hdr[15]
+                    prehdr+=" "+hdr[16:21].hex(":")
+
+                    prehdr+=" "+hdr[21:25].hex(":")
+                    prehdr+=" "+hdr[25:].hex(":")
+
                 prehdr+=">"
                 hdr=""
             elif ul=='UL' and typ in ("760c","760d","760e"):
@@ -605,7 +621,7 @@ class ReassembleIDAPP(ReassembleIDA):
                     str+=",prio:"+["none", "4", "3", "2", "1", "0", "B", "A"][pv]
                     data=data[1:]
                 elif len(data) == 1:
-                    str+=",short?"
+                    str+=",ERR:short?"
                     break
                 elif data[0] == 0x5c: # Calling party BCD num. 10.5.4.9
                     data = data[1:]
