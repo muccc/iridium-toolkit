@@ -174,55 +174,66 @@ def p_lai(lai): # 10.5.1.3
         return (str,lai[5:])
 
 def p_disc(disc):
-    if disc[0] < 2 or disc[1]>>4 != 0xe:
-        return ("PARSE_FAIL",disc)
+
+    ext        = (disc[0]&0b10000000)>>7
+    coding     = (disc[0]&0b01100000)>>5
+    location   = (disc[0]&0b00001111)>>0
+
+    if coding != 3 or ext != 1:
+        return "ERR:PARSE_FAIL"
+
+    if location==0:
+        str="Loc:user "
+    elif location==2:
+        str="Net:local"
+    elif location==3:
+        str="Net:trans"
+    elif location==4:
+        str="Net:remot"
     else:
-        net=disc[1]&0xf
-        cause=disc[2]&0x7f
-        if net==0:
-            str="Loc:user "
-        elif net==2:
-            str="Net:local"
-        elif net==3:
-            str="Net:trans"
-        elif net==4:
-            str="Net:remot"
-        else:
-            str="Net: %3d "%net
+        str="Loc:%3d "%location
 
-        if cause==17:
-            str+=" Cause(17) User busy"
-        elif cause==31:
-            str+=" Cause(31) Normal, unspecified"
-        elif cause==1:
-            str+=" Cause(01) Unassigned number"
-        elif cause==41:
-            str+=" Cause(41) Temporary failure"
-        elif cause==16:
-            str+=" Cause(16) Normal call clearing"
-        elif cause==57:
-            str+=" Cause(57) Bearer cap. not authorized"
-        elif cause==34:
-            str+=" Cause(34) No channel available"
-        elif cause==127:
-            str+=" Cause(127) Interworking, unspecified"
-        else:
-            str+=" Cause: %d"%cause
+    if len(disc)<2:
+        return "ERR:SHORT"
 
-        if (disc[2]>>7)==1 and disc[0]==3 and disc[3]==0x88:
-            str+=" CCBS not poss."
-            return (str,disc[4:])
+    cause=disc[1]&0x7f
 
-        return (str,disc[3:])
+    if cause==1:
+        str+=" Cause(01) Unassigned number"
+    elif cause==16:
+        str+=" Cause(16) Normal call clearing"
+    elif cause==17:
+        str+=" Cause(17) User busy"
+    elif cause==21:
+        str+=" Cause(21) Rejected"
+    elif cause==31:
+        str+=" Cause(31) Normal, unspecified"
+    elif cause==34:
+        str+=" Cause(34) No channel available"
+    elif cause==41:
+        str+=" Cause(41) Temporary failure"
+    elif cause==57:
+        str+=" Cause(57) Bearer cap. not authorized"
+    elif cause==127:
+        str+=" Cause(127) Interworking, unspecified"
+    else:
+        str+=" Cause: %d"%cause
+
+    if len(disc)>2:
+        str+= " ERR:ADD_"+ disc[2:].hex(":")
+#        if (disc[0]>>7)==1 and disc[0]==3 and disc[3]==0x88:
+#            str+=" CCBS not poss."
+#            return (str,disc[4:])
+
+    return str
 
 def p_bearer_capa(data):
-    iei_len = data[0]
     txt=""
-    ext        = (data[1]&0b10000000)>>7
-    rcr        = (data[1]&0b01100000)>>5
-    coding     = (data[1]&0b00010000)>>4
-    trans_mode = (data[1]&0b00001000)>>3
-    trans_capa = (data[1]&0b00000111)>>0
+    ext        = (data[0]&0b10000000)>>7
+    rcr        = (data[0]&0b01100000)>>5
+    coding     = (data[0]&0b00010000)>>4
+    trans_mode = (data[0]&0b00001000)>>3
+    trans_capa = (data[0]&0b00000111)>>0
 
     txt = ["rate:reserved", "full rate only", "half rate pref.", "full rate pref."][rcr]
     if coding != 0:
@@ -236,25 +247,23 @@ def p_bearer_capa(data):
     else:
         txt += "transfer:%x"%trans_capa
 
-    if iei_len>1:
-        txt += ":"+data[2:1+iei_len].hex(":")
+    if len(data)>1:
+        txt += ":"+data[1:].hex(":")
 
-    return (txt,data[1+iei_len:])
+    return txt
 
 def p_bcd_num(data):
-    iei_len = data[0]
-    if len(data)<1+iei_len:
-        return ("PARSE_FAIL",data)
+    if len(data)<1:
+        return "PARSE_FAIL"
 
     txt=""
-    ext        = (data[1]&0b10000000)>>7
-    numtype    = (data[1]&0b01110000)>>4
-    numplan    = (data[1]&0b00001111)>>0
+    ext        = (data[0]&0b10000000)>>7
+    numtype    = (data[0]&0b01110000)>>4
+    numplan    = (data[0]&0b00001111)>>0
 
-    num=data[2:1+iei_len]
     if ext==0: # Table 10.5.120 / technically only for calling party
-        pi        = (data[2]&0b01100000)>>5
-        si        = (data[2]&0b00000011)>>7
+        pi        = (data[1]&0b01100000)>>5
+        si        = (data[1]&0b00000011)>>7
         if pi == 2:
             txt += "Number_not_available "
             if numplan == 0:
@@ -263,7 +272,9 @@ def p_bcd_num(data):
             txt += "present=%d "%pi
         if si != 0:
             txt += "screen=%d "%pi
-        num=data[3:1+iei_len]
+        num=data[2:]
+    else:
+        num=data[1:]
 
     # BCD
     num="".join("%x%x"%((x)&0xf,(x)>>4) for x in num)
@@ -288,19 +299,18 @@ def p_bcd_num(data):
         txt+="plan:%d "%numplan
 
     txt+=num
-    return (txt, data[1+iei_len:])
+    return txt
 
 def p_progress(data):
-    iei_len = data[0]
-    if len(data)<1+iei_len:
-        return ("PARSE_FAIL",data)
+    if len(data) != 2:
+        return "PARSE_FAIL[%s]"%data.hex(":")
 
     txt = ""
-    ext        = (data[1]&0b10000000)>>7
-    cs         = (data[1]&0b01100000)>>5
-    loc        = (data[1]&0b00001111)>>0
+    ext        = (data[0]&0b10000000)>>7
+    cs         = (data[0]&0b01100000)>>5
+    loc        = (data[0]&0b00001111)>>0
 
-    progress = data[2] & 0x7f
+    progress = data[1] & 0x7f
 
     if cs != 3:
         txt =  "cs:%d "%cs
@@ -310,9 +320,99 @@ def p_progress(data):
 
     if progress == 3:
         txt += "Origination address is non-local"
+    elif progress == 2:
+        txt += "Destination address is non-local"
+    elif progress == 2:
+        txt += "Call is non-local"
+    elif progress == 8:
+        txt += "In-band available"
+    elif progress == 32:
+        txt += "Call is local"
     else:
         txt +=  "progress:%02x"%(progress)
-    return (txt, data[1+iei_len:])
+    return txt
+
+def p_facility(data):
+    if data.hex(":") == "a1:0e:02:01:01:02:01:10:30:06:81:01:28:84:01:07":
+        str="allCondForwardingSS"
+        str+="(Provisioned+Registered+Active)"
+        return str
+    else:
+        return None
+
+# Minimalistic TV & TLV parser
+# 04.07     11.2.1.1.4
+def p_opt_tlv(data, type4, type1=[], type3=[]):
+    out = ""
+    while len(data)>0:
+        if data[0] & 0xf0 in type1:
+            rv = p_tv(data[0] & 0xf0, data[0] & 0x0f)
+            out+= " " + rv
+            data = data[1:]
+            continue
+        if len(data) < 1:
+            break
+        if data[0] in type3:
+            rv = p_tv(data[0], data[1])
+            out+= " " + rv
+            data = data[2:]
+            continue
+        if data[0] in type4:
+            iei_len = data[1]
+            if len(data) < 2+iei_len:
+                out += "ERR:SHORT:"+data.hex(":")
+                break
+            rv = p_tlv(data[0], data[2:2+iei_len])
+            if rv is not None:
+                out+= " " + rv
+            else:
+                out+= " %02x:[%s]"%(data[0], data[2:2+iei_len].hex(":"))
+            data = data[2+iei_len:]
+            continue
+        break
+
+    return (out[1:], data)
+
+def p_tv(iei, data):
+    if iei == 0xd0: # Repeat indicator 10.5.4.22
+        return "repeat indi.: %d"%data
+    elif iei == 0x80: # Priority 10.5.1.11
+        pv=data&0x7
+        return "prio:"+["none", "4", "3", "2", "1", "0", "B", "A"][pv]
+    elif iei == 0x34: # Signal 10.5.4.23
+        return "signal:%02x"%data
+    else:
+        return "unknown_type1[%02x]=%02x"%(iei, data)
+
+def p_tlv(iei, data):
+    if iei == 0x5c:   # Calling party BCD num.       - 10.5.4.9
+        return "src:[%s]"%p_bcd_num(data)
+    elif iei == 0x5e: # Called party BCD num.        - 10.5.4.7
+        return "dest:[%s]"%p_bcd_num(data)
+    elif iei == 0x1e: # Progress indicator           - 10.5.4.21
+        return "Progress[%s]"% p_progress(data)
+    elif iei == 0x04: # Bearer capa                  - 10.5.4.5
+        return "BC[%s]"%p_bearer_capa(data)
+    elif iei == 0x4c: # Connected number             - 10.5.4.13
+        return "num:[%s]"%p_bcd_num(data)
+    elif iei == 0x08: # Cause                        - 10.5.4.11
+        return "%s"%p_disc(data)
+    elif iei == 0x1c: # Facility                     - 10.5.4.15
+        return p_facility(data)
+    #5D Calling party subaddr.       - 10.5.4.10
+    #6D Called party subaddr.        - 10.5.4.8
+    #74 Redirecting party BCD num.   - 10.5.4.21a
+    #75 Redirecting party subaddress - 10.5.4.21b
+    #7C Low layer comp.              - 10.5.4.18
+    #7D High layer comp.             - 10.5.4.16
+    #7E User-user                    - 10.5.4.25
+    #19 Alerting Pattern             - 10.5.4.26
+    #4D Connected subaddress         - 10.5.4.14
+    #15 Call Control Capabilities    - 10.5.4.5a
+    elif iei in (0x1c, 0x5d, 0x6d, 0x74, 0x75, 0x7c, 0x7d, 0x7e, 0x19, 0x4d):
+        return "%02x:[%s]"%(iei, data.hex(":"))
+    else:
+        return "UK_TLV:%02x:[%s]"%(iei, data.hex(":"))
 
 # Ad-Hoc parsing of the reassembled LAPDm-like frames
 class ReassembleIDAPP(ReassembleIDA):
@@ -351,6 +451,7 @@ class ReassembleIDAPP(ReassembleIDA):
             "0302": "Call Proceeding",
             "0303": "Progress",
             "0305": "Setup",
+            "0307": "Connect",
             "0308": "Call Confirmed",
             "030f": "Connect Acknowledge",
             "0325": "Disconnect",
@@ -593,102 +694,45 @@ class ReassembleIDAPP(ReassembleIDA):
 
 
         elif typ=="0305": # CC Setup 04.08 9.3.23
-            # Repeat indicator 10.5.4.22
-            if len(data)>0 and data[0]&0xf0 == 0xd0:
-                ri = data[0] & 0xf
-                data = data[1:]
-                print("repeat indi.: %d"%ri, end=' ', file=outfile)
+            (rv, data) = p_opt_tlv(data,
+                    (0x04, 0x1c, 0x1e, 0x34, 0x5c, 0x5d, 0x5e, 0x6d, 0x74, 0x75, 0x7c, 0x7d, 0x7e, 0x19),
+                    type1=(0xd0, 0x80), type3=(0x34,))
+            print(rv, end=' ', file=outfile)
 
-            # Bearer capa #1 10.5.4.5
-            if len(data)>0 and data[0] == 0x04:
-                data = data[1:]
-                (rv,data)=p_bearer_capa(data)
-                print("BC1[%s]"%(rv), end=' ', file=outfile)
+        elif typ=="0301": # CC Alerting 04.08 9.3.1
+            (rv, data) = p_opt_tlv(data, (0x1c, 0x1e, 0x7e))
+            print(rv, end=' ', file=outfile)
 
-            # Bearer capa #2 10.5.4.5
-            if len(data)>0 and data[0] == 0x04:
-                data = data[1:]
-                (rv,data)=p_bearer_capa(data)
-                print("BC2[%s]"%(rv), end=' ', file=outfile)
-
-            str=""
-            while len(data) > 0:
-                if (data[0] & 0xf0) == 0xD0:
-                    str+=","+data[0:1].hex()
-                    data=data[1:]
-                elif (data[0] & 0xf0) == 0x80: # Priority 10.5.1.11
-                    pv=data[0]&0x7
-                    str+=",prio:"+["none", "4", "3", "2", "1", "0", "B", "A"][pv]
-                    data=data[1:]
-                elif len(data) == 1:
-                    str+=",ERR:short?"
-                    break
-                elif data[0] == 0x5c: # Calling party BCD num. 10.5.4.9
-                    data = data[1:]
-                    (rv,data)=p_bcd_num(data)
-                    print("src:[%s]"%(rv), end=' ', file=outfile)
-                elif data[0] == 0x5e: # Called party BCD num. 10.5.4.7
-                    data = data[1:]
-                    (rv,data)=p_bcd_num(data)
-                    print("dest:[%s]"%(rv), end=' ', file=outfile)
-                elif data[0] == 0x1e: # Progress indicator 10.5.4.21
-                    data = data[1:]
-                    (rv,data)=p_progress(data)
-                    print("[%s]"%(rv), end=' ', file=outfile)
-                elif data[0] in (0x1c, 0x1e, 0x34, 0x5c, 0x5d, 0x5e, 0x6d, 0x74, 0x75, 0x7c, 0x7d, 0x7e, 0x19):
-                    l=data[1]
-                    str+=(",%02x:"%(data[0]))+data[2:2+l].hex()
-                    data=data[2+l:]
-                elif data[0] in (0x34,): # Signal
-                    str+=(",%02x:%02x"%(data[0]),data[1])
-                    data=data[2:]
-                else:
-                    str+=",ERR(%02x)!"%(data[0])
-                    break
-            if len(str) > 0:
-                print("[%s]"%(str[1:]), end=' ', file=outfile)
-
+        elif typ=="0307": # CC Connect 04.08 9.3.5
+            (rv, data) = p_opt_tlv(data, (0x1c, 0x1e, 0x4c, 0x4d, 0x7e))
+            print(rv, end=' ', file=outfile)
 
         elif typ=="0308": # CC Call Confirmed 04.08 9.3.2
-            # Repeat indicator 10.5.4.22
-            if len(data)>0 and data[0]&0xf0 == 0xd0:
-                ri = data[0] & 0xf
-                data = data[1:]
-                print("repeat indi.: %d"%ri, end=' ', file=outfile)
+            (rv, data) = p_opt_tlv(data, (0x04, 0x08, 0x15), type1=(0xd0, ))
+            print(rv, end=' ', file=outfile)
 
-            # Bearer capa #1 10.5.4.5
-            if len(data)>0 and data[0] == 0x04:
-                data = data[1:]
-                (rv,data)=p_bearer_capa(data)
-                print("BC1[%s]"%(rv), end=' ', file=outfile)
+        elif typ=="032d": # CC Release 04.08 9.3.18
+            (rv, data) = p_opt_tlv(data, (0x08, 0x1c, 0x7e))
+            print(rv, end=' ', file=outfile)
 
-            # Bearer capa #2 10.5.4.5
-            if len(data)>0 and data[0] == 0x04:
-                data = data[1:]
-                (rv,data)=p_bearer_capa(data)
-                print("BC2[%s]"%(rv), end=' ', file=outfile)
+        elif typ=="032a": # CC Release Complete 04.08 9.3.19
+            (rv, data) = p_opt_tlv(data, (0x08, 0x1c, 0x7e))
+            print(rv, end=' ', file=outfile)
 
-            # Cause 10.5.4.11
-            if len(data)>0 and data[0] == 0x08:
-                pass # TBD
+        elif typ=="0325": # CC Disconnect 04.08 9.3.7
+            data=bytes([0x08]) + data # Prepend Type for Cause
+            (rv, data) = p_opt_tlv(data, (0x08, 0x1c, 0x1e, 0x7e, 0x7b))
+            print(rv, end=' ', file=outfile)
 
-            # CC capa 10.5.4.5a
-            if len(data)>0 and data[0] == 0x15:
-                pass # TBD
+        elif typ=="0302": # CC Call Proceeding 04.08 9.3.3
+            (rv, data) = p_opt_tlv(data, (0x04, 0x1c, 0x1e), type1=(0xd0, 0x80))
+            print(rv, end=' ', file=outfile)
 
-        elif typ=="032d": # CC Release
-            if len(data)==4 and data[0]==8:
-                data=data[1:]
-                (rv,data)=p_disc(data)
-                print("%s"%(rv), end=' ', file=outfile)
-        elif typ=="032a": # CC Release Complete
-            if len(data)==4 and data[0]==8:
-                data=data[1:]
-                (rv,data)=p_disc(data)
-                print("%s"%(rv), end=' ', file=outfile)
-        elif typ=="0325": # CC Disconnect
-            (rv,data)=p_disc(data)
-            print("%s"%(rv), end=' ', file=outfile)
+        elif typ=="0303": # CC Progress 04.08 9.3.17
+            data=bytes([0x1e]) + data # Prepend Type for Progress
+            (rv, data) = p_opt_tlv(data, (0x1e, 0x7e))
+            print(rv, end=' ', file=outfile)
+
         elif typ=="0502": # Loc up acc.
             (rv,data)=p_lai(data)
             print("%s"%(rv), end=' ', file=outfile)
