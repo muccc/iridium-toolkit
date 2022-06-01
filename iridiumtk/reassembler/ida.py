@@ -418,7 +418,7 @@ def p_tlv(iei, data):
 class ReassembleIDAPP(ReassembleIDA):
     def consume(self,q):
         (data,time,ul,_,freq)=q
-        if len(data)<=2:
+        if len(data)<2:
             return
 
         fbase=freq-base_freq
@@ -465,6 +465,8 @@ class ReassembleIDAPP(ReassembleIDA):
             "0518": "Identity request",
             "0519": "Identity response",
             "051a": "TMSI Reallocation Command",
+            "051b": "TMSI Reallocation Complete",
+            "0521": "CM Service Accept",
             "0524": "CM Service Request",
             "0901": "CP-DATA", # 04.11 - Table 8.1
             "0904": "CP-ACK",
@@ -480,6 +482,9 @@ class ReassembleIDAPP(ReassembleIDA):
             "760e": "uplink #3",
         }
 
+        if tmin in ("063a", "083a", "7608", "7609", "760c")  and len(data)==0:
+            return
+
         if tmin in minmap:
             tstr="["+majmap[tmaj]+": "+minmap[tmin]+"]"
         else:
@@ -494,7 +499,7 @@ class ReassembleIDAPP(ReassembleIDA):
         print("%s"%strtime, end=' ', file=outfile)
         print("%s %s [%s] %-36s"%(freq_print,ul,typ,tstr), end=' ', file=outfile)
 
-        if typ in ("0600","760c","760d","760e","7608","7609","760a"): # SBD
+        if typ in ("0600","760c","760d","760e","7608","7609","760a") and len(data)>0: # SBD
             prehdr=""
             hdr=""
             addlen=None
