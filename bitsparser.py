@@ -912,29 +912,35 @@ class IridiumLCW3Message(IridiumLCWMessage):
 class IridiumVOMessage(IridiumLCWMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
+
+        # Test if CRC24 is ok -> VDA
         self.crcval=iip_crc24( bytes(self.payload_r))
         if self.crcval==0:
             self.vtype="VDA"
             return
-        else:
-            (ok,msg,csum)=rs6.rs_fix(self.payload_6)
-            self.rs6p=False
-            self.rs6=ok
-            if ok:
-                self.vtype="VO6"
-                if bytearray(self.payload_6)==msg+csum:
-                    self.rs6p=True
-                self.rs6m=msg
-                self.rs6c=csum
-                return
-#            if rs_check(self.payload_f):
-            (ok,msg,rsc)=rs.rs_fix(self.payload_f)
-            if ok:
-                self.vtype="VOD"
-                self.vdata=msg
-            else:
-                self.vtype="VOC"
-                self.vdata=self.payload_f
+
+        # Test if rs6 accepts it -> VO6 (unknown)
+        (ok,msg,csum)=rs6.rs_fix(self.payload_6)
+        self.rs6p=False
+        self.rs6=ok
+        if ok:
+            self.vtype="VO6"
+            if bytearray(self.payload_6)==msg+csum:
+                self.rs6p=True
+            self.rs6m=msg
+            self.rs6c=csum
+            return
+
+        # Test if rs accepts it -> VOD
+        (ok,msg,rsc)=rs.rs_fix(self.payload_f)
+        if ok:
+            self.vtype="VOD"
+            self.vdata=msg
+            return
+
+        # We can't sanity check the AMBE codec, so accept the remaining packets
+        self.vtype="VOC"
+        self.vdata=self.payload_f
 
     def upgrade(self):
         if self.vtype=="VDA":
