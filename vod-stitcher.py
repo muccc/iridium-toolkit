@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim: set ts=4 sw=4 tw=0 et pm=:
+import util
 import fileinput
 import sys
 
@@ -114,14 +115,14 @@ for line in fileinput.input(infile):
             #print "out!"
             data = a_data + b_data
 
-            print('XXX: ',data.hex('.'))
+            print('XXX: ', util.myhex(data, '.'))
             #outfile.write(data)
 
             #if data[0] == 0xc0:
             #if not (data[0] == 0x03 and data[1] == 0xc0):
             if (data[0] == 0x03 and data[1] == 0xc0):
                 #print int(a_seq, 2), a_ts - ts_old, '.'.join([c.encode('hex') for c in str(data)])
-                print(a_ts - ts_old, data.hex('.'))
+                print(a_ts - ts_old, util.myhex(data, '.'))
                 #outfile.write(data)
 
             outfile.write(data)
