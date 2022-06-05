@@ -63,7 +63,10 @@ for line in fileinput.input(infile):
         if int(line[6]) < 179:
             continue
         ts = float(line[2])
-        data = line[10]
+        if line[9][0].startswith("["):
+            data = line[9]
+        else:
+            data = line[10]
         content=bytearray()
         for pos in range(1,len(data),3):
             byte=int(data[pos:pos+2],16)
