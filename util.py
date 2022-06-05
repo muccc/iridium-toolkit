@@ -33,6 +33,15 @@ class mybytes(bytes):
         else:
             return super().__getitem__(key)
 
+class mybytearray(bytearray):
+    def hex(self, sep=''):
+        return sep.join(["%02x"%(x) for x in self])
+    def __getitem__(self, key):
+        if isinstance(key, slice_):
+            return mybytearray(super().__getitem__(key))
+        else:
+            return super().__getitem__(key)
+
 def hex2bin(hexstr):
     l= len(hexstr)*4
     return ("{0:0%db}"%l).format(int(hexstr,16))
