@@ -938,6 +938,18 @@ class IridiumVOMessage(IridiumLCWMessage):
             self.vdata=msg
             return
 
+        # the check for zeros is a heuristic to minimize false matches
+        # If sum mod 256 is 0 -> VOZ
+        if all([x==0 for x in self.payload_f[-4:-1]]):
+            vsum=sum(self.payload_f) % 0x100
+            if vsum == 0:
+                self.vtype="VOZ"
+                for i in range(len(self.payload_f) - 2, -1, -1):
+                    if self.payload_f[i] != 0:
+                        break
+                self.vdata=self.payload_f[:i+1]
+                return
+
         # We can't sanity check the AMBE codec, so accept the remaining packets
         self.vtype="VOC"
         self.vdata=self.payload_f
