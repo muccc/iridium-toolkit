@@ -6,7 +6,7 @@ import datetime
 import re
 import struct
 import socket
-from util import fmt_iritime, to_ascii
+from util import fmt_iritime, to_ascii, xyz
 
 from .base import *
 from ..config import config, outfile
@@ -257,7 +257,7 @@ class ReassembleIDAPP(ReassembleIDA):
             "0901": "CP-DATA",
             "0904": "CP-ACK",
             "0910": "CP-ERROR",
-            "7605": "7605",
+            "7605": "Access notification",
             "7608": "downlink #1",
             "7609": "downlink #2",
             "760a": "downlink #3+",
@@ -374,6 +374,35 @@ class ReassembleIDAPP(ReassembleIDA):
 
             if addlen is not None and len(data)!=addlen:
                 print("ERR:len(%d!=%d)"%(len(data),addlen), end=" ", file=outfile)
+
+        elif typ=="7605": # Access decision notification
+            # 00 43 b3 0e 44 e9 50 7f c0
+            #   ||COORD        |  |MID
+            if len(data)>0:
+                if data[0]&0xf0 == 0:
+                    print("R:ok   ", end=" ", file=outfile)
+                else:
+                    print("R:NOT[%x]"%((data[0]&0xf0)>>4), end=" ", file=outfile)
+
+                if data[0]&0xf == 2:
+                    print("(Location Update was not accepted)", end=" ", file=outfile)
+                elif data[0]&0xf ==0:
+                    pass
+                else:
+                    print("(unknown:%x)"%(data[0]&0xf), end=" ", file=outfile)
+                data=data[1:]
+
+            if len(data)> 4 and data[0]&0xf0 == 0x40:
+                pos=xyz(data, 4)
+                print("xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z']), end=" ", file=outfile)
+                print("pos=(%+06.2f/%+07.2f)"%(pos['lat'],pos['lon']), end=" ", file=outfile)
+                print("alt=%03d"%(pos['alt']-6378+23), end=" ", file=outfile)
+                data=data[5:]
+
+            if len(data)> 2 and data[0]&0xf0 == 0x50:
+                print("[%02x mid=(%s)]"%(data[0],data[1:3].hex(":")), end=" ", file=outfile)
+                data=data[3:]
+
 
 # > 0600 / 10:13:f0:10: tmsi+lac+lac+00 +bytes
 # < 0605 ?

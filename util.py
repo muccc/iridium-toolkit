@@ -6,6 +6,7 @@ import re
 import sys
 import types
 import datetime
+from math import atan2, sqrt, pi
 
 class Zulu(datetime.tzinfo):
     def utcoffset(self, dt):
@@ -127,3 +128,25 @@ def curses_eol(file=sys.stderr):
         eol=  (el+cr).decode("ascii")
         eolnl=(el+nl).decode("ascii")
     return eol
+
+# extract position (x/y/z) from 5 bytes
+# skip=(0-4) bits at the beginning
+def xyz(data, skip=0):
+    val=int(data[0:5].hex(),16)
+    sb=4-skip
+
+    loc_x=(val>>(12*2+sb)) & 0xfff
+    if loc_x > 0x800: loc_x= -(0x1000 - loc_x)
+
+    loc_y=(val>>(12*1+sb)) & 0xfff
+    if loc_y > 0x800: loc_y= -(0x1000 - loc_y)
+
+    loc_z=(val>>(12*0+sb)) & 0xfff
+    if loc_z > 0x800: loc_z= -(0x1000 - loc_z)
+
+    # From bitsparser.py: ad-hoc quick conversion
+    lat = atan2(loc_z,sqrt(loc_x**2+loc_y**2))*180/pi
+    lon = atan2(loc_y,loc_x)*180/pi
+    alt = sqrt(loc_x**2+loc_y**2+loc_z**2)*4
+
+    return dict(x=loc_x, y=loc_y, z=loc_z, lat=lat, lon=lon, alt=alt)
