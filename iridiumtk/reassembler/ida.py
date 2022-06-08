@@ -132,6 +132,13 @@ class ReassembleIDA(Reassemble):
 
         print("%15.6f %s %s %s | %s"%(time,freq_print,ul,data.hex(" "),str), file=outfile)
 
+# Mobile station classmark 2 10.5.1.6
+def p_cm2(data):
+    cmlen=data[0] # Must be 3
+    cmdata=data[1:cmlen+1]
+    str="CM2:%s"%cmdata.hex()
+    return (str, data[1+cmlen:])
+
 def p_mi_iei(data):
     iei_len = data[0]
     iei_dig = data[1]>>4
@@ -253,6 +260,7 @@ class ReassembleIDAPP(ReassembleIDA):
             "0518": "Identity request",
             "0519": "Identity response",
             "051a": "TMSI Reallocation Command",
+            "0524": "CM Service Request",
             "0600": "Register/SBD:uplink",
             "0901": "CP-DATA",
             "0904": "CP-ACK",
@@ -517,6 +525,35 @@ class ReassembleIDAPP(ReassembleIDA):
         elif typ=="0519": # Identity Resp.
             (rv,data)=p_mi_iei(data)
             print("[%s]"%(rv), end=' ', file=outfile)
+        elif typ=="0524": # CM Service Req. 9.2.9
+            # Ciphering key seqno 10.5.1.2
+            if data[0]>>4 == 7: # 10.5.1.2
+                print("key=none", end=' ', file=outfile)
+            else:
+                print("key=%d"%(data[0]>>4), end=' ', file=outfile)
+
+            # CM service type 10.5.3.3
+            if data[0]&0xf == 4:
+                print("[SMS]", end=' ', file=outfile)
+            elif data[0]&0xf == 1:
+                print("[MO call/pkt mode]", end=' ', file=outfile)
+            else:
+                print("[SVC:%d]"%(data[0]&0xf), end=' ', file=outfile)
+
+            data=data[1:]
+
+            # Mobile station classmark 2 10.5.1.6
+            (rv,data)=p_cm2(data)
+            print("[%s]"%(rv), end=' ', file=outfile)
+
+            # Mobile identity 10.5.1.4
+            (rv,data)=p_mi_iei(data)
+            print("[%s]"%(rv), end=' ', file=outfile)
+
+            # Priority 10.5.1.11
+            if len(data)>0:
+                print("[PRIO:%02x]"%data[0], end=' ', file=outfile)
+                data=data[1:]
 
         if len(data)>0:
             print(" ".join("%02x"%x for x in data), end=' ', file=outfile)
