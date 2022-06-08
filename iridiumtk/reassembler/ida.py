@@ -415,6 +415,34 @@ class ReassembleIDAPP(ReassembleIDA):
                 print("[%02x mid=(%s)]"%(data[0],data[1:3].hex(":")), end=" ", file=outfile)
                 data=data[3:]
 
+        elif typ=="0605": # ?
+            # 00 5a 14 c1 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+            #   |^ |^ |  | mostly zero                                      |
+            #    |  Beam
+            #    Sat
+            # >> 04 18 c9 61 18 5d e0 19 0a 1a 4c 18 00 1b 3b 50 89 4f 50
+            #      |LAC  |  |LAC  |  |LAC  |              | COORD       |
+            if len(data)>=20:
+                print("%02x sat:%03d beam:%02d %02x"%(data[0],data[1],data[2],data[3]), end=" ", file=outfile)
+                print(data[4:21].hex(), end=" ", file=outfile)
+                data=data[21:]
+                if len(data)==19:
+                    if data[0]==4:
+                        print(data[0:1].hex(), end=" ", file=outfile)
+                        print("LAC1=%s"%data[1:3].hex(), end=" ", file=outfile)
+                        print(data[3:4].hex(), end=" ", file=outfile)
+                        print("LAC2=%s"%data[4:6].hex(), end=" ", file=outfile)
+                        print(data[6:7].hex(), end=" ", file=outfile)
+                        print("LAC3=%s"%data[7:9].hex(), end=" ", file=outfile)
+                        print(data[9:14].hex(":"), end=" ", file=outfile)
+
+                        pos=xyz(data[14:])
+                        print("xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z']), end=" ", file=outfile)
+                        print("pos=(%+06.2f/%+07.2f)"%(pos['lat'],pos['lon']), end=" ", file=outfile)
+                        print("alt=%03d"%(pos['alt']-6378+23), end=" ", file=outfile)
+
+                        print("[%d]"%(data[14+4]&0xf), end=" ", file=outfile)
+                        data=data[14+5:]
 
 # > 0600 / 10:13:f0:10: tmsi+lac+lac+00 +bytes
 # < 0605 ?
