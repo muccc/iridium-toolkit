@@ -287,8 +287,8 @@ class ReassembleIDAPP(ReassembleIDA):
 
             if ul=='UL' and typ in ("0600"):
                 #       0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28
-                #      20:13:f0:10:02|IMEI                   |MOMSN|MC|_c|LEN|                   |TIME
-                #      10:13:f0:10|TMSI?      |LAC? |LAC? |00:00:00|MC|                          |TIME
+                #      20:13:f0:10:02|5+IMEI                 |MOMSN|MC|_c|LN|??|MID  |           |TIME
+                #      10:13:f0:10|TMSI       |LAC1 |LAC2 |00:00:00|MC|xx xy yy zz z0|           |TIME
                 hdr=data[:29]
                 if len(hdr)<29:
                     # packet too short
@@ -315,7 +315,19 @@ class ReassembleIDAPP(ReassembleIDA):
                     prehdr+=" "+hdr[4:15].hex(":")
 
                 prehdr+=" msgct:%d"%hdr[15]
-                prehdr+=" "+hdr[16:25].hex(":")
+                if hdr[0] in (0x10,0x40,0x50,0x70):
+                    pos=xyz(hdr[16:])
+                    prehdr+=" xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z'])
+                    prehdr+=",%x"%(hdr[20]&0xf)
+                    prehdr+=" pos=(%+06.2f/%+07.2f)"%(pos['lat'],pos['lon'])
+                    prehdr+=" alt=%03d"%(pos['alt']-6378+23)
+                else:
+                    prehdr+=" "+hdr[16:17].hex(":")
+                    prehdr+=" len="+hdr[17:18].hex(":")
+                    prehdr+=" "+hdr[18:19].hex(":")
+                    prehdr+=" mid=("+hdr[19:21].hex(":")+")"
+
+                prehdr+=" "+hdr[21:25].hex(":")
 
                 ts=hdr[25:]
                 tsi=int(ts.hex(), 16)
@@ -329,7 +341,7 @@ class ReassembleIDAPP(ReassembleIDA):
                     prehdr=data[:3]
                     data=data[3:]
 
-                    prehdr="<"+prehdr.hex(":")+">"
+                    prehdr="<%02x mid=(%s)>"%(prehdr[0],prehdr[1:].hex(":"))
 
             elif ul=='DL' and typ in ("7608","7609","760a"):
                 if typ=="7608":
@@ -344,13 +356,13 @@ class ReassembleIDAPP(ReassembleIDA):
                     # fields same as above except 6+7
 
                     if data[0]==0x26:
-                        prehdr=data[:7]
+#                        prehdr=data[:7]
+                        prehdr="<%02x MTMSN=(%02x%02x) msgct:%d backlog=%d mid=(%02x:%02x)>"%(data[0],data[1],data[2],data[3],data[4],data[5],data[6])
                         data=data[7:]
-                        prehdr="<"+prehdr.hex(":")+">"
                     elif data[0]==0x20:
-                        prehdr=data[:5]
+#                        prehdr=data[:5]
+                        prehdr="<%02x MTMSN=(%02x%02x) msgct:%d backlog=%d>"%(data[0],data[1],data[2],data[3],data[4])
                         data=data[5:]
-                        prehdr="<"+prehdr.hex(":")+">"
                     else:
                         prehdr="<ERR:prehdr_type?>"
 
