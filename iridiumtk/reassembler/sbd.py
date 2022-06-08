@@ -81,6 +81,9 @@ class ReassembleIDASBD(ReassembleIDA):
         data=data[2:]
 
         if typ=="0600":
+            if data[0] != 0x20:
+                # Not an SBD packet, apparently
+                return
             prehdr=data[:29]
             data=data[29:]
             msgcnt=prehdr[15]
