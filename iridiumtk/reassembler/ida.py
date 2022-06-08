@@ -515,9 +515,11 @@ class ReassembleIDAPP(ReassembleIDA):
                     return
 
                 data=data[29:]
-                prehdr="<"+hdr[0:4].hex(":")
+                prehdr="%02x"%hdr[0]
 
                 if hdr[0] in (0x20,):
+                    prehdr+="(SBD)"
+                    prehdr+=" ["+hdr[1:4].hex(":")
                     prehdr+=" %02x"%hdr[4]
                     bcd=["%x"%(x>>s&0xf) for x in hdr[5:13] for s in (0,4)]
                     prehdr+=","+bcd[0]+",imei:"+"".join(bcd[1:])
@@ -527,7 +529,7 @@ class ReassembleIDAPP(ReassembleIDA):
                     addlen=hdr[17]
 
                     prehdr+=" "+hdr[16:17].hex(":")
-                    prehdr+=" len="+hdr[17:18].hex(":")
+                    prehdr+=" len=%03d"%hdr[17]
                     prehdr+=" "+hdr[18:19].hex(":")
                     prehdr+=" mid=("+hdr[19:21].hex(":")+")"
 
@@ -537,7 +539,15 @@ class ReassembleIDAPP(ReassembleIDA):
                     tsi=int(ts.hex(), 16)
                     _, strtime=fmt_iritime(tsi)
                     prehdr+=" t:"+strtime
-                elif hdr[0] in (0x10,0x40,0x50,0x70):
+                    prehdr+="]"
+                elif hdr[0] in (0x10,0x40,0x70):
+                    if hdr[0] == 0x10:
+                        prehdr+="(REG)"
+                    elif hdr[0] == 0x40:
+                        prehdr+="(SMS)"
+                    elif hdr[0] == 0x70:
+                        prehdr+="(CAL)"
+                    prehdr+=" ["+hdr[1:4].hex(":")
                     prehdr+=" tmsi:"+ "".join(["%02x"%x for x in hdr[4:8]])
                     prehdr+=",lac1:%02x%02x"%(hdr[8],hdr[9])
                     prehdr+=",lac2:%02x%02x"%(hdr[10],hdr[11])
@@ -559,24 +569,35 @@ class ReassembleIDAPP(ReassembleIDA):
                     tsi=int(ts.hex(), 16)
                     _, strtime=fmt_iritime(tsi)
                     prehdr+=" t:"+strtime
+                    prehdr+="]"
+
+                    if len(data)>=21 and data[0] == 0x1c: # fixed length
+                        t1=data[:21]
+                        data=data[21:]
+                        prehdr+=" {%02x:%s}"%(0x1c,t1[1:].hex("."))
+                    if len(data)>=2 and data[0] == 0x6c: # looks like TLV
+                        t2l=data[1]
+                        if len(data)>=2+t2l:
+                            t2=data[2:2+t2l]
+                            data=data[2+t2l:]
+                            prehdr+=" {%02x:%s}"%(0x6c, t2.hex("."))
                 else:
                     prehdr+="[ERR:hdrtype]"
-                    prehdr+=" "+hdr[4:15].hex(":")
+                    prehdr+=" ["+hdr[1:15].hex(":")
                     prehdr+=" msgct:%d"%hdr[15]
                     prehdr+=" "+hdr[16:21].hex(":")
 
                     prehdr+=" "+hdr[21:25].hex(":")
                     prehdr+=" "+hdr[25:].hex(":")
+                    prehdr+="]"
 
-                prehdr+=">"
-                hdr=""
             elif ul=='UL' and typ in ("760c","760d","760e"):
                 if data[0]==0x50:
                     # <50:xx:xx> MTMSN echoback?
-                    prehdr=data[:3]
+                    hdr=data[:3]
                     data=data[3:]
 
-                    prehdr="<%02x mid=(%s)>"%(prehdr[0],prehdr[1:].hex(":"))
+                    prehdr="[%02x mid=(%s)]"%(hdr[0],hdr[1:].hex(":"))
 
             elif ul=='DL' and typ in ("7608","7609","760a"):
                 if typ=="7608":
@@ -604,6 +625,8 @@ class ReassembleIDAPP(ReassembleIDA):
             else:
                 prehdr="<ERR:nomatch>"
 
+            print("%s"%(prehdr), end=' ', file=outfile)
+
             if typ != "0600" and len(data)>0:
                 if data[0]==0x10:
                     # <10:87:01>
@@ -614,11 +637,9 @@ class ReassembleIDAPP(ReassembleIDA):
                     hdr=data[:3]
                     data=data[3:]
                     addlen=hdr[1]
-                    hdr="<"+hdr.hex(":")+">"
+                    print("<%s>"%hdr.hex(":"), end=' ', file=outfile)
                 else:
                     print("ERR:no_0x10", end=" ", file=outfile)
-
-            print("%-22s %-10s "%(prehdr,hdr), end=' ', file=outfile)
 
             if addlen is not None and len(data)!=addlen:
                 print("ERR:len(%d!=%d)"%(len(data),addlen), end=" ", file=outfile)
