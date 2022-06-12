@@ -108,7 +108,7 @@ class ReassembleIDASBD(ReassembleIDA):
                 prehdr=bytes()
                 msgcnt=-1
 
-            if ul and len(data)>=3 and data[0]==0x50:
+            if ul and len(data)>=3 and data[0] in (0x50,0x51): # "ack" / nack?
                 prehdr=data[:3] # remove
                 data=data[3:]
 
