@@ -139,42 +139,37 @@ def p_cm2(data):
     str="CM2:%s"%cmdata.hex()
     return (str, data[1+cmlen:])
 
-def p_mi_iei(data):
-    iei_len = data[0]
-    iei_dig = data[1]>>4
-    iei_odd = (data[1]>>3)&1
-    iei_typ = data[1]&7
+def p_mi(data):
+    iei_dig = data[0]>>4
+    iei_odd = (data[0]>>3)&1
+    iei_typ = data[0]&7
 
     if iei_typ==2 or iei_typ==1: # IMEI / IMSI
-        if iei_odd==1 and iei_len==8:
+        if iei_odd==1:
             str="%x"%(iei_dig)
-            str+="".join("%x%x"%((x)&0xf,(x)>>4) for x in data[2:2+7])
-            return ("%s:%s"%(["","imsi","imei"][iei_typ],str),data[2+7:])
+            str+="".join("%x%x"%((x)&0xf,(x)>>4) for x in data[1:])
+            return "%s:%s"%(["","imsi","imei"][iei_typ],str)
         else:
-            return ("PARSE_FAIL",data)
+            return "ERR_MI_PARSE_FAIL[%s]"%data.hex()
     elif iei_typ==4: # TMSI
-        if iei_odd==0 and iei_len==5 and iei_dig==0xf:
-            str="tmsi:%02x%02x%02x%02x"%(data[2],data[3],data[4],data[5])
-            return (str,data[6:])
+        if iei_odd==0 and iei_dig==0xf:
+            str="tmsi:%s"%(data[1:].hex())
+            return str
         else:
-            return ("PARSE_FAIL",data)
+            return "ERR_MI_PARSE_FAIL[%s]"%data.hex()
     else:
-        return ("PARSE_FAIL",data)
+        return "ERR_PARSE_FAIL[%s]"%data.hex()
 
 def p_lai(lai): # 10.5.1.3
-    if lai[1]>>4 != 15 or len(lai)<4:
-        return ("PARSE_FAIL",lai)
+    str="MCC=%x%x%x"%(lai[0]&0xf,lai[0]>>4,lai[1]&0xf)
+    if lai[1]>>4 == 0xf:
+        str+="/MNC=%x%x"%(lai[2]&0xf,lai[2]>>4)
     else:
-        str="MCC=%d%d%d"%(lai[0]&0xf,lai[0]>>4,lai[1]&0xf)
-        if lai[1]>>4 == 0xf:
-            str+="/MNC=%d%d"%(lai[2]&0xf,lai[2]>>4)
-        else:
-            str+="/MNC=%d%d%d"%(lai[2]&0xf,lai[2]>>4,lai[1]>>4)
-        str+="/LAC=%02x%02x"%(lai[3],lai[4])
-        return (str,lai[5:])
+        str+="/MNC=%x%x%x"%(lai[2]&0xf,lai[2]>>4,lai[1]>>4)
+    str+="/LAC=%02x%02x"%(lai[3],lai[4])
+    return str
 
 def p_disc(disc):
-
     ext        = (disc[0]&0b10000000)>>7
     coding     = (disc[0]&0b01100000)>>5
     location   = (disc[0]&0b00001111)>>0
@@ -342,11 +337,32 @@ def p_facility(data):
 
 # Minimalistic TV & TLV parser
 # 04.07     11.2.1.1.4
-def p_opt_tlv(data, type4, type1=[], type3=[]):
+# type1: TV(0.5)
+# type2: T(0)
+# type3: TV(1)
+# type4: TLV
+# start: Tag-less elements at the beginning
+def p_opt_tlv(data, type4, type1=[], type3=[], type2=[], start=[]):
     out = ""
+    for t, l in start:
+        if l<0:
+            l = data[0]
+            data=data[1:]
+        if len(data) < l:
+            out += "ERR:SHORT:"+data.hex(":")
+            break
+        else:
+            rv = p_tlv(t, data[:l])
+            out+= " " + rv
+            data = data[l:]
     while len(data)>0:
         if data[0] & 0xf0 in type1:
             rv = p_tv(data[0] & 0xf0, data[0] & 0x0f)
+            out+= " " + rv
+            data = data[1:]
+            continue
+        if data[0] in type2:
+            rv = p_t(data[0])
             out+= " " + rv
             data = data[1:]
             continue
@@ -372,6 +388,14 @@ def p_opt_tlv(data, type4, type1=[], type3=[]):
         break
 
     return (out[1:], data)
+
+def p_t(iei):
+    if iei == 0xa1: # Follow on proceed 10.5.3.7
+        return "Follow-on Proceed"
+    elif iei == 0xa2: # CTS permission 10.5.3.10
+        return "CTS permission"
+    else:
+        return "unknown_type2[%02x]"%(iei)
 
 def p_tv(iei, data):
     if iei == 0xd0: # Repeat indicator 10.5.4.22
@@ -399,6 +423,14 @@ def p_tlv(iei, data):
         return "%s"%p_disc(data)
     elif iei == 0x1c: # Facility                     - 10.5.4.15
         return p_facility(data)
+    elif iei == 0x17: # Mobile identity              - 10.5.1.4
+        return p_mi(data)
+    elif iei == 0x13: # Location Area Identification - 10.5.1.3
+        return p_lai(data)
+    elif iei == 0x41: # Mobile station classmark 1   - 10.5.1.5 (0x41 is a guess)
+        if data[0]==0x28:
+            return ""
+        return "CM1[%02x]"%data[0]
     #5D Calling party subaddr.       - 10.5.4.10
     #6D Called party subaddr.        - 10.5.4.8
     #74 Redirecting party BCD num.   - 10.5.4.21a
@@ -409,7 +441,7 @@ def p_tlv(iei, data):
     #19 Alerting Pattern             - 10.5.4.26
     #4D Connected subaddress         - 10.5.4.14
     #15 Call Control Capabilities    - 10.5.4.5a
-    elif iei in (0x1c, 0x5d, 0x6d, 0x74, 0x75, 0x7c, 0x7d, 0x7e, 0x19, 0x4d):
+    elif iei in (0x5d, 0x6d, 0x74, 0x75, 0x7c, 0x7d, 0x7e, 0x19, 0x4d, 0x15):
         return "%02x:[%s]"%(iei, data.hex(":"))
     else:
         return "UK_TLV:%02x:[%s]"%(iei, data.hex(":"))
@@ -759,36 +791,25 @@ class ReassembleIDAPP(ReassembleIDA):
             (rv, data) = p_opt_tlv(data, (0x1e, 0x7e))
             print(rv, end=' ', file=outfile)
 
-        elif typ=="0502": # Loc up acc.
-            (rv,data)=p_lai(data)
-            print("%s"%(rv), end=' ', file=outfile)
-            if len(data)>=1 and data[0]==0x17:
-                data=data[1:]
-                (rv,data)=p_mi_iei(data)
-                print("%s"%(rv), end=' ', file=outfile)
-            if len(data)>=1 and data[0]==0xa1:
-                print("Follow-on Proceed", end=' ', file=outfile)
-                data=data[1:]
-        elif typ=="0508": # Loc up req.
-            if data[0]&0xf==0 and data[6]==0x28: # 6 == Mobile station classmark
-                if data[0]>>4 == 7:
-                    print("key=none", end=' ', file=outfile)
-                else:
-                    print("key=%d"%(data[0]>>4), end=' ', file=outfile)
-                data=data[1:]
+        elif typ=="0502": # MM Location updating accept 04.08 9.2.13
+            (rv, data) = p_opt_tlv(data, (0x17,), type2=(0xa1, 0xa2), start=[(0x13,5)])
+            print(rv, end=' ', file=outfile)
 
-                (rv,data)=p_lai(data)
-                print("%s"%(rv), end=' ', file=outfile)
+        elif typ=="0508": # MM Location updating request 04.08 9.2.15
+            if data[0]&0xf!=0:
+                print("Type=%x", end=' ', file=outfile)
+            if data[0]>>4 == 7: # Ciphering Key Sequence Number 10.5.1.2
+                print("key=none", end=' ', file=outfile)
+            else:
+                print("key=%x"%(data[0]>>4), end=' ', file=outfile)
 
-                data=data[1:] # skip classmark
+            (rv, data) = p_opt_tlv(data[1:], (), start=[(0x13,5),(0x41,1),(0x17,-1)])
+            print(rv, end=' ', file=outfile)
 
-                (rv,data)=p_mi_iei(data)
-                print("%s"%(rv), end=' ', file=outfile)
-        elif typ=="051a": # TMSI realloc. 9.2.17
-            (rv,data)=p_lai(data)
-            print("%s"%(rv), end=' ', file=outfile)
-            (rv,data)=p_mi_iei(data)
-            print("%s"%(rv), end=' ', file=outfile)
+        elif typ=="051a": # MM TMSI realloc. 9.2.17
+            (rv, data) = p_opt_tlv(data, (), start=[(0x13,5),(0x17,-1)])
+            print(rv, end=' ', file=outfile)
+
         elif typ=="0504": # Loc up rej.
             if data[0]==2:
                 print("02(IMSI unknown in HLR)", end=' ', file=outfile)
@@ -800,9 +821,9 @@ class ReassembleIDAPP(ReassembleIDA):
             elif data[0]==1:
                 print("01(IMSI)", end=' ', file=outfile)
                 data=data[1:]
-        elif typ=="0519": # Identity Resp.
-            (rv,data)=p_mi_iei(data)
-            print("[%s]"%(rv), end=' ', file=outfile)
+        elif typ=="0519": # Identity Resp. 9.2.11
+            (rv, data) = p_opt_tlv(data, (), start=[(0x17,-1)])
+            print(rv, end=' ', file=outfile)
         elif typ=="0524": # CM Service Req. 9.2.9
             # Ciphering key seqno 10.5.1.2
             if data[0]>>4 == 7: # 10.5.1.2
@@ -824,14 +845,8 @@ class ReassembleIDAPP(ReassembleIDA):
             (rv,data)=p_cm2(data)
             print("[%s]"%(rv), end=' ', file=outfile)
 
-            # Mobile identity 10.5.1.4
-            (rv,data)=p_mi_iei(data)
-            print("[%s]"%(rv), end=' ', file=outfile)
-
-            # Priority 10.5.1.11
-            if len(data)>0:
-                print("[PRIO:%02x]"%data[0], end=' ', file=outfile)
-                data=data[1:]
+            (rv, data) = p_opt_tlv(data, (), type1=(0x80), start=[(0x17,-1)])
+            print(rv, end=' ', file=outfile)
 
         if len(data)>0:
             print(" ".join("%02x"%x for x in data), end=' ', file=outfile)
