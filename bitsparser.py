@@ -307,6 +307,10 @@ class IridiumMessage(Message):
             self._new_error("filtered message")
             return
 
+        if "msgtype" not in self.__dict__ and (not freqclass or self.frequency < f_duplex) and self.uplink:
+            if len(data)>=2*26 and len(data)<2*50:
+                self.msgtype="AQ"
+
         if "msgtype" not in self.__dict__:
             if harder:
                 # try IBC
@@ -385,6 +389,11 @@ class IridiumMessage(Message):
             (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
+        elif self.msgtype=="AQ":
+            datalen=2*26
+            self.header=""
+            self.descrambled=data[:datalen]
+            self.descramble_extra=data[datalen:]
         elif self.msgtype=="TL":
             hdrlen=96
             self.header=data[:hdrlen]
@@ -450,6 +459,8 @@ class IridiumMessage(Message):
                 return IridiumLCWMessage(self).upgrade()
             elif self.msgtype=="TL":
                 return IridiumSTLMessage(self).upgrade()
+            elif self.msgtype=="AQ":
+                return IridiumAQMessage(self).upgrade()
             elif self.msgtype in ("MS", "RA", "BC"):
                 return IridiumECCMessage(self).upgrade()
             raise AssertionError("unknown frame type encountered")
@@ -665,6 +676,44 @@ class IridiumSYMessage(IridiumLCWMessage):
                 str+=", short:%s "%len(self.descrambled)
         str+=self._pretty_trailer()
         return str
+
+iaq_crc16=crcmod.mkCrcFun(poly=0x15101,initCrc=0,rev=False,xorOut=0)
+class IridiumAQMessage(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=imsg.__dict__
+        self.fixederrs=0
+
+        self.sym=[]
+        imap=['0','e','e','1']
+        bits=self.descrambled
+        for x in range(0,len(bits)-1,2):
+            self.sym.append(imap[int(bits[x+0])*2 + int(bits[x+1])])
+
+        if 'e' in self.sym:
+            raise ParserError("IAQ content not BPSK")
+
+        self.rid=int(self.sym[4]+self.sym[6]+self.sym[8]+self.sym[10]+self.sym[5]+self.sym[7]+self.sym[9]+self.sym[11],2)
+        self.val=bytes([int("".join(self.sym[:4]),2),int("".join(self.sym[4:12]),2)])
+        self.ridcrc=int("".join(self.sym[12:]),2)
+
+        self.crcval=iaq_crc16( bytes(self.val)) >>2
+
+    def upgrade(self):
+        return self
+    def pretty(self):
+        st= "IAQ: "+self._pretty_header()
+
+        st+= " " + "".join(self.sym[0:4])
+        st+= " " + "Rid:%03d"%self.rid
+        if self.ridcrc==self.crcval:
+            st+= " " + "CRC:OK"
+        else:
+            st+= " " + "CRC:no[%04x]"%self.ridcrc
+
+
+        st+=self._pretty_trailer()
+        return st
+
 
 class IridiumSTLMessage(IridiumMessage):
     def __init__(self,imsg):
