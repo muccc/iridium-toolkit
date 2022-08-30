@@ -569,7 +569,13 @@ class ReassembleIDAPP(ReassembleIDA):
                         prehdr+=" "+hdr[18:19].hex(":")
                     prehdr+=" mid=("+hdr[19:21].hex(":")+")"
 
-                    prehdr+=" "+hdr[21:25].hex(":")
+                    doppler=256*hdr[21]+hdr[22]
+                    if doppler>0x7fff:
+                        doppler = 0x10000 - doppler
+                    prehdr+=" ds:%05d0Hz"%doppler
+
+                    delay=256*hdr[23]+hdr[24]
+                    prehdr+=" pd:%05dus"%delay
 
                     ts=hdr[25:]
                     tsi=int(ts.hex(), 16)
@@ -599,7 +605,13 @@ class ReassembleIDAPP(ReassembleIDA):
                         prehdr+=" pos=(%+06.2f/%+07.2f)"%(pos['lat'],pos['lon'])
                         prehdr+=" alt=%03d"%(pos['alt']-6378+23)
 
-                    prehdr+=" "+hdr[21:25].hex(":")
+                    doppler=256*hdr[21]+hdr[22]
+                    if doppler>0x7fff:
+                        doppler = 0x10000 - doppler
+                    prehdr+=" ds:%05d0Hz"%doppler
+
+                    delay=256*hdr[23]+hdr[24]
+                    prehdr+=" pd:%05dus"%delay
 
                     ts=hdr[25:]
                     tsi=int(ts.hex(), 16)
