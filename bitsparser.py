@@ -621,7 +621,9 @@ class IridiumLCWMessage(IridiumMessage):
         elif self.lcw_ft == 1:
             ty="acchl"
             if self.lcw_code == 1:
-                code="acchl"
+                code="acchl" # 1(0), 3(msg_type), 1(block_num), 3(sapi_code), 8(segm_list), 5(unused)
+                code+="[msg_type:%01x,bloc_num:%01x,sapi_code:%01x,segm_list:%08s]"%(int(self.lcw3[1:4],2),int(self.lcw3[4:5],2),int(self.lcw3[5:8],2),self.lcw3[8:16])
+                lcw3bits="%s,%02x"%(self.lcw3[:1],int(self.lcw3[16:],2))
             else:
                 code="rsrvd(%d)"%(self.lcw_code)
         elif self.lcw_ft == 2:
