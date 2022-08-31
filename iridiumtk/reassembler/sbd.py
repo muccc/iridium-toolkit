@@ -243,6 +243,9 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if q.data[0]!=1: # prelim. check for ACARS
             return
 
+        if len(q.data)<=2: # No contents
+            return
+
         def parity7(data):
             ok = True
             for c in data:
