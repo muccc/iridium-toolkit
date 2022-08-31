@@ -646,7 +646,9 @@ class ReassembleIDAPP(ReassembleIDA):
                             prehdr+=" {%02x:%s}"%(0x6c, t2.hex("."))
                 else:
                     prehdr+="[ERR:hdrtype]"
-                    prehdr+=" ["+hdr[1:15].hex(":")
+                    prehdr+=" ["+hdr[1:4].hex(":")
+                    prehdr+=" "+hdr[4:13].hex(":")
+                    prehdr+=" "+hdr[13:15].hex(":")
                     prehdr+=" msgct:%d"%hdr[15]
                     prehdr+=" "+hdr[16:21].hex(":")
 
@@ -771,10 +773,10 @@ class ReassembleIDAPP(ReassembleIDA):
 #  > 0519 Identity response (IMEI)
 # < 0502 Location Updating Accept (MCC/MNC/LAC)
 
-# > 0600 / 20:13:f0:10: 02 imei + momsn + msgcnt + XC + len + bytes + time + (len>0: msg)
-# < 7608 <26:00:00:00:00:xx:xx> 0 messages
-# > 760c <50:xx:xx> ack(xx:xx)
-# < 7605 ?
+# > 0600 / 20:13:f0:10: 02 imei + momsn + msgcnt + XC + len + mid(A) + bytes + time + (len>0: msg)
+# < 7608 <26:00:00:00:00:xx:xx> + misgcnt + backlog + mid(B) + message(optional)
+# > 760c <50:xx:xx> ack(mid(B))
+# < 7605 Access notification (+ack(mid(A))
 
 
 
