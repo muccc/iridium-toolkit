@@ -34,8 +34,10 @@ class ReassembleIRA(Reassemble):
                     q.pages=[]
                 return q
     def process(self,q):
+        q.enrich()
+        strtime=datetime.datetime.fromtimestamp(q.time,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}Z".format(int((q.time%1)*100)))
         for x in q.pages:
-            return ["%03d %02d %6.2f %6.2f %03d : %s %s"%(q.sat,q.beam,q.lat,q.lon,q.alt,x[0],x[1])]
+            return ["%s %03d %02d %6.2f %6.2f %03d : %s %s"%(strtime, q.sat,q.beam,q.lat,q.lon,q.alt,x[0],x[1])]
     def consume(self,q):
         print(q, file=outfile)
 
