@@ -550,11 +550,23 @@ class ReassembleIDAPP(ReassembleIDA):
                     prehdr+=" MOMSN=%02x%02x"%(hdr[13],hdr[14])
                     prehdr+=" msgct:%d"%hdr[15]
 
-                    addlen=hdr[17]
+                    if hdr[4]==0:
+                        addlen=hdr[18]
 
-                    prehdr+=" "+hdr[16:17].hex(":")
-                    prehdr+=" len=%03d"%hdr[17]
-                    prehdr+=" "+hdr[18:19].hex(":")
+                        prehdr+=" "+hdr[16:18].hex(":")
+                        prehdr+=" len=%03d"%hdr[18]
+                    elif hdr[4]==2:
+                        addlen=hdr[17]
+
+                        prehdr+=" "+hdr[16:17].hex(":")
+                        prehdr+=" len=%03d"%hdr[17]
+                        prehdr+=" "+hdr[18:19].hex(":")
+                    else: # Unknown?
+                        addlen=hdr[17]
+
+                        prehdr+=" "+hdr[16:17].hex(":")
+                        prehdr+=" len=%03d"%hdr[17]
+                        prehdr+=" "+hdr[18:19].hex(":")
                     prehdr+=" mid=("+hdr[19:21].hex(":")+")"
 
                     prehdr+=" "+hdr[21:25].hex(":")
