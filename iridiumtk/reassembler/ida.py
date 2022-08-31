@@ -456,8 +456,10 @@ class ReassembleIDAPP(ReassembleIDA):
 
         tmaj="%02x"%(data[0])
         tmin="%02x%02x"%(data[0],data[1])
+
+        typ=tmin
         if tmaj=="83" or tmaj=="89": # Transaction Identifier set (destination side)
-            tmin="%02x%02x"%(data[0]&0x7f,data[1])
+            typ="%02x%02x"%(data[0]&0x7f,data[1])
         data=data[2:]
         majmap={ # 04.07 - Table 11.2
             "03": "CC",       # Call Control
@@ -508,19 +510,18 @@ class ReassembleIDAPP(ReassembleIDA):
         if tmin in ("063a", "083a", "7608", "7609", "760c")  and len(data)==0:
             return
 
-        if tmin in minmap:
-            tstr="["+majmap[tmaj]+": "+minmap[tmin]+"]"
+        if typ in minmap:
+            tstr="["+majmap[tmaj]+": "+minmap[typ]+"]"
         else:
             if tmaj in majmap:
                 tstr="["+majmap[tmaj]+": ?]"
             else:
                 tstr="[?]"
 
-        typ=tmin
 #        print >>outfile, "%15.6f"%(time),
         strtime=datetime.datetime.fromtimestamp(time,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}Z".format(int((time%1)*100)))
         print("%s"%strtime, end=' ', file=outfile)
-        print("%s %s [%s] %-36s"%(freq_print,ul,typ,tstr), end=' ', file=outfile)
+        print("%s %s [%s] %-36s"%(freq_print,ul,tmin,tstr), end=' ', file=outfile)
 
         if typ in ("0600","760c","760d","760e","7608","7609","760a") and len(data)>0: # SBD
             prehdr=""
