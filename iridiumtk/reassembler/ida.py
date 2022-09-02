@@ -508,7 +508,7 @@ class ReassembleIDAPP(ReassembleIDA):
             "0901": "CP-DATA", # 04.11 - Table 8.1
             "0904": "CP-ACK",
             "0910": "CP-ERROR",
-            "0600": "Register/SBD:uplink", # no spec
+            "0600": "Access Request Message", # no spec
             "0605": "(info)",
             "7605": "Access notification",
             "7608": "downlink #1",
@@ -559,7 +559,7 @@ class ReassembleIDAPP(ReassembleIDA):
                 if hdr[0] in (0x20,):
                     prehdr+="(SBD)"
                     prehdr+=" ["+hdr[1:4].hex(":")
-                    prehdr+=" %02x"%hdr[4]
+                    prehdr+=" %02x"%hdr[4] # protocol rev.
                     bcd=["%x"%(x>>s&0xf) for x in hdr[5:13] for s in (0,4)]
                     prehdr+=","+bcd[0]+",imei:"+"".join(bcd[1:])
                     prehdr+=" MOMSN=%02x%02x"%(hdr[13],hdr[14])
@@ -573,9 +573,24 @@ class ReassembleIDAPP(ReassembleIDA):
                     elif hdr[4]==2:
                         addlen=hdr[17]
 
-                        prehdr+=" "+hdr[16:17].hex(":")
+                        sessiontype_ringalertflags = hdr[16]
+                        if sessiontype_ringalertflags == 0x0:
+                            prehdr+= " STD" # STANDARD
+                        elif sessiontype_ringalertflags == 0x0c:
+                            prehdr+= " EXT" # EXTENDED
+                        elif sessiontype_ringalertflags == 0x1c:
+                            prehdr+= " EXA" # EXTENDED_ATTR
+                        elif sessiontype_ringalertflags == 0x3c:
+                            prehdr+= " REG" # REGISTRATION
+                        elif sessiontype_ringalertflags == 0x2c:
+                            prehdr+= " ARG" # AUTO_REGISTRATION
+                        elif sessiontype_ringalertflags == 0x20:
+                            prehdr+= " DET" # DETACH
+                        else:
+                            prehdr+= " ???"
                         prehdr+=" len=%03d"%hdr[17]
-                        prehdr+=" "+hdr[18:19].hex(":")
+                        prehdr+=" "+hdr[18:19].hex(":") # Delivery shortcode (0x80: hold MT delivery, 0x40: leave MT msg after deliv., 0x20: Destination in MO payload)
+
                     else: # Unknown?
                         addlen=hdr[17]
 
@@ -589,7 +604,7 @@ class ReassembleIDAPP(ReassembleIDA):
                         doppler = 0x10000 - doppler
                     prehdr+=" ds:%05d0Hz"%doppler
 
-                    delay=256*hdr[23]+hdr[24]
+                    delay=256*hdr[23]+hdr[24] # propagation delay
                     prehdr+=" pd:%05dus"%delay
 
                     ts=hdr[25:]
@@ -597,19 +612,20 @@ class ReassembleIDAPP(ReassembleIDA):
                     _, strtime=fmt_iritime(tsi)
                     prehdr+=" t:"+strtime
                     prehdr+="]"
-                elif hdr[0] in (0x10,0x40,0x70):
+                elif hdr[0] in (0x10,0x40,0x70): # 0x50 EMERGENCY,  0x30 DETACH
+                    # lower nibble: ISO_POWER_CLASS (from EPROM)
                     if hdr[0] == 0x10:
-                        prehdr+="(REG)"
+                        prehdr+="(REG)" # REQ_TYPE_LOCATION_UPDATE
                     elif hdr[0] == 0x40:
-                        prehdr+="(SMS)"
+                        prehdr+="(SMS)" # UTIL_MOBILE_TERM
                     elif hdr[0] == 0x70:
-                        prehdr+="(CAL)"
+                        prehdr+="(CAL)" # OUTGOING?
                     prehdr+=" ["+hdr[1:4].hex(":")
                     prehdr+=" tmsi:"+ "".join(["%02x"%x for x in hdr[4:8]])
-                    prehdr+=",lac1:%02x%02x"%(hdr[8],hdr[9])
-                    prehdr+=",lac2:%02x%02x"%(hdr[10],hdr[11])
-                    prehdr+=",%02x%02x%02x"%(hdr[12],hdr[13],hdr[14])
-                    prehdr+=" msgct:%d"%hdr[15]
+                    prehdr+=",lac:%02x%02x"%(hdr[8],hdr[9])
+                    prehdr+=",sca:%02x%02x"%(hdr[10],hdr[11]) # service control area
+                    parameter_master_version=int(hdr[12:16].hex(),16) # Always 1
+                    prehdr+=",ver:%d"%parameter_master_version
 
                     pos=xyz(hdr[16:])
                     prehdr+=" xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z'])
@@ -634,16 +650,42 @@ class ReassembleIDAPP(ReassembleIDA):
                     prehdr+=" t:"+strtime
                     prehdr+="]"
 
-                    if len(data)>=21 and data[0] == 0x1c: # fixed length
+                    if len(data)>=21 and data[0] == 0x1c: # fixed length 'gateway location data'
                         t1=data[:21]
                         data=data[21:]
                         prehdr+=" {%02x:%s}"%(0x1c,t1[1:].hex("."))
-                    if len(data)>=2 and data[0] == 0x6c: # looks like TLV
+                    if len(data)>=2 and data[0] == 0x6c: # TLV
+                        # candidates for handoff.
+                        # List of beam_id and some power value as seen by the ISU
+                        prehdr+=" CAND-POWER:"
                         t2l=data[1]
                         if len(data)>=2+t2l:
                             t2=data[2:2+t2l]
+
+                            t2v=[int(t2[x:x+2].hex(),16) for x in range(0,len(t2),2)]
+
+                            svloc_enum=[
+                                "SAME",
+                                "IN_FORE",
+                                "IN_AFT",
+                                "CROSS_RIGHT_CO_FORE",
+                                "CROSS_LEFT_CO_FORE",
+                                "CROSS_RIGHT_CO_AFT",
+                                "CROSS_LEFT_CO_AFT",
+                                "CROSS_RIGHT_COUNTER_FORE",
+                                "CROSS_LEFT_COUNTER_FORE",
+                                "CROSS_RIGHT_COUNTER_AFT",
+                                "CROSS_LEFT_COUNTER_AFT"
+                            ]
+
+                            for x in t2v:
+                                power= x & 0x3f
+                                beam = (x >> 6)& 0x3f
+                                svloc = x >>12
+                                prehdr+=" %s(%02d)=%02d"%(svloc_enum[svloc], beam, power)
+#                            prehdr+=" {%02x:%s}"%(0x6c, t2.hex("."))
+
                             data=data[2+t2l:]
-                            prehdr+=" {%02x:%s}"%(0x6c, t2.hex("."))
                 else:
                     prehdr+="[ERR:hdrtype]"
                     prehdr+=" ["+hdr[1:4].hex(":")
