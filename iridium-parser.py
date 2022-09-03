@@ -52,7 +52,7 @@ parser.add_argument("-s", "--satclass",    action="store_true", dest='dosatclass
                     help="enable sat classification")
 parser.add_argument("--plot", type=parse_comma, dest='plotargs', default='time,frequency', metavar='ARGS'
                     )
-parser.add_argument("-o", "--output", default='line', metavar='MODE', choices=['json', 'sigmf', 'zmq', 'line', 'plot', 'err', 'sat'],
+parser.add_argument("-o", "--output", metavar='MODE', choices=['json', 'sigmf', 'zmq', 'line', 'plot', 'err', 'sat', 'file'],
                     help="output mode")
 parser.add_argument("--errorfile", metavar='FILE',
                     help="divert unparsable lines to separate file")
@@ -80,9 +80,22 @@ if args.perfect and (args.harder or args.uwec):
 # push options into bitsparser
 bitsparser.set_opts(args)
 
+# forced settings
 if args.sigmffile:
     args.output="sigmf"
 
+# try to be "intelligent" about defaults
+if args.output is None:
+    if len(args.remainder) == 0:
+        args.output = 'line'
+    elif sys.stdout.isatty():
+        args.output = 'file'
+    elif sys.stderr.isatty():
+        args.output = 'line'
+    else:
+        args.output = 'file'
+
+# optional dependencies
 if args.output == "json":
     import json
 
@@ -228,7 +241,13 @@ def stats_thread(stats):
 selected=[]
 
 def openhook(filename, mode):
-    ext = os.path.splitext(filename)[1]
+    base, ext = os.path.splitext(os.path.basename(filename))
+
+    if base.endswith('.bits'):
+        base = os.path.splitext(base)[0]
+    if args.output == 'file':
+        sys.stdout = open(f'{base}.parsed', 'wt')
+
     if ext == '.gz':
         import gzip
         return gzip.open(filename, 'rt')
@@ -307,7 +326,7 @@ def perline(q):
             selected.append(q)
     elif args.output == "plot":
         selected.append(q)
-    elif args.output == "line":
+    elif args.output == "line" or args.output == "file":
         if q.error:
             print(q.pretty()+" ERR:"+", ".join(q.error_msg))
         else:
