@@ -33,6 +33,8 @@ class mybytes(bytes):
             return mybytes(super().__getitem__(key))
         else:
             return super().__getitem__(key)
+    def __add__(self, key):
+        return mybytes(super().__add__(key))
 
 class mybytearray(bytearray):
     def hex(self, sep=''):
