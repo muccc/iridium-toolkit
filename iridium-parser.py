@@ -96,8 +96,8 @@ if args.output == "zmq":
 
 if args.do_stats:
     import curses
-    curses.setupterm(fd=sys.stderr.fileno())
     statsfile=sys.stderr
+    curses.setupterm(fd=statsfile.fileno())
     el=curses.tigetstr('el')
     cr=curses.tigetstr('cr') or b'\r'
     nl=curses.tigetstr('nl') or b'\n'
@@ -195,7 +195,9 @@ def stats_thread(stats):
     stime=stats['start']
     stop=stats['stop']
 
-    while not stop.wait(timeout=1.0):
+    once=True
+    while once or not stop.wait(timeout=1.0):
+        once=False
         now=time.time()
         nowl=stats['in']
         td=now-stime
