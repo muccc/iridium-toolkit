@@ -208,7 +208,10 @@ def stats_thread(stats):
         if 'files' in stats and stats['files']>1:
             progress+="%d/%d:"%(stats['fileno'],stats['files'])
         if 'size' in stats and stats['size']>0:
-            pos=os.lseek(fileinput.fileno(),0,os.SEEK_CUR)
+            try:
+                pos=os.lseek(fileinput.fileno(),0,os.SEEK_CUR)
+            except OSError:
+                pos=0
             progress+="%4.1f%%"%(100*pos/stats['size'])
             eta=stats['size']/(pos/td) - td
             te="%02d:%02d"%(eta/60%60,eta%60)
