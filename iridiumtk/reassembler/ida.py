@@ -209,10 +209,10 @@ def p_disc(disc):
         str+=" Cause: %d"%cause
 
     if len(disc)>2:
-        str+= " ERR:ADD_"+ disc[2:].hex(":")
-#        if (disc[0]>>7)==1 and disc[0]==3 and disc[3]==0x88:
-#            str+=" CCBS not poss."
-#            return (str,disc[4:])
+        if (disc[0]>>7)==1 and len(disc)==3 and disc[2]==0x88: # Diagnostic
+            str+=" (CCBS not poss.)" # ref. Wireshark
+        else:
+            str+= " ERR:ADD_"+ disc[2:].hex(":")
 
     return str
 
