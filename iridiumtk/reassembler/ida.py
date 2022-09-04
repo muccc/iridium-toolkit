@@ -962,9 +962,9 @@ class ReassembleIDALAP(ReassembleIDA):
         #        uint8_t res;            /* reserved for future use (RFU) */       0 ?
         #} +attribute+((packed));
         if ul:
-            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x4000+fchan,olvl,0,freq,1,0,0,0)+lapdm
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x4000+fchan,olvl,0,int(freq),1,0,0,0)+lapdm
         else:
-            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x0000+fchan,olvl,0,freq,1,0,0,0)+lapdm
+            gsm=struct.pack("!BBBBHbBLBBBB",2,4,2,0,0x0000+fchan,olvl,0,int(freq),1,0,0,0)+lapdm
 
         return gsm
 
