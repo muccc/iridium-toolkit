@@ -6,11 +6,13 @@ import datetime
 import re
 import struct
 import socket
+import crcmod
 from util import fmt_iritime, to_ascii, xyz, channelize, channelize_str
 
 from .base import *
 from ..config import config, outfile
 
+_starttime=None
 class ReassembleIDA(Reassemble):
     def __init__(self):
         self.topic="IDA"
@@ -38,6 +40,8 @@ class ReassembleIDA(Reassemble):
         q.data=   m.group(5)
         q.cont=(q.f1=='1')
         q.enrich()
+        global _starttime
+        if _starttime is None: _starttime=int(q.starttime)
 #       print "%s %s ctr:%02d %s"%(q.time,q.frequency,q.ctr,q.data)
         return q
 
@@ -519,8 +523,11 @@ class ReassembleIDAPP(ReassembleIDA):
                 tstr="[?]"
 
 #        print >>outfile, "%15.6f"%(time),
-        strtime=datetime.datetime.fromtimestamp(time,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}Z".format(int((time%1)*100)))
-        print("%s"%strtime, end=' ', file=outfile)
+        if 'alt' in config.args:
+            print("     p-%d      %014.4f"%(_starttime, 1000*(time-_starttime)), end=' ', file=outfile)
+        else:
+            strtime=datetime.datetime.fromtimestamp(time,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}Z".format(int((time%1)*100)))
+            print("%s"%strtime, end=' ', file=outfile)
         print("%s %s [%s] %-36s"%(freq_print,ul,tmin,tstr), end=' ', file=outfile)
 
         if typ in ("0600","760c","760d","760e","7608","7609","760a") and len(data)>0: # SBD
@@ -987,7 +994,7 @@ class ReassembleIDALAPPCAP(ReassembleIDALAP):
 
 modes=[
 ["ida",        ReassembleIDA,  ],
-["idapp",      ReassembleIDAPP,  ],
+["idapp",      ReassembleIDAPP,  ('alt') ],
 ["gsmtap",     ReassembleIDALAP,  ],
 ["lap",        ReassembleIDALAPPCAP,  ('all') ],
 ]
