@@ -188,4 +188,4 @@ def parse_channel(fstr):
             frequency=base_freq+channel_width*int(chan)+int(off)+channel_width/2
     else:
         frequency=int(fstr)
-    return frequency
+    return int(frequency)
