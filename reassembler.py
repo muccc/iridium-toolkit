@@ -135,5 +135,7 @@ else:
 
 try:
     zx.run(config.iobj)
+except BrokenPipeError as e:
+    raise SystemExit(e)
 except KeyboardInterrupt:
     print("")
