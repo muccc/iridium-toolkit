@@ -564,6 +564,8 @@ class ReassembleIDAPP(ReassembleIDA):
                 elif sc == "07F010":
                     sc="TSC   "
 
+                doppler, delay=struct.unpack(">hH",hdr[21:25]) # doppler shift/10Hz, propagation delay/us
+
                 if hdr[0] in (0x20,):
                     prehdr+="(SBD)"
 
@@ -629,15 +631,7 @@ class ReassembleIDAPP(ReassembleIDA):
 
                     prehdr+="[%04x]"%pktcrc
 
-                    prehdr+="%18s"%""
-
-                    doppler=256*hdr[21]+hdr[22]
-                    if doppler>0x7fff:
-                        doppler = 0x10000 - doppler
-                    prehdr+=" ds:%05d0Hz"%doppler
-
-                    delay=256*hdr[23]+hdr[24] # propagation delay
-                    prehdr+=" pd:%05dus"%delay
+                    prehdr+=f" ds:{doppler:+05}0Hz pd:{delay:05}us"
 
                     ts=hdr[25:]
                     tsi=int(ts.hex(), 16)
@@ -656,22 +650,18 @@ class ReassembleIDAPP(ReassembleIDA):
 
                     prehdr+=" "+sc
                     prehdr+=" tmsi:"+ "".join(["%02x"%x for x in hdr[4:8]])
-                    prehdr+=",lac:%02x%02x"%(hdr[8],hdr[9])
-                    prehdr+=",sca:%02x%02x"%(hdr[10],hdr[11]) # service control area
+                    prehdr+=" lac:%02x%02x"%(hdr[8],hdr[9])
+                    prehdr+=" sca:%02x%02x"%(hdr[10],hdr[11]) # service control area
                     parameter_master_version=int(hdr[12:16].hex(),16) # Always 1
-                    prehdr+=",ver:%d"%parameter_master_version
+                    prehdr+=" v:%d"%parameter_master_version
 
                     pos=xyz(hdr[16:])
                     prehdr+=" xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z'])
                     prehdr+=",%x"%(hdr[20]&0xf)
 
-                    doppler=256*hdr[21]+hdr[22]
-                    if doppler>0x7fff:
-                        doppler = 0x10000 - doppler
-                    prehdr+=" ds:%05d0Hz"%doppler
+                    prehdr+="%13s"%"" # padding to sync up with SBD variant
 
-                    delay=256*hdr[23]+hdr[24]
-                    prehdr+=" pd:%05dus"%delay
+                    prehdr+=f" ds:{doppler:+05}0Hz pd:{delay:05}us"
 
                     ts=hdr[25:]
                     tsi=int(ts.hex(), 16)
@@ -687,33 +677,34 @@ class ReassembleIDAPP(ReassembleIDA):
                         # List of beam_id and some power value as seen by the ISU
                         prehdr+=" CAND-POWER:"
                         t2l=data[1]
-                        if len(data)>=2+t2l:
-                            t2=data[2:2+t2l]
-
-                            t2v=[int(t2[x:x+2].hex(),16) for x in range(0,len(t2),2)]
+                        if len(data)>=2+t2l and t2l%2==0:
+                            t2v=struct.unpack(f">{t2l//2}H",data[2:2+t2l])
 
                             svloc_enum=[
                                 "SAME",
-                                "IN_FORE",
+                                "IN_FORE", # same plane
                                 "IN_AFT",
-                                "CROSS_RIGHT_CO_FORE",
+                                "CROSS_RIGHT_CO_FORE", # CO-rotating plane
                                 "CROSS_LEFT_CO_FORE",
                                 "CROSS_RIGHT_CO_AFT",
                                 "CROSS_LEFT_CO_AFT",
-                                "CROSS_RIGHT_COUNTER_FORE",
+                                "CROSS_RIGHT_COUNTER_FORE", # COUNTER-rotating plane
                                 "CROSS_LEFT_COUNTER_FORE",
                                 "CROSS_RIGHT_COUNTER_AFT",
-                                "CROSS_LEFT_COUNTER_AFT"
+                                "CROSS_LEFT_COUNTER_AFT",
+                                "?" # should not happen
                             ]
 
                             for x in t2v:
                                 power= x & 0x3f
                                 beam = (x >> 6)& 0x3f
                                 svloc = x >>12
+                                if svloc>10: svloc=11
                                 prehdr+=" %s(%02d)=%02d"%(svloc_enum[svloc], beam, power)
-#                            prehdr+=" {%02x:%s}"%(0x6c, t2.hex("."))
 
                             data=data[2+t2l:]
+                        else:
+                            prehdr+="[ERR:invalid_len]"
                 else:
                     prehdr+="[ERR:hdrtype]"
                     prehdr+=" "+hdr[1:4].hex(":")
