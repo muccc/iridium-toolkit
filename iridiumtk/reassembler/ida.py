@@ -511,7 +511,7 @@ class ReassembleIDAPP(ReassembleIDA):
             "0904": "CP-ACK",
             "0910": "CP-ERROR",
             "0600": "Access Request Message", # no spec
-            "0605": "(info)",
+            "0605": "Access notification",
             "7605": "Access notification",
             "7608": "downlink #1",
             "7609": "downlink #2",
@@ -558,21 +558,39 @@ class ReassembleIDAPP(ReassembleIDA):
                 data=data[29:]
                 prehdr="%02x"%hdr[0]
 
+                sc=hdr[1:4].hex() # service center
+                if sc == "13f010":
+                    sc="ISC   "
+                elif sc == "07F010":
+                    sc="TSC   "
+
                 if hdr[0] in (0x20,):
                     prehdr+="(SBD)"
-                    prehdr+=" ["+hdr[1:4].hex(":")
-                    prehdr+=" %02x"%hdr[4] # protocol rev.
+
+                    prehdr+=" "+sc
+
+                    prot_rev=hdr[4]
+                    prehdr+=" v:%02x"%prot_rev
+
                     bcd=["%x"%(x>>s&0xf) for x in hdr[5:13] for s in (0,4)]
-                    prehdr+=","+bcd[0]+",imei:"+"".join(bcd[1:])
+                    prehdr+=" "+bcd[0]+",imei:"+"".join(bcd[1:])
                     prehdr+=" MOMSN=%02x%02x"%(hdr[13],hdr[14])
                     prehdr+=" msgct:%d"%hdr[15]
 
-                    if hdr[4]==0:
+                    if prot_rev==0: # Old
                         addlen=hdr[18]
 
                         prehdr+=" "+hdr[16:18].hex(":")
-                        prehdr+=" len=%03d"%hdr[18]
-                    elif hdr[4]==2:
+                        prehdr+=" "
+                        prehdr+=" len=%03d"%addlen
+                    elif prot_rev==1: # Old
+                        addlen=hdr[17]
+
+                        prehdr+=" "+hdr[16:17].hex(":")
+                        prehdr+=" "
+                        prehdr+=" len=%03d"%addlen
+                        prehdr+=" "+hdr[18:19].hex(":")
+                    elif prot_rev==2: # Current
                         addlen=hdr[17]
 
                         sessiontype_ringalertflags = hdr[16]
@@ -590,14 +608,14 @@ class ReassembleIDAPP(ReassembleIDA):
                             prehdr+= " DET" # DETACH
                         else:
                             prehdr+= " ???"
-                        prehdr+=" len=%03d"%hdr[17]
+                        prehdr+=" len=%03d"%addlen
                         prehdr+=" "+hdr[18:19].hex(":") # Delivery shortcode (0x80: hold MT delivery, 0x40: leave MT msg after deliv., 0x20: Destination in MO payload)
 
-                    else: # Unknown?
+                    else: # Future/Unknown?
                         addlen=hdr[17]
 
                         prehdr+=" "+hdr[16:17].hex(":")
-                        prehdr+=" len=%03d"%hdr[17]
+                        prehdr+=" len=%03d"%addlen
                         prehdr+=" "+hdr[18:19].hex(":")
 
                     # crc(payload + 5:imei + MOMSN + timestamp )
@@ -625,7 +643,8 @@ class ReassembleIDAPP(ReassembleIDA):
                     tsi=int(ts.hex(), 16)
                     _, strtime=fmt_iritime(tsi)
                     prehdr+=" t:"+strtime
-                    prehdr+="]"
+                    if addlen>0:
+                        prehdr+=" -"
                 elif hdr[0] in (0x10,0x40,0x70): # 0x50 EMERGENCY,  0x30 DETACH
                     # lower nibble: ISO_POWER_CLASS (from EPROM)
                     if hdr[0] == 0x10:
@@ -634,7 +653,8 @@ class ReassembleIDAPP(ReassembleIDA):
                         prehdr+="(SMS)" # UTIL_MOBILE_TERM
                     elif hdr[0] == 0x70:
                         prehdr+="(CAL)" # OUTGOING?
-                    prehdr+=" ["+hdr[1:4].hex(":")
+
+                    prehdr+=" "+sc
                     prehdr+=" tmsi:"+ "".join(["%02x"%x for x in hdr[4:8]])
                     prehdr+=",lac:%02x%02x"%(hdr[8],hdr[9])
                     prehdr+=",sca:%02x%02x"%(hdr[10],hdr[11]) # service control area
@@ -644,11 +664,6 @@ class ReassembleIDAPP(ReassembleIDA):
                     pos=xyz(hdr[16:])
                     prehdr+=" xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z'])
                     prehdr+=",%x"%(hdr[20]&0xf)
-                    if pos['x'] == -1 and pos['y'] == -1 and pos['z'] == -1:
-                        pass
-                    else:
-                        prehdr+=" pos=(%+06.2f/%+07.2f)"%(pos['lat'],pos['lon'])
-                        prehdr+=" alt=%03d"%(pos['alt']-6378+23)
 
                     doppler=256*hdr[21]+hdr[22]
                     if doppler>0x7fff:
@@ -662,7 +677,6 @@ class ReassembleIDAPP(ReassembleIDA):
                     tsi=int(ts.hex(), 16)
                     _, strtime=fmt_iritime(tsi)
                     prehdr+=" t:"+strtime
-                    prehdr+="]"
 
                     if len(data)>=21 and data[0] == 0x1c: # fixed length 'gateway location data'
                         t1=data[:21]
@@ -702,7 +716,7 @@ class ReassembleIDAPP(ReassembleIDA):
                             data=data[2+t2l:]
                 else:
                     prehdr+="[ERR:hdrtype]"
-                    prehdr+=" ["+hdr[1:4].hex(":")
+                    prehdr+=" "+hdr[1:4].hex(":")
                     prehdr+=" "+hdr[4:13].hex(":")
                     prehdr+=" "+hdr[13:15].hex(":")
                     prehdr+=" msgct:%d"%hdr[15]
@@ -710,7 +724,6 @@ class ReassembleIDAPP(ReassembleIDA):
 
                     prehdr+=" "+hdr[21:25].hex(":")
                     prehdr+=" "+hdr[25:].hex(":")
-                    prehdr+="]"
 
             elif ul=='UL' and typ in ("760c","760d","760e"):
                 if data[0]==0x50:
@@ -784,8 +797,6 @@ class ReassembleIDAPP(ReassembleIDA):
             if len(data)> 4 and data[0]&0xf0 == 0x40:
                 pos=xyz(data, 4)
                 print("xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z']), end=" ", file=outfile)
-                print("pos=(%+06.2f/%+07.2f)"%(pos['lat'],pos['lon']), end=" ", file=outfile)
-                print("alt=%03d"%(pos['alt']-6378+23), end=" ", file=outfile)
                 data=data[5:]
 
             if len(data)> 2 and data[0]&0xf0 == 0x50:
@@ -817,8 +828,6 @@ class ReassembleIDAPP(ReassembleIDA):
 
                         pos=xyz(data[14:])
                         print("xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z']), end=" ", file=outfile)
-                        print("pos=(%+06.2f/%+07.2f)"%(pos['lat'],pos['lon']), end=" ", file=outfile)
-                        print("alt=%03d"%(pos['alt']-6378+23), end=" ", file=outfile)
 
                         print("[%d]"%(data[14+4]&0xf), end=" ", file=outfile)
                         data=data[14+5:]
