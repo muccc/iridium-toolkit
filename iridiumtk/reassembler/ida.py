@@ -452,6 +452,8 @@ def p_tv(iei, data):
         else:
             return "ERR:UK_TV:%02x:[%s]"%(iei, data.hex(":"))
 
+sbd_crc=crcmod.mkCrcFun(poly=0x11021,initCrc=0,rev=True,xorOut=0xffff)
+
 # Ad-Hoc parsing of the reassembled LAPDm-like frames
 class ReassembleIDAPP(ReassembleIDA):
     def consume(self,q):
@@ -597,7 +599,19 @@ class ReassembleIDAPP(ReassembleIDA):
                         prehdr+=" "+hdr[16:17].hex(":")
                         prehdr+=" len=%03d"%hdr[17]
                         prehdr+=" "+hdr[18:19].hex(":")
-                    prehdr+=" mid=("+hdr[19:21].hex(":")+")"
+
+                    # crc(payload + 5:imei + MOMSN + timestamp )
+                    crcval=sbd_crc( data + hdr[5:13] + hdr[13:15] + hdr[25:29] )
+                    pktcrc=struct.unpack("<H",hdr[19:21])[0]
+
+                    if crcval==pktcrc:
+                        prehdr+=" crc:OK"
+                    else:
+                        prehdr+=" crc:no"
+
+                    prehdr+="[%04x]"%pktcrc
+
+                    prehdr+="%18s"%""
 
                     doppler=256*hdr[21]+hdr[22]
                     if doppler>0x7fff:
@@ -704,7 +718,9 @@ class ReassembleIDAPP(ReassembleIDA):
                     hdr=data[:3]
                     data=data[3:]
 
-                    prehdr="[%02x mid=(%s)]"%(hdr[0],hdr[1:].hex(":"))
+                    pktcrc=struct.unpack("<H",hdr[1:3])[0]
+
+                    prehdr="[%02x crc:%04x]"%(hdr[0],pktcrc)
 
             elif ul=='DL' and typ in ("7608","7609","760a"):
                 if typ=="7608":
@@ -750,7 +766,7 @@ class ReassembleIDAPP(ReassembleIDA):
 
         elif typ=="7605": # Access decision notification
             # 00 43 b3 0e 44 e9 50 7f c0
-            #   ||COORD        |  |MID
+            #   ||COORD        |  |CRC
             if len(data)>0:
                 if data[0]&0xf0 == 0:
                     print("R:ok   ", end=" ", file=outfile)
@@ -773,7 +789,9 @@ class ReassembleIDAPP(ReassembleIDA):
                 data=data[5:]
 
             if len(data)> 2 and data[0]&0xf0 == 0x50:
-                print("[%02x mid=(%s)]"%(data[0],data[1:3].hex(":")), end=" ", file=outfile)
+                pktcrc=struct.unpack("<H",data[1:3])[0]
+
+                print("[%02x crc:%04x]"%(data[0],pktcrc), end=" ", file=outfile)
                 data=data[3:]
 
         elif typ=="0605": # ?
