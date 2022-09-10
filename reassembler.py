@@ -90,13 +90,13 @@ for s, v in plugins.items():
     for mode in v.modes:
         modes[mode[0]]=[v]+mode[1:]
 
-if config.debug:
+if config.debug or config.mode == 'help':
     cwd = os.getcwd()+'/'
     for mode, info in sorted(modes.items()):
         path=info[0].__spec__.origin
         if path.startswith(cwd):
             path=path[len(cwd):]
-        print("Mode %-10s class %-22s from %-37s"%(mode, info[1].__name__, path), end='')
+        print("Mode %-10s class %-22s source %-37s"%(mode, info[1].__name__, path), end='')
         if len(info)>2:
             print(" - Options: ",info[2])
         else:
