@@ -411,7 +411,8 @@ class IridiumMessage(Message):
 
             if e<0:
                 self.header="%s/E%d"%(self.header,e)
-                self._new_error("IBC header error")
+                if not args.forcetype:
+                    self._new_error("IBC header error")
             else:
                 self.header=""
 
@@ -713,7 +714,10 @@ class IridiumAQMessage(IridiumMessage):
 class IridiumSTLMessage(IridiumMessage):
     def __init__(self,imsg):
         self.__dict__=imsg.__dict__
-        self.header="<11>"
+        if not args.forcetype:
+            self.header="<11>"
+        else:
+            self.header="<"+self.header+">"
         self.fixederrs=0
         if len(self.descrambled) < 8*8*12: # 12 blocks of 8 bytes
             raise ParserError("ITL content too short")
