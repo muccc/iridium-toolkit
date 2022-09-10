@@ -7,18 +7,21 @@ import datetime
 from .base import *
 from ..config import config, outfile, state
 
+ft=['IBC', 'IDA', 'IIP', 'IIQ', 'IIR', 'IIU', 'IMS', 'IRA', 'IRI', 'ISY', 'ITL', 'IU3', 'I36', 'I38', 'MSG', 'VDA', 'VO6', 'VOC', 'VOD', 'MS3', 'VOZ', 'IAQ']
+
 class StatsPKT(Reassemble):
     stats={}
 
     def __init__(self):
         for k in ['UL', 'DL', 'perfect']:
             self.stats[k]={}
-            for x in ['IBC', 'IDA', 'IIP', 'IIQ', 'IIR', 'IIU', 'IMS', 'IRA', 'IRI', 'ISY', 'ITL', 'IU3', 'I36', 'I38', 'MSG', 'VDA', 'VO6', 'VOC', 'VOD', 'MS3', 'VOZ']:
+            for x in ft:
                 self.stats[k][x]=0
         del self.stats['UL']['ITL']
         del self.stats['UL']['IMS']
         del self.stats['UL']['MSG']
         del self.stats['UL']['MS3']
+        del self.stats['DL']['IAQ']
         pass
 
     def filter(self,line):
@@ -33,7 +36,7 @@ class StatsPKT(Reassemble):
     def process(self,q):
         typ=q.typ[0:3]
         self.stats[q.uldl][typ]+=1
-        if q.name.endswith("-e000"):
+        if q.uldl == 'DL' and q.name.endswith("-e000"):
             self.stats["perfect"][typ]+=1
         return None
 
@@ -42,18 +45,18 @@ class StatsPKT(Reassemble):
         perfect=0
         uplink=0
         downlink=0
-        for t in self.stats["DL"]:
-            tsum=self.stats["DL"][t]
+        for t in ft:
+            if t in self.stats["DL"]:
+                print("%7d good.%s"%(self.stats["DL"][t],t))
+                downlink+=self.stats["DL"][t]
+                total+=self.stats["DL"][t]
+                print("%7d perfect.%s"%(self.stats["perfect"][t],t))
+                perfect+=self.stats["perfect"][t]
             if t in self.stats["UL"]:
-                tsum+=self.stats["UL"][t]
-            total+=tsum
-            print("%7d good.%s"%(tsum,t))
-            perfect+=self.stats["perfect"][t]
-            print("%7d perfect.%s"%(self.stats["perfect"][t],t))
-            if t in self.stats["UL"]:
-                uplink+=self.stats["UL"][t]
                 print("%7d uplink.%s"%(self.stats["UL"][t],t))
-            downlink+=self.stats["DL"][t]
+                uplink+=self.stats["UL"][t]
+                total+=self.stats["UL"][t]
+
         print("%7d total.parsed"%(total))
         print("%7d total.perfect"%(perfect))
         print("%7d total.downlink"%(downlink))
