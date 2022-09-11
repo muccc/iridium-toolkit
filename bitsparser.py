@@ -7,6 +7,7 @@ import re
 import struct
 import fileinput
 import datetime
+import itertools
 from math import sqrt,atan2,pi,log
 
 import crcmod
@@ -304,6 +305,22 @@ class IridiumMessage(Message):
             if len(data)>=2*26 and len(data)<2*50:
                 self.msgtype="AQ"
 
+        if "msgtype" not in self.__dict__: # and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
+            if len(data)==432*2:
+                symbols=de_dqpsk(data)
+                (i_list,q_list)=split_qpsk(symbols)
+                l1=i_list[0::2] # a<0.111101 ....1011 ...11001 1...0001 1
+                l1_id=l1[2:8]+","+l1[12:16]+","+l1[19:25]+","+l1[28:33]
+                l3=q_list[0::2]
+                l3_id=l3[0:3]+","+l3[8:10]+","+l3[24:25]+l3[30:31]
+#                print("l1:",l1_id, "l3:", l3_id)
+                if l1_id=="111101,1011,110011,00011": # and id_part=="1111":
+                    self.msgtype="NP"
+                    if l1.startswith("0011110110001011011110011010000111100011011100101111100100011000100100011101011001010011"):
+                        self.header="V1"
+                    else:
+                        self.header="V0"
+
         if "msgtype" not in self.__dict__:
             if args.harder:
                 # try IBC
@@ -392,6 +409,10 @@ class IridiumMessage(Message):
             self.header=data[:hdrlen]
             self.descrambled=data[hdrlen:hdrlen+(256*3)]
             self.descramble_extra=data[hdrlen+(256*3):]
+        elif self.msgtype=="NP":
+#            self.header=""
+            self.descrambled=data[:432*2]
+            self.descramble_extra=data[(432*2):]
         elif self.msgtype=="RA":
             firstlen=3*32
             if len(data)<firstlen:
@@ -453,6 +474,8 @@ class IridiumMessage(Message):
                 return IridiumLCWMessage(self).upgrade()
             elif self.msgtype=="TL":
                 return IridiumSTLMessage(self).upgrade()
+            elif self.msgtype=="NP":
+                return IridiumNPMessage(self).upgrade()
             elif self.msgtype=="AQ":
                 return IridiumAQMessage(self).upgrade()
             elif self.msgtype in ("MS", "RA", "BC"):
@@ -719,6 +742,156 @@ class IridiumAQMessage(IridiumMessage):
         st+=self._pretty_trailer()
         return st
 
+
+np_crc16=crcmod.mkCrcFun(poly=0b10111010101011011,initCrc=0,rev=False,xorOut=0)
+
+class IridiumNPMessage(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=imsg.__dict__
+
+        symbols=de_dqpsk(self.descrambled)
+        bits=sym2bits(symbols)
+
+        # Re-sort bits
+        trailer=bits[800::2]+bits[801::2]
+        bits=bits[:800]
+
+        s1s=slice(bits[0::4],40)
+        s2s=slice(bits[1::4],40)
+        s3s=slice(bits[2::4],40)
+        s4s=slice(bits[3::4],40)
+
+        blocks=list(itertools.chain.from_iterable(zip(s1s,s2s,s3s,s4s)))
+
+        blocks+=[trailer[:40]]
+        trailer=trailer[40:]
+
+        checks=[magic_checksum(b)[0] for b in blocks]
+
+        ### magic debug
+        ok=""
+        for b in blocks:
+            good, r = magic_checksum(b)
+#            print(b[32:],"%02x"%(r))
+            if good and b[32:]=="00000000":
+                ok+="o"
+            elif good:
+                ok+="O"
+            else:
+                ok+="n"
+        self.magic=ok
+        ### end magic
+
+        if not all(checks[:3]): # "INP"
+            raise ParserError("INP header not valid")
+
+        hdr=[b[:32] for b in blocks[:3]]
+        blocks=blocks[3:]
+        checks=checks[3:]
+
+        # Begin pkts
+        self.type=0
+        self.hdr=hdr
+        self.trailer=trailer
+        self.blocks=blocks
+        self.checks=checks
+
+        # Pkt v1
+        self.cs_v1=trailer[-16:]
+        self.v1trail=trailer[:-16]
+
+        self.the_crc_v1=np_crc16(bytes( [int(x,2) for x in slice(
+                    hdr[-1][-8:]+
+                    "".join(blocks)+
+                    trailer
+                ,8)]))
+
+        if self.the_crc_v1==0:
+            self.type=1
+
+        # Pkt v2
+        csblocks=[b[:32] for b in blocks]
+        self.csblocks=csblocks
+
+        self.cs_v2=self.trailer[-24:-8]
+        self.v2trail=self.trailer[-8:]
+
+        self.the_crc_v2=np_crc16(bytes([int(x,2) for x in slice(
+                            hdr[-1][-8:]+
+                            "".join(csblocks)+
+                            trailer[-24:-8]
+                        ,8)]))
+
+        if self.the_crc_v2==0:
+            self.type=2
+
+        self.header+=":%05d"%(int(s2s[0][10:24],2))
+        return
+
+    def upgrade(self):
+        return self
+
+    def pretty(self):
+        st= "INP: "+self._pretty_header()
+
+        st+= " T:%d"%self.type
+
+        st+= " h<"
+        for x in self.hdr:
+            st+= "".join(slice(x,8))
+            st+= " "
+        st=st[:-1]
+        st+="> "
+
+        if self.type==1:
+            st+= " d<"
+            for x in self.blocks:
+                st+= "".join(slice(x,8))
+                st+= " "
+            st=st[:-1]
+            st+=">"
+
+            st+= " t<"+" ".join(slice(self.v1trail,8))+">"
+            st+= " CRC=%04x"%int(self.cs_v1,2)
+            if self.the_crc_v1==0:
+                st+="[OK]"
+            else:
+                st+="[no]"
+        elif self.type==2:
+            st+= " d<"
+            for x in self.csblocks:
+                st+= "".join(slice(x,8))
+                st+= " "
+            st=st[:-1]
+            st+=">"
+
+            st+= " CRC=%04x"%int(self.cs_v2,2)
+            if self.the_crc_v2==0:
+                st+="[OK]"
+            else:
+                st+="[no]"
+
+            st+= " t<"+" ".join(slice(self.v2trail,8))+">"
+            if all(self.checks):
+                st+=" MAGIC"
+            else:
+                st+=" nomag"
+        else:
+            st+= " d<"
+            for x in self.blocks:
+                st+= "".join(slice(x,8))
+                st+= " "
+            st=st[:-1]
+            st+=">"
+
+            st+= " t<"+" ".join(slice(self.trailer,8))+">"
+
+        st+= " v1=%04x"%(self.the_crc_v1)
+        st+= " v2=%04x"%(self.the_crc_v2)
+        st+= " magic=%s"%(self.magic)
+
+        st+=self._pretty_trailer()
+        return st
 
 class IridiumSTLMessage(IridiumMessage):
     def __init__(self,imsg):
@@ -1941,6 +2114,40 @@ def de_dqpsk(bits):
         symbols[c]=(symbols[c-1]+symbols[c])%4
 
     return symbols
+
+def sym2bits(symbols):
+    bits=""
+    omap=["00","10","11","01"]
+    omap=["11","01","00","10"] # XXX: Negate everything.
+    bits="".join([omap[sym] for sym in symbols])
+    return bits
+
+# calculate "Magic" checksum
+#
+# Input is 40 bits. 32 bits "data" and 8 bits "checksum"
+#
+# No idea how it is inteded to work, but it is almost
+# completely linear from input bits, so we can check it that
+# way, even if it is a bit convoluted.
+#
+# Checksum uses only lower 7 bits.
+# Additionally bits 4&5 are correlated, but depend on
+# something yet unknown.
+#
+def magic_checksum(bits):
+    cv=int(bits[32:],2)
+    bits=bits[:32]
+
+    magic=[79, 7, 67, 107, 11, 107, 11, 35, 4, 44, 76, 44, 76, 100, 104, 32, 14, 70, 2, 42, 74, 42, 74, 98, 69, 109, 13, 109, 13, 37, 41, 97, 24]
+    check=0
+    for i, bit in enumerate(bits):
+        if bit=="1":
+            check^=magic[i]
+
+    # bit 4 & 5 are correlated
+    if (check^cv) == 0 or (check^cv) == 0b11000:
+        return True, check^cv
+    return False, check^cv
 
 def split_qpsk(symbols):
     i_list=""
