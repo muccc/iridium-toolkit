@@ -339,13 +339,14 @@ def p_facility(data):
 
 # Minimalistic TV & TLV parser
 # 04.07     11.2.1.1.4
-# type1: TV(0.5)
-# type2: T(0)
-# type3: TV(1)
-# type4: TLV
-# start: Tag-less elements at the beginning
-def p_opt_tlv(data, type4, type1=[], type3=[], type2=[], start=[]):
+# type1: TV(0.5) # list of tags
+# type2: T(0)    # list of tags
+# type3: TV(1+)  # list of (tag, len)
+# type4: TLV     # list of tags
+# start: Tag-less elements at the beginning # list of (tag, len) -- [len<0 means it's LV]
+def p_opt_tlv(data, type1=[], type2=[], type3=[], type4=[], start=[]):
     out = ""
+    type3_d={t:l for (t,l) in type3}
     for t, l in start:
         if l<0:
             l = data[0]
@@ -354,7 +355,7 @@ def p_opt_tlv(data, type4, type1=[], type3=[], type2=[], start=[]):
             out += "ERR:SHORT:"+data.hex(":")
             break
         else:
-            rv = p_tlv(t, data[:l])
+            rv = p_tv(t, data[:l])
             out+= " " + rv
             data = data[l:]
     while len(data)>0:
@@ -364,54 +365,53 @@ def p_opt_tlv(data, type4, type1=[], type3=[], type2=[], start=[]):
             data = data[1:]
             continue
         if data[0] in type2:
-            rv = p_t(data[0])
+            rv = p_tv(data[0], None)
             out+= " " + rv
             data = data[1:]
             continue
         if len(data) < 1:
             break
-        if data[0] in type3:
-            rv = p_tv(data[0], data[1])
+        if data[0] in type3_d:
+            iei_len = type3_d[data[0]]
+            if len(data) < 1+iei_len:
+                out += "ERR:SHORT:"+data.hex(":")
+                break
+            rv = p_tv(data[0], data[1:1+iei_len])
             out+= " " + rv
-            data = data[2:]
+            data = data[1+iei_len:]
             continue
         if data[0] in type4:
             iei_len = data[1]
             if len(data) < 2+iei_len:
                 out += "ERR:SHORT:"+data.hex(":")
                 break
-            rv = p_tlv(data[0], data[2:2+iei_len])
-            if rv is not None:
-                out+= " " + rv
-            else:
-                out+= " %02x:[%s]"%(data[0], data[2:2+iei_len].hex(":"))
+            rv = p_tv(data[0], data[2:2+iei_len])
+            out+= " " + rv
             data = data[2+iei_len:]
             continue
         break
 
     return (out[1:], data)
 
-def p_t(iei):
-    if iei == 0xa1: # Follow on proceed 10.5.3.7
-        return "Follow-on Proceed"
-    elif iei == 0xa2: # CTS permission 10.5.3.10
-        return "CTS permission"
-    else:
-        return "unknown_type2[%02x]"%(iei)
-
 def p_tv(iei, data):
-    if iei == 0xd0: # Repeat indicator 10.5.4.22
+    if False:
+        pass
+# Type 1
+    elif iei == 0xd0: # Repeat indicator             - 10.5.4.22
         return "repeat indi.: %d"%data
-    elif iei == 0x80: # Priority 10.5.1.11
+    elif iei == 0x80: # Priority                     - 10.5.1.11
         pv=data&0x7
         return "prio:"+["none", "4", "3", "2", "1", "0", "B", "A"][pv]
-    elif iei == 0x34: # Signal 10.5.4.23
+# Type 2
+    elif iei == 0xa1: # Follow on proceed            - 10.5.3.7
+        return "Follow-on Proceed"
+    elif iei == 0xa2: # CTS permission               - 10.5.3.10
+        return "CTS permission"
+# Type 3
+    elif iei == 0x34: # Signal                       - 10.5.4.23
         return "signal:%02x"%data
-    else:
-        return "unknown_type1[%02x]=%02x"%(iei, data)
-
-def p_tlv(iei, data):
-    if iei == 0x5c:   # Calling party BCD num.       - 10.5.4.9
+# Type 4
+    elif iei == 0x5c: # Calling party BCD num.       - 10.5.4.9
         return "src:[%s]"%p_bcd_num(data)
     elif iei == 0x5e: # Called party BCD num.        - 10.5.4.7
         return "dest:[%s]"%p_bcd_num(data)
@@ -445,8 +445,12 @@ def p_tlv(iei, data):
     #15 Call Control Capabilities    - 10.5.4.5a
     elif iei in (0x5d, 0x6d, 0x74, 0x75, 0x7c, 0x7d, 0x7e, 0x19, 0x4d, 0x15):
         return "%02x:[%s]"%(iei, data.hex(":"))
+# Unmatched
     else:
-        return "UK_TLV:%02x:[%s]"%(iei, data.hex(":"))
+        if data == None:
+            return "ERR:UK_T:%02x"%(iei)
+        else:
+            return "ERR:UK_TV:%02x:[%s]"%(iei, data.hex(":"))
 
 # Ad-Hoc parsing of the reassembled LAPDm-like frames
 class ReassembleIDAPP(ReassembleIDA):
@@ -780,46 +784,46 @@ class ReassembleIDAPP(ReassembleIDA):
 
         elif typ=="0305": # CC Setup 04.08 9.3.23
             (rv, data) = p_opt_tlv(data,
-                    (0x04, 0x1c, 0x1e, 0x34, 0x5c, 0x5d, 0x5e, 0x6d, 0x74, 0x75, 0x7c, 0x7d, 0x7e, 0x19),
-                    type1=(0xd0, 0x80), type3=(0x34,))
+                    type4=(0x04, 0x1c, 0x1e, 0x34, 0x5c, 0x5d, 0x5e, 0x6d, 0x74, 0x75, 0x7c, 0x7d, 0x7e, 0x19),
+                    type1=(0xd0, 0x80), type3=[(0x34,1)])
             print(rv, end=' ', file=outfile)
 
         elif typ=="0301": # CC Alerting 04.08 9.3.1
-            (rv, data) = p_opt_tlv(data, (0x1c, 0x1e, 0x7e))
+            (rv, data) = p_opt_tlv(data, type4=(0x1c, 0x1e, 0x7e))
             print(rv, end=' ', file=outfile)
 
         elif typ=="0307": # CC Connect 04.08 9.3.5
-            (rv, data) = p_opt_tlv(data, (0x1c, 0x1e, 0x4c, 0x4d, 0x7e))
+            (rv, data) = p_opt_tlv(data, type4=(0x1c, 0x1e, 0x4c, 0x4d, 0x7e))
             print(rv, end=' ', file=outfile)
 
         elif typ=="0308": # CC Call Confirmed 04.08 9.3.2
-            (rv, data) = p_opt_tlv(data, (0x04, 0x08, 0x15), type1=(0xd0, ))
+            (rv, data) = p_opt_tlv(data, type4=(0x04, 0x08, 0x15), type1=(0xd0, ))
             print(rv, end=' ', file=outfile)
 
         elif typ=="032d": # CC Release 04.08 9.3.18
-            (rv, data) = p_opt_tlv(data, (0x08, 0x1c, 0x7e))
+            (rv, data) = p_opt_tlv(data, type4=(0x08, 0x1c, 0x7e))
             print(rv, end=' ', file=outfile)
 
         elif typ=="032a": # CC Release Complete 04.08 9.3.19
-            (rv, data) = p_opt_tlv(data, (0x08, 0x1c, 0x7e))
+            (rv, data) = p_opt_tlv(data, type4=(0x08, 0x1c, 0x7e))
             print(rv, end=' ', file=outfile)
 
         elif typ=="0325": # CC Disconnect 04.08 9.3.7
             data=bytes([0x08]) + data # Prepend Type for Cause
-            (rv, data) = p_opt_tlv(data, (0x08, 0x1c, 0x1e, 0x7e, 0x7b))
+            (rv, data) = p_opt_tlv(data, type4=(0x08, 0x1c, 0x1e, 0x7e, 0x7b))
             print(rv, end=' ', file=outfile)
 
         elif typ=="0302": # CC Call Proceeding 04.08 9.3.3
-            (rv, data) = p_opt_tlv(data, (0x04, 0x1c, 0x1e), type1=(0xd0, 0x80))
+            (rv, data) = p_opt_tlv(data, type4=(0x04, 0x1c, 0x1e), type1=(0xd0, 0x80))
             print(rv, end=' ', file=outfile)
 
         elif typ=="0303": # CC Progress 04.08 9.3.17
             data=bytes([0x1e]) + data # Prepend Type for Progress
-            (rv, data) = p_opt_tlv(data, (0x1e, 0x7e))
+            (rv, data) = p_opt_tlv(data, type4=(0x1e, 0x7e))
             print(rv, end=' ', file=outfile)
 
         elif typ=="0502": # MM Location updating accept 04.08 9.2.13
-            (rv, data) = p_opt_tlv(data, (0x17,), type2=(0xa1, 0xa2), start=[(0x13,5)])
+            (rv, data) = p_opt_tlv(data, type4=(0x17,), type2=(0xa1, 0xa2), start=[(0x13,5)])
             print(rv, end=' ', file=outfile)
 
         elif typ=="0508": # MM Location updating request 04.08 9.2.15
@@ -830,11 +834,11 @@ class ReassembleIDAPP(ReassembleIDA):
             else:
                 print("key=%x"%(data[0]>>4), end=' ', file=outfile)
 
-            (rv, data) = p_opt_tlv(data[1:], (), start=[(0x13,5),(0x41,1),(0x17,-1)])
+            (rv, data) = p_opt_tlv(data[1:], start=[(0x13,5),(0x41,1),(0x17,-1)])
             print(rv, end=' ', file=outfile)
 
         elif typ=="051a": # MM TMSI realloc. 9.2.17
-            (rv, data) = p_opt_tlv(data, (), start=[(0x13,5),(0x17,-1)])
+            (rv, data) = p_opt_tlv(data, start=[(0x13,5),(0x17,-1)])
             print(rv, end=' ', file=outfile)
 
         elif typ=="0504": # Loc up rej.
@@ -849,7 +853,7 @@ class ReassembleIDAPP(ReassembleIDA):
                 print("01(IMSI)", end=' ', file=outfile)
                 data=data[1:]
         elif typ=="0519": # Identity Resp. 9.2.11
-            (rv, data) = p_opt_tlv(data, (), start=[(0x17,-1)])
+            (rv, data) = p_opt_tlv(data, start=[(0x17,-1)])
             print(rv, end=' ', file=outfile)
         elif typ=="0524": # CM Service Req. 9.2.9
             # Ciphering key seqno 10.5.1.2
@@ -872,7 +876,7 @@ class ReassembleIDAPP(ReassembleIDA):
             (rv,data)=p_cm2(data)
             print("[%s]"%(rv), end=' ', file=outfile)
 
-            (rv, data) = p_opt_tlv(data, (), type1=(0x80), start=[(0x17,-1)])
+            (rv, data) = p_opt_tlv(data, type1=(0x80), start=[(0x17,-1)])
             print(rv, end=' ', file=outfile)
 
         if len(data)>0:
