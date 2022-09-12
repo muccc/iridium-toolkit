@@ -330,8 +330,12 @@ def p_facility(data):
         str="allCondForwardingSS"
         str+="(Provisioned+Registered+Active)"
         return str
+    elif data.hex(":") == "a1:0e:02:01:01:02:01:10:30:06:81:01:21:84:01:07":
+        str="cfu" # call forwarding unconditional
+        str+="(Provisioned+Registered+Active)"
+        return str
     else:
-        return None
+        return "facility[%s]"%(data.hex(":"))
 
 # Minimalistic TV & TLV parser
 # 04.07     11.2.1.1.4
