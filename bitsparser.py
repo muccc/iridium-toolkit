@@ -661,6 +661,13 @@ class IridiumSYMessage(IridiumLCWMessage):
         self.__dict__=imsg.__dict__
     def upgrade(self):
         self.fixederrs=(1+bitdiff(self.descrambled,"10"*(len(self.descrambled)//2)))//2 # count symbols
+        if self.uplink:
+            fe=(1+bitdiff(self.descrambled,"11"*(len(self.descrambled)//2)))//2 # count symbols
+            if fe + 5 < self.fixederrs:
+                self.fixederrs=fe
+                self.pattern="11"
+            else:
+                self.pattern="10"
         return self
     def pretty(self):
         str= "ISY: "+self._pretty_header()
@@ -670,6 +677,8 @@ class IridiumSYMessage(IridiumLCWMessage):
             str+=" Sync=no, errs=%d"%self.fixederrs
             if len(self.descrambled) < 312:
                 str+=", short:%s "%len(self.descrambled)
+        if self.uplink:
+            str+=" pattern=%s"%self.pattern
         str+=self._pretty_trailer()
         return str
 
