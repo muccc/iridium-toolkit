@@ -41,3 +41,24 @@ endfunction
 
 nnoremap ,c :call DoCol()<CR>
 vnoremap ,c mx:call DoVisCol()<CR>`x
+
+"function! Pcol(...) abort
+"  let a:above = get(a:, 1, 0)
+"  let l:col = virtcol('.')
+"  execute 'normal!' a:above ? 'P' : 'p'
+"  call cursor('.', l:col)
+"endfunction
+
+function! Pcol() abort
+  let l:col = virtcol('.')
+  execute 'normal!' 'p'
+  call cursor('.', l:col)
+endfunction
+function! Pcolup() abort
+  let l:col = virtcol('.')
+  execute 'normal!' 'P'
+  call cursor('.', l:col)
+endfunction
+
+nnoremap <silent> p :call Pcol()<CR>
+nnoremap <silent> P :call Pcolup()<CR>
