@@ -92,7 +92,7 @@ for t in frames:
     if len(data[t][0])==0:
         del data[t]
         continue
-    data[t][2]= plt.scatter(y=data[t][1], x=data[t][0], c=f[0], label=t, alpha=1, edgecolors=f[0], marker=f[1], s=20)
+    data[t][2]= plt.scatter(y=data[t][1], x=data[t][0], c=f[0], label=t, alpha=1, facecolors=f[0], marker=f[1], s=20)
 
 leg=plt.legend(loc='upper right')
 leg.set_draggable(1)
