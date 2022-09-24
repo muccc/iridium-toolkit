@@ -5,7 +5,6 @@ import sys
 import datetime
 import re
 import math
-from util import fmt_iritime, to_ascii, slice_extra
 
 from .base import *
 from ..config import config, outfile
@@ -35,7 +34,7 @@ class StatsSNR(Reassemble):
 
         if typ not in self.stats:
             self.stats[typ]={}
-            for x in ['cnt', 'ncnt', 'scnt', 'signal', 'snr', 'noise', 'confidence', 'symbols']:
+            for x in ['cnt', 'ncnt', 'scnt', 'signal', 'snr', 'noise', 'confidence', 'symbols', 'frequency']:
                 self.stats[typ][x]=0
 
         self.stats[typ]["cnt"]+=1
@@ -52,6 +51,7 @@ class StatsSNR(Reassemble):
 
         self.stats[typ]["confidence"]+=q.confidence
         self.stats[typ]["symbols"]+=int(q.symbols)
+        self.stats[typ]["frequency"]+=q.frequency
         return None
 
     def consume(self,to):
@@ -85,6 +85,8 @@ class StatsSNR(Reassemble):
                     elif x in ["snr","noise"]:
                         if self.stats[t]["ncnt"] > 0:
                             print("%f %s.%s"%(20*math.log(float(self.stats[t][x])/self.stats[t]["ncnt"],10),x,t))
+                    elif x in ["frequency"]:
+                        print("%10d %s.%s"%(self.stats[t][x]/self.stats[t]["cnt"],x,t))
                     else:
                         print("%f %s.%s"%(float(self.stats[t][x])/self.stats[t]["cnt"],x,t))
             if totalv !=0:
@@ -94,8 +96,26 @@ class StatsSNR(Reassemble):
                 elif x in ["snr","noise"]:
                     if totalcn > 0:
                         print("%f %s.%s"%(20*math.log(float(totalv)/totalcn,10),"total",x))
+                elif x in ["frequency"]:
+                    print("%10d %s.%s"%(totalv/totalc,"total",x))
                 else:
                     print("%f %s.%s"%(float(totalv)/totalc,"total",x))
+        for n,tl in (
+                ('MS', ['IMS', 'MSG', 'MS3']),
+                ('TL', ['ITL']),
+                ('BC', ['IBC']),
+                ('LW', ['IDA', 'IIP', 'IIQ', 'IIR', 'IIU', 'IRI', 'ISY', 'IU3', 'I36', 'I38', 'VDA', 'VO6', 'VOC', 'VOD', 'VOZ']),
+                ('RA', ['IRA']),
+                ('NP', ['INP']),
+                ):
+            ct=0
+            freq=0
+            for t in tl:
+                if t in self.stats:
+                    ct+=self.stats[t]["cnt"]
+                    freq+=self.stats[t]["frequency"]
+            if ct>0:
+                print("%10d freq.%s"%(freq/ct,n))
 
 modes=[
 ["stats-snr",  StatsSNR,              ('perfect') ],
