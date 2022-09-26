@@ -17,14 +17,39 @@ from ..config import config, outfile
 class ReassemblePPM(Reassemble):
     def __init__(self):
         self.idx=None
+        self.sv_pos = {}
         pass
+
+    #https://stackoverflow.com/questions/30307311/python-pyproj-convert-ecef-to-lla
+    import pyproj
+    import numpy
+    ecef = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
+    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
+
+    to_ecef = pyproj.Transformer.from_proj(lla, ecef)
+
+    # https://www.koordinaten-umrechner.de/decimal/48.153543,11.560702?karte=OpenStreetMap&zoom=19
+    lat=48.153543
+    lon=11.560702
+    alt=542
+    ox, oy, oz = to_ecef.transform(lon, lat, alt, radians=False)
 
     r1=re.compile(r'.* slot:(\d)')
     r2=re.compile(r'.* time:([0-9:T-]+(\.\d+)?)Z')
+    r3=re.compile(r'.* sat:(\d+)')
+    ri=re.compile(r'sat:(\d+) beam:(\d+) (?:aps=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+
 
     def filter(self,line):
         q=super().filter(line)
         if q==None: return None
+
+        if q.typ == "IRA:":
+            m=self.ri.match(q.data)
+            if m:
+                if int(m.group(5)) > 700:
+                    self.sv_pos[int(m.group(1))] = {'lat': float(m.group(3)), 'lon': float(m.group(4)), 'alt': int(m.group(5)), 'mstime': float(q.mstime)}
+
         if q.typ!="IBC:": return None
 
         q.enrich()
@@ -42,7 +67,16 @@ class ReassemblePPM(Reassemble):
         if m.group(2):
             q.itime = dt.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=datetime.timezone.utc)
         else:
-            q.itime = dt.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+            q.itime = datetime.datetime.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S')
+
+        m=self.r3.match(q.data)
+        if not m: return
+        q.sat=int(m.group(1))
+
+        if q.sat not in self.sv_pos: return None
+        # Only accept IBC with a very recent position update via IRA
+        if float(q.mstime) - self.sv_pos[q.sat]['mstime'] > 100: return None
+
         return q
 
     def process(self,q):
@@ -61,7 +95,12 @@ class ReassemblePPM(Reassemble):
         # so correct for 64 symbols preamble & one half symbol.
         q.itime+=datetime.timedelta(seconds=(64.5/25000))
 
-        # no correction (yet?) for signal travel time: ~ 2.6ms-10ms (780-3000 km)
+        # correction for signal travel time: ~ 2.6ms-10ms (780-3000 km)
+        sv_pos = self.sv_pos[q.sat]
+        sx, sy, sz = to_ecef.transform(sv_pos['lon'], sv_pos['lat'], sv_pos['alt'] * 1000, radians=False)
+        d_m = math.sqrt((sx-ox)**2 + (sy-oy)**2 + (sz-oz)**2)
+        d_s = d_m / 299792458.
+        q.itime+=datetime.timedelta(seconds=d_s)
 
         return [[q.uxtime,q.itime,q.starttime]]
 
