@@ -37,7 +37,7 @@ class ReassemblePPM(Reassemble):
     r1=re.compile(r'.* slot:(\d)')
     r2=re.compile(r'.* time:([0-9:T-]+(\.\d+)?)Z')
     r3=re.compile(r'.* sat:(\d+)')
-    ri=re.compile(r'sat:(\d+) beam:(\d+) (?:aps=\S+ )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+    ri=re.compile(r'sat:(\d+) beam:(\d+) xyz=\((-?[0-9.]+),(-?[0-9.]+),(-?[0-9.]+)\) pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
 
 
     def filter(self,line):
@@ -47,8 +47,8 @@ class ReassemblePPM(Reassemble):
         if q.typ == "IRA:":
             m=self.ri.match(q.data)
             if m:
-                if int(m.group(5)) > 700:
-                    self.sv_pos[int(m.group(1))] = {'lat': float(m.group(3)), 'lon': float(m.group(4)), 'alt': int(m.group(5)), 'mstime': float(q.mstime)}
+                if int(m.group(8)) > 700:
+                    self.sv_pos[int(m.group(1))] = {'lat': float(m.group(6)), 'lon': float(m.group(7)), 'alt': int(m.group(8)), 'mstime': float(q.mstime)}
 
         if q.typ!="IBC:": return None
 
