@@ -8,6 +8,7 @@ import struct
 import math
 import os
 import socket
+import numpy
 from copy import deepcopy
 from util import fmt_iritime, to_ascii, slice_extra, dt
 
@@ -70,9 +71,13 @@ class ReassemblePPM(Reassemble):
         m=self.r2.match(q.data)
         if not m: return
         if m.group(2):
+<<<<<<< HEAD
             q.itime = dt.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=datetime.timezone.utc)
+=======
+            q.itime = numpy.datetime64(m.group(1))
+>>>>>>> incomplete port to 64bit datetime
         else:
-            q.itime = datetime.datetime.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S')
+            q.itime = numpy.datetime64(m.group(1))
 
         m=self.r3.match(q.data)
         if not m: return
@@ -90,16 +95,16 @@ class ReassemblePPM(Reassemble):
 
         # correct for slot:
         # 1st vs. 4th slot is 3 * (downlink + guard)
-        q.itime+=datetime.timedelta(seconds=q.slot*(3 * float(8.28 + 0.1))/1000)
+        q.itime+=numpy.timedelta64(q.slot*(3 * (8280 + 100)), 'us')
 
         # correct to beginning of frame:
         # guard + simplex + guard + 4*(uplink + guard) + extra_guard
-        q.itime+=datetime.timedelta(seconds=(1 + 20.32 + 1.24 + 4 * float(8.28 + 0.22) + 0.02)/1000)
+        q.itime+=numpy.timedelta64(1000 + 20320 + 1240 + 4 * (8280 + 220) + 20, 'us')
 
         # correct to beginning of signal:
         # our timestamp is "the middle of the first symbol of the 12-symbol BPSK Iridium sync word"
         # so correct for 64 symbols preamble & one half symbol.
-        q.itime+=datetime.timedelta(seconds=(64.5/25000))
+        q.itime+=numpy.timedelta64(int(64.5/25000*1e6), 'us')
 
         # correction for signal travel time: ~ 2.6ms-10ms (780-3000 km)
         sv_pos = self.sv_pos[q.sat]
@@ -111,16 +116,16 @@ class ReassemblePPM(Reassemble):
         if not self.dist_min or d_m < self.dist_min:
             self.dist_min = d_m
             self.t_min = q.itime
-            self.delta_min = (q.uxtime - q.itime).total_seconds()
+            self.delta_min = (q.uxtime - q.itime)/numpy.timedelta64(1,'s')
 
         d_s = d_m / 299792458.
-        q.itime+=datetime.timedelta(seconds=d_s)
+        q.itime+=numpy.timedelta64(int(d_s*1e9), 'ns')
 
         return [[q.uxtime,q.itime,q.starttime]]
 
     ini=None
     def consume(self, data):
-        tdelta=(data[0]-data[1]).total_seconds()
+        tdelta=(data[0]-data[1])/numpy.timedelta64(1,'s')
         self.deltas.append(tdelta*1e6)
         if self.ini is None: # First PKT
             self.idx=0
@@ -144,20 +149,20 @@ class ReassemblePPM(Reassemble):
             print("tdelta %sZ %f"%(data[0].isoformat(),tdelta))
 
         # "interactive" statistics per INVTL(600)
-        if (data[1]-self.cur[1]).total_seconds() > 600:
+        if (data[1]-self.cur[1])/numpy.timedelta64(1,'s') > 600:
             (irun,toff,ppm)=self.onedelta(self.cur,data, verbose=False)
             if 'grafana' in config.args:
                 print("iridium.live.ppm %.5f %d" % (ppm, data[1].timestamp()))
                 sys.stdout.flush()
             else:
-                print("@ %s: ppm: % 6.3f ds: % 9.6f "%(data[1],ppm,(data[1]-data[0]).total_seconds())
+                print("@ %s: ppm: % 6.3f ds: % 9.6f "%(data[1],ppm,(data[1]-data[0])/numpy.timedelta64(1,'s')))
             self.cur=data
-        elif (data[1]-self.cur[1]).total_seconds() <0:
+        elif (data[1]-self.cur[1])/numpy.timedelta64(1,'s') <0:
             self.cur=data
 
     def onedelta(self, start, end, verbose=False):
-        irun=(end[1]-start[1]).total_seconds()
-        urun=(end[0]-start[0]).total_seconds()
+        irun=(end[1]-start[1])/numpy.timedelta64(1,'s')
+        urun=(end[0]-start[0])/numpy.timedelta64(1,'s')
         toff=urun-irun
         if irun==0: return (0,0,0)
         ppm=toff/irun*1000000
@@ -191,8 +196,12 @@ class ReassemblePPM(Reassemble):
         print("median", numpy.median(self.deltas))
         print("average", numpy.median(self.deltas))
 
-        if False:
+        if True:
             import matplotlib.pyplot as plt
+            plt.title('Offset between IBC time and GPSDO time')
+            plt.ylabel('Count')
+            plt.xlabel('Offset [us]')
+
             plt.hist(self.deltas, bins=100)
             plt.show()
 
