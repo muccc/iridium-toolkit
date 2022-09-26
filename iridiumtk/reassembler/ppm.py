@@ -18,6 +18,7 @@ class ReassemblePPM(Reassemble):
     def __init__(self):
         self.idx=None
         self.sv_pos = {}
+        self.deltas = []
         pass
 
     #https://stackoverflow.com/questions/30307311/python-pyproj-convert-ecef-to-lla
@@ -48,7 +49,10 @@ class ReassemblePPM(Reassemble):
             m=self.ri.match(q.data)
             if m:
                 if int(m.group(8)) > 700:
-                    self.sv_pos[int(m.group(1))] = {'lat': float(m.group(6)), 'lon': float(m.group(7)), 'alt': int(m.group(8)), 'mstime': float(q.mstime)}
+                    x = int(m.group(3)) * 4000.
+                    y = int(m.group(4)) * 4000.
+                    z = int(m.group(5)) * 4000.
+                    self.sv_pos[int(m.group(1))] = {'x': x, 'y': y, 'z': z, 'mstime': float(q.mstime)}
 
         if q.typ!="IBC:": return None
 
@@ -97,7 +101,10 @@ class ReassemblePPM(Reassemble):
 
         # correction for signal travel time: ~ 2.6ms-10ms (780-3000 km)
         sv_pos = self.sv_pos[q.sat]
-        sx, sy, sz = to_ecef.transform(sv_pos['lon'], sv_pos['lat'], sv_pos['alt'] * 1000, radians=False)
+        sx = sv_pos['x']
+        sy = sv_pos['y']
+        sz = sv_pos['z']
+
         d_m = math.sqrt((sx-ox)**2 + (sy-oy)**2 + (sz-oz)**2)
         d_s = d_m / 299792458.
         q.itime+=datetime.timedelta(seconds=d_s)
@@ -107,6 +114,7 @@ class ReassemblePPM(Reassemble):
     ini=None
     def consume(self, data):
         tdelta=(data[0]-data[1]).total_seconds()
+        self.deltas.append(tdelta*1e6)
         if self.ini is None: # First PKT
             self.idx=0
             self.ini=[data]
@@ -135,7 +143,7 @@ class ReassemblePPM(Reassemble):
                 print("iridium.live.ppm %.5f %d" % (ppm, data[1].timestamp()))
                 sys.stdout.flush()
             else:
-                print("@ %s: ppm: % 6.3f ds: % 8.5f "%(data[1],ppm,(data[1]-data[0]).total_seconds()))
+                print("@ %s: ppm: % 6.3f ds: % 9.6f "%(data[1],ppm,(data[1]-data[0]).total_seconds())
             self.cur=data
         elif (data[1]-self.cur[1]).total_seconds() <0:
             self.cur=data
@@ -167,6 +175,15 @@ class ReassemblePPM(Reassemble):
         print("rec.tmin %f"%(self.tmin))
         print("rec.tmax %f"%(self.tmax))
         print("rec.ppm %.3f"%(delta/alltime*1000000))
+
+        print("median", numpy.median(self.deltas))
+        print("average", numpy.median(self.deltas))
+
+        if False:
+            import matplotlib.pyplot as plt
+            plt.hist(self.deltas, bins=100)
+            plt.show()
+
 
 modes=[
 ["ppm",        ReassemblePPM,         ('perfect','grafana','tdelta') ],
