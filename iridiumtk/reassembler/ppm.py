@@ -17,21 +17,52 @@ from ..config import config, outfile
 
 SECOND = np.timedelta64(1, 's')
 
+#https://stackoverflow.com/questions/30307311/python-pyproj-convert-ecef-to-lla
+import pyproj
+ecef = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
+lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
+
+to_ecef = pyproj.Transformer.from_proj(lla, ecef)
+
+# https://www.koordinaten-umrechner.de/decimal/48.153543,11.560702?karte=OpenStreetMap&zoom=19
+lat=48.153543
+lon=11.560702
+alt=542
+ox, oy, oz = to_ecef.transform(lon, lat, alt, radians=False)
+
 class ReassemblePPM(Reassemble):
     def __init__(self):
         self.idx=None
+        self.sv_pos = {}
+        self.deltas = []
+        self.dist_min = None
         pass
 
     r1=re.compile(r'.* slot:(\d)')
     r2=re.compile(r'.* time:([0-9:T-]+(?:\.\d+)?)Z')
+    r3=re.compile(r'.* sat:(\d+)')
+    #ri=re.compile(r'sat:(\d+) beam:(\d+) xyz=\((-?[0-9.]+),(-?[0-9.]+),(-?[0-9.]+)\) pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+    ri=re.compile(r'sat:(\d+) beam:(\d+) (?:(?:aps|xyz)=\(([+-]?[0-9]+),([+-]?[0-9]+),([+-]?[0-9]+)\) )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+
 
     def filter(self,line):
         q=super().filter(line)
         if q==None: return None
-        if q.typ!="IBC:": return None
 
         q.enrich()
         if q.confidence<95: return None
+
+        if q.typ == "IRA:":
+            m=self.ri.match(q.data)
+            if m:
+                if int(m.group(8)) > 700:
+                    x = int(m.group(3)) * 4000.
+                    y = int(m.group(4)) * 4000.
+                    z = int(m.group(5)) * 4000.
+                    self.sv_pos[int(m.group(1))] = {'x': x, 'y': y, 'z': z, 'mstime': float(q.mstime)}
+
+        if q.typ!="IBC:": return None
+
 
         if 'perfect' in config.args:
             if not q.perfect: return None
@@ -43,6 +74,16 @@ class ReassemblePPM(Reassemble):
         m=self.r2.match(q.data)
         if not m: return
         q.itime = np.datetime64(m.group(1))
+
+        m=self.r3.match(q.data)
+        if not m: return
+        q.sat=int(m.group(1))
+
+        if q.sat not in self.sv_pos: return None
+        # Only accept IBC with a very recent position update via IRA
+        ira_dt = float(q.mstime) - self.sv_pos[q.sat]['mstime']
+        if ira_dt > 90: return None
+
         return q
 
     def process(self,q):
@@ -62,13 +103,27 @@ class ReassemblePPM(Reassemble):
         # so correct for 64 symbols preamble & one half symbol.
         q.itime += np.timedelta64(64500//25, 'us')
 
-        # no correction (yet?) for signal travel time: ~ 2.6ms-10ms (780-3000 km)
+        # correction for signal travel time: ~ 2.6ms-10ms (780-3000 km)
+        sv_pos = self.sv_pos[q.sat]
+        sx = sv_pos['x']
+        sy = sv_pos['y']
+        sz = sv_pos['z']
+
+        d_m = math.sqrt((sx-ox)**2 + (sy-oy)**2 + (sz-oz)**2)
+        if not self.dist_min or d_m < self.dist_min:
+            self.dist_min = d_m
+            self.t_min = q.itime
+            self.delta_min = (q.uxtime - q.itime)/np.timedelta64(1,'s')
+
+        d_s = d_m / 299792458.
+        q.itime+=np.timedelta64(int(d_s*1e9), 'ns')
 
         return [[q.uxtime,q.itime,q.starttime]]
 
     ini=None
     def consume(self, data):
-        tdelta = (data[0]-data[1]) / SECOND
+        tdelta=(data[0]-data[1])/np.timedelta64(1,'s')
+        self.deltas.append(tdelta*1e6)
         if self.ini is None: # First PKT
             self.idx=0
             self.ini=[data]
@@ -129,6 +184,24 @@ class ReassemblePPM(Reassemble):
         print("rec.tmin %f"%(self.tmin))
         print("rec.tmax %f"%(self.tmax))
         print("rec.ppm %.3f"%(delta/alltime*1000000))
+
+        print("dist_min:", self.dist_min)
+        print("t_min:", self.t_min)
+        print("delta_min:", self.delta_min)
+
+
+        print("median", np.median(self.deltas))
+        print("average", np.median(self.deltas))
+
+        if True:
+            import matplotlib.pyplot as plt
+            plt.title('Offset between IBC time and GPSDO time')
+            plt.ylabel('Count')
+            plt.xlabel('Offset [us]')
+
+            plt.hist(self.deltas, bins=100)
+            plt.show()
+
 
 modes=[
 ["ppm",        ReassemblePPM,         ('perfect','grafana','tdelta') ],
