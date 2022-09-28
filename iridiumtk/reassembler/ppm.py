@@ -15,6 +15,21 @@ from util import fmt_iritime, to_ascii, slice_extra, dt
 from .base import *
 from ..config import config, outfile
 
+#https://stackoverflow.com/questions/30307311/python-pyproj-convert-ecef-to-lla
+import pyproj
+import numpy
+ecef = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
+lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
+
+to_ecef = pyproj.Transformer.from_proj(lla, ecef)
+
+# https://www.koordinaten-umrechner.de/decimal/48.153543,11.560702?karte=OpenStreetMap&zoom=19
+lat=48.153543
+lon=11.560702
+alt=542
+ox, oy, oz = to_ecef.transform(lon, lat, alt, radians=False)
+
+
 class ReassemblePPM(Reassemble):
     def __init__(self):
         self.idx=None
@@ -23,29 +38,19 @@ class ReassemblePPM(Reassemble):
         self.dist_min = None
         pass
 
-    #https://stackoverflow.com/questions/30307311/python-pyproj-convert-ecef-to-lla
-    import pyproj
-    import numpy
-    ecef = pyproj.Proj(proj='geocent', ellps='WGS84', datum='WGS84')
-    lla = pyproj.Proj(proj='latlong', ellps='WGS84', datum='WGS84')
-
-    to_ecef = pyproj.Transformer.from_proj(lla, ecef)
-
-    # https://www.koordinaten-umrechner.de/decimal/48.153543,11.560702?karte=OpenStreetMap&zoom=19
-    lat=48.153543
-    lon=11.560702
-    alt=542
-    ox, oy, oz = to_ecef.transform(lon, lat, alt, radians=False)
-
     r1=re.compile(r'.* slot:(\d)')
     r2=re.compile(r'.* time:([0-9:T-]+(\.\d+)?)Z')
     r3=re.compile(r'.* sat:(\d+)')
-    ri=re.compile(r'sat:(\d+) beam:(\d+) xyz=\((-?[0-9.]+),(-?[0-9.]+),(-?[0-9.]+)\) pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+    #ri=re.compile(r'sat:(\d+) beam:(\d+) xyz=\((-?[0-9.]+),(-?[0-9.]+),(-?[0-9.]+)\) pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
+    ri=re.compile(r'sat:(\d+) beam:(\d+) (?:(?:aps|xyz)=\(([+-]?[0-9]+),([+-]?[0-9]+),([+-]?[0-9]+)\) )?pos=\(([+-][0-9.]+)/([+-][0-9.]+)\) alt=(-?[0-9]+) .* bc_sb:\d+(?: (.*))?')
 
 
     def filter(self,line):
         q=super().filter(line)
         if q==None: return None
+
+        q.enrich()
+        if q.confidence<95: return None
 
         if q.typ == "IRA:":
             m=self.ri.match(q.data)
@@ -58,8 +63,6 @@ class ReassemblePPM(Reassemble):
 
         if q.typ!="IBC:": return None
 
-        q.enrich()
-        if q.confidence<95: return None
 
         if 'perfect' in config.args:
             if not q.perfect: return None
