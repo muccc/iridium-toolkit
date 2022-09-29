@@ -62,3 +62,6 @@ endfunction
 
 nnoremap <silent> p :call Pcol()<CR>
 nnoremap <silent> P :call Pcolup()<CR>
+
+" stay in column while creating a new line
+nnoremap <silent> o mxo`xji
