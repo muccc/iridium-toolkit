@@ -1813,16 +1813,22 @@ class IridiumMessagingAscii(IridiumMSMessageBody):
         chars, self.msg_rest= slice_extra(self.msg_msgdata, 7)
         self.msg_ascii=""
         end=0
+        errs=0
         for (group) in chars:
             character = int(group, 2)
             if(character==3):
                 end=1
             elif(end==1):
-                self._new_error("ETX inside ascii")
+                if args.harder:
+                    errs+=1
+                else:
+                    self._new_error("ETX inside ascii")
             if(character<32 or character==127):
                 self.msg_ascii+="[%d]"%character
             else:
                 self.msg_ascii+=chr(character)
+        if errs>0:
+            self.fixederrs+=1
     def upgrade(self):
         if self.error: return self
         return self
