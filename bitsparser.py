@@ -309,17 +309,28 @@ class IridiumMessage(Message):
             if len(data)==432*2:
                 symbols=de_dqpsk(data)
                 (i_list,q_list)=split_qpsk(symbols)
-                l1=i_list[0::2] # a<0.111101 ....1011 ...11001 1...0001 1
-                l1_id=l1[2:8]+","+l1[12:16]+","+l1[19:25]+","+l1[28:33]
-                l3=q_list[0::2]
-                l3_id=l3[0:3]+","+l3[8:10]+","+l3[24:25]+l3[30:31]
-#                print("l1:",l1_id, "l3:", l3_id)
-                if l1_id=="111101,1011,110011,00011": # and id_part=="1111":
+                bits=sym2bits(symbols)
+
+                bits=bits[:160]
+                h1=bits[0::4]
+                h2=bits[1::4]
+                #            1         2         3            1         2         3
+                #  01234567890123456789012345678901 01234567890123456789012345678901
+                #h<01000010001101001100011001101110 00011000000000001111011000000000
+                #h<11000010011101000100011001111110 00010110000000110110110101000000
+                #    ++++++    ++++   ++++++   ++++ +++     ++                ++++++
+                h1_id=h1[2:8]+","+h1[12:16]+","+h1[19:25]+","+h1[28:32]
+                h2_id=h2[0:3]+","+h2[8:10]+","+h2[26:32]
+                if h1_id=="000010,0100,001100,1110" and h2_id=="000,00,000000":
                     self.msgtype="NP"
-                    if l1.startswith("0011110110001011011110011010000111100011011100101111100100011000100100011101011001010011"):
-                        self.header="V1"
-                    else:
-                        self.header="V0"
+                elif args.harder:
+                    h3=bits[2::4]
+                    ok1,_ = magic_checksum(h1)
+                    ok2,_ = magic_checksum(h2)
+                    ok3,_ = magic_checksum(h3)
+                    if ok1 and ok2 and ok3:
+                        self.ec_lcw=1
+                        self.msgtype="NP"
 
         if "msgtype" not in self.__dict__:
             if args.harder:
@@ -744,6 +755,7 @@ class IridiumAQMessage(IridiumMessage):
 
 
 np_crc16=crcmod.mkCrcFun(poly=0b10111010101011011,initCrc=0,rev=False,xorOut=0)
+np_crc8=crcmod.mkCrcFun(poly=0x12f,initCrc=0,rev=False,xorOut=0)
 
 class IridiumNPMessage(IridiumMessage):
     def __init__(self,imsg):
@@ -751,6 +763,9 @@ class IridiumNPMessage(IridiumMessage):
 
         symbols=de_dqpsk(self.descrambled)
         bits=sym2bits(symbols)
+
+        if "header" not in self.__dict__:
+            self.header=""
 
         # Re-sort bits
         trailer=bits[800::2]+bits[801::2]
@@ -789,6 +804,25 @@ class IridiumNPMessage(IridiumMessage):
         blocks=blocks[3:]
         checks=checks[3:]
 
+        hdr_id=hdr[1][4:8]
+
+        if hdr_id in ('1000','0111'):
+            self.hdr_type=1
+        elif hdr_id in ('0110',):
+            self.hdr_type=2
+        else:
+            self.hdr_type=0
+
+        # H1
+        self.hdr_crc1=np_crc8(bytes( [int(x,2) for x in slice(
+                    hdr[0]+hdr[1]+hdr[2][:-8]
+                ,8)]))
+
+        # H2
+        self.hdr_crc2=np_crc8(bytes( [int(x,2) for x in slice(
+                    hdr[0]+hdr[1]+hdr[2][:8]
+                ,8)]))
+
         # Begin pkts
         self.type=0
         self.hdr=hdr
@@ -825,6 +859,10 @@ class IridiumNPMessage(IridiumMessage):
         if self.the_crc_v2==0:
             self.type=2
 
+        # Pkt v3
+        if all(checks[:-3]) and not any(checks[-3:]):
+            self.type=3
+
         self.header+=":%05d"%(int(s2s[0][10:24],2))
         return
 
@@ -834,14 +872,32 @@ class IridiumNPMessage(IridiumMessage):
     def pretty(self):
         st= "INP: "+self._pretty_header()
 
+        st+= " H:%d"%self.hdr_type
         st+= " T:%d"%self.type
 
         st+= " h<"
-        for x in self.hdr:
-            st+= "".join(slice(x,8))
+        if self.hdr_type == 1:
+            st+= self.hdr[0] + " " + self.hdr[1] + " " + self.hdr[2][:-16]
+            st+=" CRC=%02x"%int(self.hdr[2][-16:-8],2)
+            if self.hdr_crc1==0:
+                st+="[OK]"
+            else:
+                st+="[no]"
             st+= " "
-        st=st[:-1]
-        st+="> "
+            st+= self.hdr[2][-8:]
+        elif self.hdr_type == 2:
+            st+= self.hdr[0] + " " + self.hdr[1]
+            st+=" CRC=%02x"%int(self.hdr[2][:8],2)
+            if self.hdr_crc2==0:
+                st+="[OK]"
+            else:
+                st+="[no]"
+            st+= " "
+            st+= " " # alignment
+            st+= self.hdr[2][8:]
+        else:
+            st+= self.hdr[0] + " " + self.hdr[1] + " " + self.hdr[2]
+        st+=">"
 
         if self.type==1:
             st+= " d<"
@@ -857,13 +913,17 @@ class IridiumNPMessage(IridiumMessage):
                 st+="[OK]"
             else:
                 st+="[no]"
+            st+= "     " # alignment
         elif self.type==2:
             st+= " d<"
             for x in self.csblocks:
                 st+= "".join(slice(x,8))
                 st+= " "
+                st+= "        " # alignment
             st=st[:-1]
             st+=">"
+
+            st+=" ["+self.blocks[-1]+"]"
 
             st+= " CRC=%04x"%int(self.cs_v2,2)
             if self.the_crc_v2==0:
@@ -871,15 +931,32 @@ class IridiumNPMessage(IridiumMessage):
             else:
                 st+="[no]"
 
-            st+= " t<"+" ".join(slice(self.v2trail,8))+">"
+            st+= " t<"+" ".join(slice(self.trailer,8))+">"
             if all(self.checks):
-                st+=" MAGIC"
+                st+=" MAGC"
             else:
-                st+=" nomag"
+                st+=" nomg"
+        elif self.type==3:
+            st+= " d<"
+            for x in self.csblocks[:-3]:
+                st+= "".join(slice(x,8))
+                st+= " "
+                st+= "        " # alignment
+            for x in self.blocks[-3:]:
+                st+= "".join(slice(x,8))
+                st+= " "
+            st=st[:-1]
+            st+=">"
+
+            st+= " t<"+" ".join(slice(self.trailer,8))+">"
         else:
             st+= " d<"
-            for x in self.blocks:
-                st+= "".join(slice(x,8))
+            for i,x in enumerate(self.blocks):
+                if self.checks[i]:
+                    st+= "".join(slice(x[:32],8))
+                    st+= "        " # alignment
+                else:
+                    st+= "".join(slice(x,8))
                 st+= " "
             st=st[:-1]
             st+=">"
@@ -888,6 +965,8 @@ class IridiumNPMessage(IridiumMessage):
 
         st+= " v1=%04x"%(self.the_crc_v1)
         st+= " v2=%04x"%(self.the_crc_v2)
+        st+= " h1=%02x"%(self.hdr_crc1)
+        st+= " h2=%02x"%(self.hdr_crc2)
         st+= " magic=%s"%(self.magic)
 
         st+=self._pretty_trailer()
