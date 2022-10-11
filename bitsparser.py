@@ -674,9 +674,9 @@ class IridiumSYMessage(IridiumLCWMessage):
         if self.fixederrs==0:
             str+=" Sync=OK"
         else:
-            str+=" Sync=no, errs=%d"%self.fixederrs
+            str+=" Sync=no errs=%d"%self.fixederrs
             if len(self.descrambled) < 312:
-                str+=", short:%s "%len(self.descrambled)
+                str+=" short:%s "%len(self.descrambled)
         if self.uplink:
             str+=" pattern=%s"%self.pattern
         str+=self._pretty_trailer()
