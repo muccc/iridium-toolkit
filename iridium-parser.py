@@ -213,7 +213,7 @@ def stats_thread(stats):
             except OSError:
                 pos=0
             progress+="%4.1f%%"%(100*pos/stats['size'])
-            eta=stats['size']/(pos/td) - td
+            eta=stats['size']/pos*td - td
             te="%02d:%02d"%(eta/60%60,eta%60)
             if eta>60*60:
                 te="%02d:"%(eta/60/60)+te
