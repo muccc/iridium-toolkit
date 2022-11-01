@@ -2205,26 +2205,27 @@ def sym2bits(symbols):
 #
 # Input is 40 bits. 32 bits "data" and 8 bits "checksum"
 #
-# No idea how it is inteded to work, but it is almost
+# No idea how it is inteded to work, but it is
 # completely linear from input bits, so we can check it that
 # way, even if it is a bit convoluted.
 #
 # Checksum uses only lower 7 bits.
-# Additionally bits 4&5 are correlated, but depend on
-# something yet unknown.
+#
+# Initial/Zero value is bits 4&5.
 #
 def magic_checksum(bits):
     cv=int(bits[32:],2)
     bits=bits[:32]
 
-    magic=[79, 7, 67, 107, 11, 107, 11, 35, 4, 44, 76, 44, 76, 100, 104, 32, 14, 70, 2, 42, 74, 42, 74, 98, 69, 109, 13, 109, 13, 37, 41, 97, 24]
+    magic=[87, 7, 91, 107, 11, 115, 19, 35, 28, 44, 76, 52, 84, 100, 104, 56, 22, 70, 26, 42, 74, 50, 82, 98, 93, 109, 13, 117, 21, 37, 41, 121]
+
     check=0
     for i, bit in enumerate(bits):
         if bit=="1":
             check^=magic[i]
 
-    # bit 4 & 5 are correlated
-    if (check^cv) == 0 or (check^cv) == 0b11000:
+    # bit 4 & 5 are the "check value"
+    if (check^cv) == 0b11000:
         return True, check^cv
     return False, check^cv
 
