@@ -308,7 +308,6 @@ class IridiumMessage(Message):
         if "msgtype" not in self.__dict__: # and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
             if len(data)==432*2:
                 symbols=de_dqpsk(data)
-                (i_list,q_list)=split_qpsk(symbols)
                 bits=sym2bits(symbols)
 
                 bits=bits[:160]
@@ -825,14 +824,14 @@ class IridiumNPMessage(IridiumMessage):
 
         # Begin pkts
         self.type=0
-        self.hdr=hdr
-        self.trailer=trailer
-        self.blocks=blocks
+        self.hdr=hdr         # 3 blocks a 32 bits
+        self.trailer=trailer # 24 bits
+        self.blocks=blocks   # 18 blocks a 40 bits
         self.checks=checks
 
         # Pkt v1
-        self.cs_v1=trailer[-16:]
-        self.v1trail=trailer[:-16]
+        self.v1trail=trailer[:8]
+        self.cs_v1=trailer[8:]
 
         self.the_crc_v1=np_crc16(bytes( [int(x,2) for x in slice(
                     hdr[-1][-8:]+
@@ -847,13 +846,13 @@ class IridiumNPMessage(IridiumMessage):
         csblocks=[b[:32] for b in blocks]
         self.csblocks=csblocks
 
-        self.cs_v2=self.trailer[-24:-8]
-        self.v2trail=self.trailer[-8:]
+        self.cs_v2=self.trailer[:16]
+        self.v2trail=self.trailer[16:]
 
         self.the_crc_v2=np_crc16(bytes([int(x,2) for x in slice(
                             hdr[-1][-8:]+
                             "".join(csblocks)+
-                            trailer[-24:-8]
+                            trailer[:16]
                         ,8)]))
 
         if self.the_crc_v2==0:
@@ -894,7 +893,7 @@ class IridiumNPMessage(IridiumMessage):
                 st+="[no]"
             st+= " "
             st+= " " # alignment
-            st+= self.hdr[2][8:]
+            st+= self.hdr[2][8:] # 24 bit
         else:
             st+= self.hdr[0] + " " + self.hdr[1] + " " + self.hdr[2]
         st+=">"
@@ -907,7 +906,7 @@ class IridiumNPMessage(IridiumMessage):
             st=st[:-1]
             st+=">"
 
-            st+= " t<"+" ".join(slice(self.v1trail,8))+">"
+            st+= " t<"+self.v1trail+">"
             st+= " CRC=%04x"%int(self.cs_v1,2)
             if self.the_crc_v1==0:
                 st+="[OK]"
@@ -923,15 +922,14 @@ class IridiumNPMessage(IridiumMessage):
             st=st[:-1]
             st+=">"
 
-            st+=" ["+self.blocks[-1]+"]"
-
             st+= " CRC=%04x"%int(self.cs_v2,2)
             if self.the_crc_v2==0:
                 st+="[OK]"
             else:
                 st+="[no]"
 
-            st+= " t<"+" ".join(slice(self.trailer,8))+">"
+            st+= " t<"+self.v2trail +">"
+
             if all(self.checks):
                 st+=" MAGC"
             else:
