@@ -21,6 +21,6 @@ echo ""
 echo "and make sure 'iridium-parser' is running with -o zmq on this host"
 echo
 
-python -m http.server --bind 127.0.0.1 8888
+python3 -m http.server --bind 127.0.0.1 8888
 
 kill $reass
