@@ -753,7 +753,7 @@ class IridiumAQMessage(IridiumMessage):
         return st
 
 
-np_crc16=crcmod.mkCrcFun(poly=0b10111010101011011,initCrc=0,rev=False,xorOut=0)
+np_crc16=crcmod.mkCrcFun(poly=0x1755b,initCrc=0,rev=False,xorOut=0)
 np_crc8=crcmod.mkCrcFun(poly=0x12f,initCrc=0,rev=False,xorOut=0)
 
 class IridiumNPMessage(IridiumMessage):
