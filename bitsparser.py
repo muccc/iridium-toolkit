@@ -929,8 +929,8 @@ class IridiumNPMessage(IridiumMessage):
                 st+="[no]"
 
             st+= " t<"+self.v2trail +">"
-            # Trailer checksum: previous block + crc
-            ok, _=magic_checksum2(self.csblocks[-1]+self.trailer)
+            # Trailer checksum 'steals' two bytes from the previous block
+            ok, _=magic_checksum(self.blocks[-1][-16:]+self.trailer)
             if ok:
                 st+="OK"
             else:
@@ -2230,23 +2230,6 @@ def magic_checksum(bits):
 
     # bit 4 & 5 are the "check value"
     if (check^cv) == 0b11000:
-        return True, check^cv
-    return False, check^cv
-
-# Second version of magic checksum
-# Input is 56 bits. 48 bits "data" and 8 bits "checksum"
-def magic_checksum2(bits):
-    cv=int(bits[32+16:],2)
-    bits=bits[:32+16]
-
-    magic=[44, 52, 28, 100, 4, 4, 100, 28, 4, 124, 28, 28, 124, 4, 52, 44, 56, 32, 8, 112, 16, 16, 112, 8, 71, 111, 83, 99, 99, 99, 51, 27, 22, 70, 26, 42, 74, 50, 82, 98, 93, 109, 13, 117, 21, 37, 41, 121]
-
-    check=0
-    for i, bit in enumerate(bits):
-        if bit=="1":
-            check^=magic[i]
-
-    if (check^cv) == 0b1111000:
         return True, check^cv
     return False, check^cv
 
