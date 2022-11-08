@@ -14,7 +14,7 @@
 # EXAMPLE:
 #
 #  $ export PYTHONUNBUFFERED=x
-#  $ reassembler.py -i zmq: -m acars -a json --station YOUR_STATION_IDENT | acars-to-airframes.py
+#  $ reassembler.py -i zmq: -m acars -a json --station YOUR_STATION_IDENT | iridium-acars-to-airframes.py
 #
 # USAGE:
 #
