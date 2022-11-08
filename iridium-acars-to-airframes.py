@@ -2,7 +2,7 @@
 #
 # iridium-acars-to-airframes.py
 #
-# Send the ACARS JSON output from iridium-toolkit to Airframes.io. You may send to additional TCP destinations
+# Send the ACARS JSON output from iridium-toolkit to Airframes.io. You may send to additional destinations
 # by specifying the --output option multiple times.
 #
 # INSTRUCTIONS:
@@ -28,7 +28,7 @@
 #                           Override station ident
 #     --debug, -d           Enable debug output
 #     --output OUTPUT, -o OUTPUT
-#                           Send output via TCP to additional destination transport:host:port (where transport is "tcp" or "udp")
+#                           Send output to additional destination transport:host:port (where transport is "tcp" or "udp")
 #
 # For more information about Airframes, see https://app.airframes.io/about or contact kevin@airframes.io.
 #
