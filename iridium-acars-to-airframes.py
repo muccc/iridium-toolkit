@@ -62,10 +62,11 @@ def send_message(message):
         print("Sent message to %s" % (k))
     except Exception as e:
       print('Error sending message: %s' % e)
-      sock.connect(sock.getpeername())
-      sockets[k] = sock
-      print("Reconnected to %s:%d" % (sock.getpeername()))
-      sockets[k].sendall(message.encode('utf-8'))
+      if socket.transport == 'tcp':
+        sock.connect(sock.getpeername())
+        sockets[k] = sock
+        print("Reconnected to %s:%d" % (sock.getpeername()))
+        sockets[k].sendall(message.encode('utf-8'))
 
 
 if __name__ == '__main__':
@@ -75,13 +76,14 @@ if __name__ == '__main__':
   )
   args_parser.add_argument('--station', '-s', help='Override station ident', required=False)
   args_parser.add_argument('--debug', '-d', help='Enable debug output', action='store_true')
-  args_parser.add_argument('--output', '-o', help='Send output via TCP to additional destination transport:host:port (where transport is "tcp" or "udp")', default=['tcp:%s:%s' % (airframes_ingest_host, airframes_ingest_port)], action='append')
+  args_parser.add_argument('--output', '-o', help='Send output via TCP to additional destination transport:host:port (where transport is "tcp" or "udp")', default=[], action='append')
   args = args_parser.parse_args()
 
   debug = args.debug
   if args.station and debug:
     print("Overriding station ident to %s" % (args.station,))
 
+  args.output = ['tcp:%s:%d' % (airframes_ingest_host, airframes_ingest_port)] + args.output
   for output in args.output:
     transport, host, port = output.split(':')
     try:
