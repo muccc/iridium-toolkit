@@ -46,82 +46,89 @@ debug = True
 sock = None
 sockets = {}
 
+
 def reconnect():
-  s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  s.connect((ingest_host, ingest_port))
-  if debug:
-    print("Reconnected to Airframes Iridium ACARS ingest (%s:%d)" % (ingest_host, ingest_port))
-  return s
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.connect((airframes_ingest_host, airframes_ingest_port))
+    print("Reconnected to Airframes Iridium ACARS ingest (%s:%d)" %
+          (airframes_ingest_host, airframes_ingest_port))
+    return s
+
 
 def send_message(message):
-  global sockets
-  for k, sock in sockets.items():
-    try:
-      sock.sendall(("%s\n" % message).encode())
-      if debug:
-        print("Sent message to %s" % (k))
-    except Exception as e:
-      print('Error sending message: %s' % e)
-      if socket.transport == 'tcp':
-        sock.connect(sock.getpeername())
-        sockets[k] = sock
-        print("Reconnected to %s:%d" % (sock.getpeername()))
-        sockets[k].sendall(message.encode('utf-8'))
-
+    global sockets
+    for k, sock in sockets.items():
+        try:
+            sock.sendall(("%s\n" % message).encode())
+            if debug:
+                print("Sent message to %s" % (k))
+        except Exception as e:
+            print('Error sending message: %s' % e)
+            # check if socket is tcp 
+            if sock.getsockopt(socket.SOL_SOCKET, socket.SO_TYPE) == socket.SOCK_STREAM:
+                print("Reconnecting to %s:%d" % (sock.getpeername()))
+                sock.close()
+                sock = reconnect()
+                sockets[k] = sock
+                sock.sendall(message.encode('utf-8'))
 
 if __name__ == '__main__':
-  args_parser = argparse.ArgumentParser(
-    prog = 'iridium-acars-to-airframes.py',
-    description='Feed Iridium ACARS to Airframes.io and additional remote destinations',
-  )
-  args_parser.add_argument('--station', '-s', help='Override station ident', required=False)
-  args_parser.add_argument('--debug', '-d', help='Enable debug output', action='store_true')
-  args_parser.add_argument('--output', '-o', help='Send output via TCP to additional destination transport:host:port (where transport is "tcp" or "udp")', default=[], action='append')
-  args = args_parser.parse_args()
+    args_parser = argparse.ArgumentParser(
+        prog='iridium-acars-to-airframes.py',
+        description='Feed Iridium ACARS to Airframes.io and additional remote destinations',
+    )
+    args_parser.add_argument(
+        '--station', '-s', help='Override station ident', required=False)
+    args_parser.add_argument(
+        '--debug', '-d', help='Enable debug output', action='store_true')
+    args_parser.add_argument(
+        '--output', '-o', help='Send output via TCP to additional destination transport:host:port (where transport is "tcp" or "udp")', default=[], action='append')
+    args = args_parser.parse_args()
 
-  debug = args.debug
-  if args.station and debug:
-    print("Overriding station ident to %s" % (args.station,))
+    debug = args.debug
+    if args.station and debug:
+        print("Overriding station ident to %s" % (args.station,))
 
-  args.output = ['tcp:%s:%d' % (airframes_ingest_host, airframes_ingest_port)] + args.output
-  for output in args.output:
-    transport, host, port = output.split(':')
-    try:
-      if transport == 'tcp':
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect((host, int(port)))
-        sockets[output] = sock
+    args.output = ['tcp:%s:%d' %
+                   (airframes_ingest_host, airframes_ingest_port)] + args.output
+    for output in args.output:
+        transport, host, port = output.split(':')
+        try:
+            if transport == 'tcp':
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.connect((host, int(port)))
+                sockets[output] = sock
+                if debug:
+                    print("Connected to %s:%s:%s" % (transport, host, port))
+            elif transport == 'udp':
+                sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sock.connect((host, int(port)))
+                sockets[output] = sock
+                if debug:
+                    print("Connected to %s:%s:%s" % (transport, host, port))
+            else:
+                print("Unknown transport %s" % (transport,))
+        except TimeoutError as e:
+            print("Error connecting to output (%s:%s): %s" % (host, port, e))
+            sys.exit(1)
+        except Exception as e:
+            print("Error connecting to output (%s:%s): %s" % (host, port, e))
+            print("Not adding output to (%s:%s)" % (host, port))
+
+    while True:
+        line = sys.stdin.readline().strip()
         if debug:
-          print("Connected to %s:%s:%s" % (transport, host, port))
-      elif transport == 'udp':
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        sock.connect((host, int(port)))
-        sockets[output] = sock
-        if debug:
-          print("Connected to %s:%s:%s" % (transport, host, port))
-      else:
-        print("Unknown transport %s" % (transport,))
-    except TimeoutError as e:
-      print("Error connecting to output (%s:%s): %s" % (host, port, e))
-      sys.exit(1)
-    except Exception as e:
-      print("Error connecting to output (%s:%s): %s" % (host, port, e))
-      print("Not adding output to (%s:%s)" % (host, port))
+            print("Received: %s" % (line,))
 
-  while True:
-    line = sys.stdin.readline().strip()
-    if debug:
-      print("Received: %s" % (line,))
+        try:
+            message = json.loads(line)
+        except Exception as e:
+            print("Error parsing JSON (%s): %s" % (e, line,))
+            continue
 
-    try:
-      message = json.loads(line)
-    except Exception as e:
-      print("Error parsing JSON (%s): %s" % (e, line,))
-      continue
+        if args.station:
+            if message['source'] is None:
+                message['source'] = {}
+            message['source']['station'] = args.station
 
-    if args.station:
-      if message['source'] is None:
-        message['source'] = {}
-      message['source']['station'] = args.station
-
-    send_message(json.dumps(message))
+        send_message(json.dumps(message))
