@@ -19,6 +19,7 @@ import fileinput
 import argparse
 import re
 import sys
+import os
 from math import sqrt, pi, cos, acos
 from itertools import compress
 from configparser import ConfigParser
@@ -48,7 +49,7 @@ def read_observer(location):
     observer = {}
 
     config = ConfigParser()
-    config.read('locations.ini')
+    config.read(['locations.ini', os.path.join(os.path.dirname(__file__), 'locations.ini')])
 
     if location not in config:
         print("Location %s not defined" %location, file=sys.stderr)
@@ -86,7 +87,7 @@ def read_observer(location):
 
 def get_locations():
     config = ConfigParser()
-    config.read('locations.ini')
+    config.read(['locations.ini', os.path.join(os.path.dirname(__file__), 'locations.ini')])
 
     if config.sections():
         return config.sections()
