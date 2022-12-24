@@ -158,7 +158,7 @@ def simple_north_system(pos_sat, north):
     '''calculates a satellite coordinate system where the sat flies towards the north/south pole'''
     sat_plane=pos_sat/np.linalg.norm(pos_sat)
 
-    direction_sat=NORTH_POLE-pos_sat
+    direction_sat=-(NORTH_POLE-pos_sat)
     if north < 0:  # Invert if flying south
         direction_sat=-direction_sat
 
@@ -224,7 +224,7 @@ def incl_system(pos_sat, north):
     sat_plane = pos_sat / np.linalg.norm(pos_sat)
 
     try:
-        c = -cos(INC)  # Plane orientation works out better if we use (180°-inclination)
+        c = cos(INC)
 
         if y!=0:
             a1 = -(c*x*z + sqrt(-c*c*z*z - (c*c - 1)*x*x - (c*c - 1)*y*y)*y)/(x*x + y*y)
@@ -256,10 +256,11 @@ def incl_system(pos_sat, north):
 
     # Every sat position has two possible planes
     # Use the correct one based on travel direction
+    # (see assert below)
     if north>0:
-        orbit_plane=v1
-    elif north<0:
         orbit_plane=v2
+    elif north<0:
+        orbit_plane=v1
 
     direction_vec=np.cross(sat_plane, orbit_plane)
 
@@ -274,7 +275,7 @@ def incl_system(pos_sat, north):
         assert abs(np.linalg.norm(v2)-1)           < EPSILON, "plane#2 not normalized"
         assert abs(abs(ZPLANE.dot(v2))-cos(INC))   < EPSILON, "plane#2 not correct inclination"
 
-        assert north == np.sign(direction_vec[2]),            "Travelling in wrong direction"
+        assert north == -np.sign(direction_vec[2]),           "Travelling in wrong direction"
 
     except AssertionError:
         print("")
