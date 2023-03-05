@@ -895,8 +895,7 @@ class IridiumLCW3Message(IridiumLCWMessage):
                 self.fixederrs+=1
             self.rs8m=msg
             self.rs8c=csum
-            self.csum=checksum_16(self.rs8m[0:-3],self.rs8m[-2:])
-            self.oddbyte=self.rs8m[-3]
+            self.csum=checksum_16(self.rs8m)
         else:
             (ok,msg,csum)=rs6.rs_fix(self.payload6)
             self.rs6=ok
@@ -918,8 +917,6 @@ class IridiumLCW3Message(IridiumLCWMessage):
                 str+=" RS8=OK"
             else:
                 str+=" RS8=ok"
-            if self.oddbyte!=0:
-                str+=" ODD:%d"%self.oddbyte
             if self.csum==0:
                 str+=" CS=OK"
                 self.rs8m=self.rs8m[0:-3]
@@ -1062,8 +1059,8 @@ class IridiumIPMessage(IridiumLCWMessage):
             if ok:
                 if bytearray(self.payload_f)!=msg+rsc:
                     self.fixederrs=1
-                self.iiqcsum=checksum_16(msg[0:-3],msg[-2:])
-                self.oddbyte=msg[-3]
+                self.iiqcsum=checksum_16(msg)
+
                 if self.iiqcsum == 0:
                     self.itype="IIR"
                     self.idata=msg[0:-2]
@@ -1905,8 +1902,8 @@ def messagechecksum(msg):
         csum=(csum+ord(x))%128
     return (~csum)%128
 
-def checksum_16(msg, csum):
-    csum=sum(struct.unpack("15H",msg+csum))
+def checksum_16(msg):
+    csum=sum(struct.unpack("<14HBH",msg))
     csum=((csum&0xffff) + (csum>>16))
     return csum^0xffff
 
