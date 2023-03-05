@@ -456,6 +456,15 @@ def set_plot_title():
     else:
         title += ' plot'
 
+    if args.beam:
+        beamstr=",".join([str(x) for x in args.beam])
+        beams = { 'outer': '5,10,1,38,43,36,23,19,18,25', 'inner': '32,31,48,47,16,15', 'mid': '12,24,28,40,44,8' }
+        bname = {v: k for k, v in beams.items()}
+        if beamstr in bname:
+            beamstr=bname[beamstr]
+        title += ' (%s beams)' %beamstr
+        fname += '-%s'    %beamstr
+
     title += ' at %s' %args.loc
     fname += '-%s' %"".join(args.loc.lower().split())
 
