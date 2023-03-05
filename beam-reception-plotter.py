@@ -356,7 +356,7 @@ def read_file(observer):
                 ira_warn = True
             continue
 
-        mm=re.match(r"IRA: \S+-\d+\S+ ([\d.]+) \S+\s+\d+% \S+\|([\d.]+) .* sat:(\d+) beam:(\d+) xyz=.(.\d+),(.\d+),(.\d+).", line)
+        mm=re.match(r"IRA: \S+-\d+\S+ ([\d.]+) \S+\s+\d+% +(?:\S+\|)?([\d.]+) .* sat:(\d+) beam:(\d+) xyz=.(.\d+),(.\d+),(.\d+).", line)
 
         if mm is None:
             print("Unmatch:", line)
