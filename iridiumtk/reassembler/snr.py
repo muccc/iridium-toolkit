@@ -43,7 +43,7 @@ class StatsSNR(Reassemble):
             self.stats[typ]["noise"]+=pow(10,q.noise/20)
             self.stats[typ]["ncnt"]+=1
 
-        if q.level > 0: # Invalid signal level
+        if q.level > 0 or math.isnan(q.level): # Invalid signal level
             pass
         else:
             self.stats[typ]["signal"]+=pow(10,q.level/20)
