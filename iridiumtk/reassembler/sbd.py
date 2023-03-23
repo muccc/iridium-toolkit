@@ -326,23 +326,44 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
 
         # PRETTY-PRINT (json)
         if 'json' in config.args:
-            out={}
-            out['header']=q.hdr.hex()
-            out['errors'] = " ".join(q.errors)
+            out = {}
 
-            for key in ('timestamp', 'mode', 'f_reg:tail', 'ack', 'label', 'b_id:block_id', 'txt:text', 'cont:continues','seqn:sequence_no','f_no:flight_no', 'ul:uplink'):
-                okey,_,jkey=key.partition(':')
-                if jkey=='':
-                    jkey=okey
-                if okey in q.__dict__:
-                    val=q.__dict__[okey]
-                    if isinstance(val, bytes):
-                        val=val.decode('ascii')
-                    out[jkey]=val
+            # TODO: Replace version value with dynamic version that reflects the version of muccc/iridium-toolkit (preferably explicit version numbers, but can represent as git commit hash)
+            out['app'] = { 'name': 'iridium-toolkit', 'version': '0.0.1' }
 
             out['source'] = { 'transport': 'iridium', 'protocol': 'acars' }
             if config.station:
+                # Station ident can be in the form of an ident (e.g. 'KE-KMHR-IRIDIUM1') or a UUID (e.g. 'a1b2c3d4-e5f6-7a8b-9c0d-e1f2a3b4c5d6')
+                # The UUID support is useful for cases where the station ident is not known in advance, and allows the station's name ident to be
+                # updated later on the airframes.io website without breaking the link between the station and the airframes.io station.
                 out['source']['station_id'] = config.station
+
+            # Construct the ACARS content
+            out['acars'] = {
+                'timestamp': q.timestamp,
+                'errors': len(q.errors),
+                'link_direction': 'uplink' if q.ul else 'downlink',
+                'block_end': q.cont == False,
+            }
+            for key in ('mode', 'f_reg:tail', 'f_no:flight', 'label', 'b_id:block_id', 'seqn:message_number', 'ack', 'txt:text'):
+                old, _, new = key.partition(':')
+                if new == '': new = old
+                if old in q.__dict__:
+                    val = q.__dict__[old]
+                    if isinstance(val, bytes):
+                        val = val.decode('ascii')
+                    if old == 'label':
+                        val = val.replace('_\u007f', '_d')
+                    if old == 'ack':
+                        val = val.replace('\u0015', '!')
+                    out['acars'][new] = val
+
+            # TODO: In theory we could put other content here unrelated to ACARS if there is anything else in the SBD message
+            #       that we want to include in the output. For example, we could include the raw SBD message in the output.
+            #       Or possibly other embedded modes if they are present in the SBD message.
+
+            out['header'] = q.hdr.hex()
+
             print(json.dumps(out), file=outfile)
             return
 
