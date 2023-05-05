@@ -46,15 +46,6 @@ debug = True
 sock = None
 sockets = {}
 
-
-def reconnect():
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.connect((airframes_ingest_host, airframes_ingest_port))
-    print("Reconnected to Airframes Iridium ACARS ingest (%s:%d)" %
-          (airframes_ingest_host, airframes_ingest_port))
-    return s
-
-
 def send_message(message):
     global sockets
     for k, sock in sockets.items():
@@ -90,8 +81,6 @@ def send_message(message):
                     # A None object instead of a socket will cause the script to attempt connecting in the send loop.
                     sockets[k] = None
                     sock = None
-
-
 
 if __name__ == '__main__':
     args_parser = argparse.ArgumentParser(
