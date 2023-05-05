@@ -58,19 +58,40 @@ def reconnect():
 def send_message(message):
     global sockets
     for k, sock in sockets.items():
-        try:
-            sock.sendall(("%s\n" % message).encode())
-            if debug:
-                print("Sent message to %s" % (k))
-        except Exception as e:
-            print('Error sending message: %s' % e)
-            # check if socket is tcp 
-            if sock.getsockopt(socket.SOL_SOCKET, socket.SO_TYPE) == socket.SOCK_STREAM:
-                print("Reconnecting to %s:%d" % (sock.getpeername()))
-                sock.close()
-                sock = reconnect()
-                sockets[k] = sock
-                sock.sendall(message.encode('utf-8'))
+        if sock:
+            try:
+                sock.sendall(("%s\n" % message).encode('utf-8'))
+                if debug:
+                    print("Sent message to %s" % (k))
+            except Exception as e:
+                print('Error sending message to %s: %s' % (k, e))
+                try:
+                    sock.close()
+                except:
+                    pass
+                # A None object instead of a socket will cause the script to attempt connecting in the send loop.
+                sockets[k] = None
+                sock = None
+
+        if sock is None:
+            transport, host, port = k.split(":")
+            if transport == 'tcp':
+                # Assume TCP socket is dead. Close and reconnect.
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.connect((host, int(port)))
+                    sockets[k] = sock
+
+                    # send message
+                    sock.sendall(("%s\n" % message).encode('utf-8'))
+                except Exception as e:
+                    print("Error trying to reconnect to %s: %s" % (k, e))
+
+                    # A None object instead of a socket will cause the script to attempt connecting in the send loop.
+                    sockets[k] = None
+                    sock = None
+
+
 
 if __name__ == '__main__':
     args_parser = argparse.ArgumentParser(
@@ -108,12 +129,15 @@ if __name__ == '__main__':
                     print("Connected to %s:%s:%s" % (transport, host, port))
             else:
                 print("Unknown transport %s" % (transport,))
+                sys.exit(1)
         except TimeoutError as e:
-            print("Error connecting to output (%s:%s): %s" % (host, port, e))
-            sys.exit(1)
+            print("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
+            # A None object instead of a socket will cause the script to attempt connecting in the send loop.
+            sockets[output] = None
         except Exception as e:
-            print("Error connecting to output (%s:%s): %s" % (host, port, e))
-            print("Not adding output to (%s:%s)" % (host, port))
+            print("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
+            # A None object instead of a socket will cause the script to attempt connecting in the send loop.
+            sockets[output] = None
 
     while True:
         line = sys.stdin.readline().strip()
