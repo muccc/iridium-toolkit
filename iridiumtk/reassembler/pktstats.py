@@ -25,7 +25,7 @@ class LivePktStats(Reassemble):
         self.default={}
         for k in ['UL', 'DL']:
             self.default[k]={}
-            for x in ['IBC', 'IDA', 'IIP', 'IIQ', 'IIR', 'IIU', 'IMS', 'IRA', 'IRI', 'ISY', 'ITL', 'IU3', 'I36', 'I38', 'MSG', 'VDA', 'VO6', 'VOC', 'VOD', 'MS3', 'VOZ', 'IAQ', 'NXT']:
+            for x in ['IBC', 'IDA', 'IIP', 'IIQ', 'IIR', 'IIU', 'IMS', 'IRA', 'IRI', 'ISY', 'ITL', 'IU3', 'I36', 'I38', 'MSG', 'VDA', 'VO6', 'VOC', 'VOD', 'MS3', 'VOZ', 'IAQ', 'INP', 'NXT']:
                 self.default[k][x]=0
         pass
 
