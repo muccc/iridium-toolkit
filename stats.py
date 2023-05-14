@@ -45,6 +45,8 @@ frames['VOD'] = [colors[ 1], 'x', 1]
 frames['VDA'] = [colors[ 2], 'o', 1]
 frames['VO6'] = [colors[12], 'o', 1]
 
+frames['INP'] = [colors[ 5], 'x', 1]
+
 frames['IRI'] = ['purple',   'x', 0]
 frames['RAW'] = ['grey',     'x', 0]
 

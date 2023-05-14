@@ -7,7 +7,7 @@ import datetime
 from .base import *
 from ..config import config, outfile, state
 
-ft=['IBC', 'IDA', 'IIP', 'IIQ', 'IIR', 'IIU', 'IMS', 'IRA', 'IRI', 'ISY', 'ITL', 'IU3', 'I36', 'I38', 'MSG', 'VDA', 'VO6', 'VOC', 'VOD', 'MS3', 'VOZ', 'IAQ']
+ft=['IBC', 'IDA', 'IIP', 'IIQ', 'IIR', 'IIU', 'IMS', 'IRA', 'IRI', 'ISY', 'ITL', 'IU3', 'I36', 'I38', 'MSG', 'VDA', 'VO6', 'VOC', 'VOD', 'MS3', 'VOZ', 'IAQ', 'INP']
 
 class StatsPKT(Reassemble):
     stats={}
