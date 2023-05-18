@@ -862,7 +862,7 @@ class IridiumSTLMessage(IridiumMessage):
             st+= " <"+" ".join(self.q)+">"
         elif self.itl_version==1:
             st+= " OK P%d"%self.plane
-            st+= " "+self.sat+" M%d"%self.mt
+            st+= " "+self.sat+" "+self.mt
             for x in self.msg:
                 try:
                     st+= " "+"{0:07b}".format(x)
@@ -870,7 +870,7 @@ class IridiumSTLMessage(IridiumMessage):
                     st+= " "+x
         else:
             st+=" OK P%d"%self.plane
-            st+=" "+self.sat+" M%d"%self.mt
+            st+=" "+self.sat+" "+self.mt
             st+=" "+" ".join(["{0:07b}".format(x) for x in self.msg])
 
         st+=self._pretty_trailer()

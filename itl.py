@@ -694,18 +694,29 @@ BIN_PRS=    [hex2bin(x) for x in PRS_LIST]
 def map_sat(num, version):
     if version==2:
         if num==77:
-            return ("---",8)
+            return ("---","M08")
         elif num<66:
             satno=num%11
             msgno=num//11
-            return ("S%02d"%(satno+1),msgno+1)
+            return ("S%02d"%(satno+1),"M%02d"%(msgno+1))
+# New Messages since 2023-05-08:
+# - Rxx means: Satno%3 == xx
+        elif num >=82 and num <=84:
+            return ("R%02d"%(((num-82)%3)+1), "N%02d"%(1))
+        elif num >=85 and num <=95:
+            return ("S%02d"%(num-84), "N%02d"%(2))
+        elif num >=96 and num <=107:
+            return ("R%02d"%(((num-96)%3)+1), "N%02d"%(((num-96)//3)+3))
+        elif num ==111:
+            return ("---", "N%02d"%(8))
         else:
+            return ("---",num)
             raise ValueError
     elif version==1:
         if num<88:
             satno=num%11
             msgno=num//11
-            return ("S%02d"%(satno+1),msgno+1)
+            return ("S%02d"%(satno+1),"M%02d"%(msgno+1))
         else:
             raise ValueError
     assert False, "unexpected itl version"
@@ -717,8 +728,8 @@ if __name__ == "__main__":
     for seq in sys.argv[1:]:
         try:
             print("Key: %s -> %d (type: %s)"%(seq,MAP_PRS[seq],MAP_PRS_TYPE[seq]))
-            (s,m)=map_sat(MAP_PRS[seq])
-            print("Sat: %s M%02d"%(s,m))
+            (s,m)=map_sat(MAP_PRS[seq],2)
+            print("Map: %s %s"%(s,m))
         except KeyError:
             print("Key: %s no exact match"%(seq))
             bseq=hex2bin(seq)
