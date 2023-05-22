@@ -707,7 +707,9 @@ def map_sat(num, version):
             return ("S%02d"%(num-84), "N%02d"%(2))
         elif num >=96 and num <=107:
             return ("R%02d"%(((num-96)%3)+1), "N%02d"%(((num-96)//3)+3))
-        elif num ==111:
+        elif num == 108:
+            return ("---", "SSS")
+        elif num == 111:
             return ("---", "N%02d"%(8))
         else:
             return ("---",num)
