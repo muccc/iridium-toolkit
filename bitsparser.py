@@ -754,17 +754,22 @@ class IridiumSTLMessage(IridiumMessage):
                 if bitdiff(self.ib[0],itl.BIN_HDR[2])<MAX_DIFF:
                     self.fixederrs+= 1
                     self.itl_version= 2
+                else:
+                    raise ParserError("ITL PRS I#0 (version) unknown")
+            else:
+                raise ParserError("ITL PRS I#0 (version) unknown")
+
+        self.header="V%d"%self.itl_version
 
         if self.itl_version==0: # No decoding yet
             self.i= ["".join(x) for x in slice(i_list,16)]
             self.q= ["".join(x) for x in slice(q_list,16)]
-            self.header="V%d"%self.itl_version
             return
         elif self.itl_version==1:
             try:
                 self.plane= itl.MAP_PLANE_V1[self.i[1]]
             except KeyError:
-                raise ParserError("ITL plane PRS unknown")
+                raise ParserError("ITL V1 PRS I#1 (plane) unknown")
 
             self.msg=[]
             for i,x in enumerate(self.q):
@@ -772,23 +777,33 @@ class IridiumSTLMessage(IridiumMessage):
                     self.msg.append(itl.MAP_PRS_V1[x])
                 else:
                     if i==0 or self.msg[0]<77: # M8 does not contain normal PRS'
-                        raise ParserError("ITL PRS #%d unknown"%i)
+                        raise ParserError("ITL V1 PRS Q#%d unknown"%i)
                     self.msg.append(x)
         elif self.itl_version==2 and not args.harder:
             try:
                 self.plane= itl.MAP_PLANE[self.i[1]]
-                self.msg= [itl.MAP_PRS[x] for x in self.q]
             except KeyError:
-                raise ParserError("ITL PRS unknown")
+                raise ParserError("ITL V2 PRS I#1 (plane) unknown")
 
-            #sanity check the PRS sequence order
-            sanity = "".join([str(itl.MAP_PRS_TYPE[x]) for x in self.q])
-            if self.plane%2 == 0:
-                if sanity not in ("0123","1032"):
-                    raise ParserError("ITL wrong PRS found")
-            else:
-                if sanity not in ("2301","3210"):
-                    raise ParserError("ITL wrong PRS found")
+            self.msg=[]
+            for i,x in enumerate(self.q):
+                if x in itl.MAP_PRS:
+                    self.msg.append(itl.MAP_PRS[x])
+                else:
+                    if i==0 or self.msg[0] != 108: # special message does not contain normal PRS
+                        raise ParserError("ITL V2 PRS Q#%d unknown"%i)
+                    self.msg.append(x)
+
+            if self.msg[0] != 108:
+                #sanity check the PRS sequence order
+                sanity = "".join([str(itl.MAP_PRS_TYPE[x]) for x in self.q])
+                if self.plane%2 == 0:
+                    if sanity not in ("0123","1032"):
+                        raise ParserError("ITL V2 PRS from unexpected set")
+                else:
+                    if sanity not in ("2301","3210"):
+                        raise ParserError("ITL V2 PRS from unexpected set")
+
         elif self.itl_version==2 and args.harder:
             self.plane=None
             self.msg=[None]*4
@@ -802,11 +817,14 @@ class IridiumSTLMessage(IridiumMessage):
                         self.fixederrs+=1
                         break
                 if self.plane is None:
-                    raise ParserError("ITL plane PRS unknown")
+                    raise ParserError("ITL V2 PRS I#1 (plane) unknown")
 
             cat=None
             for qidx in range(len(self.q)):
                 mindist=999
+                if qidx > 0 and self.msg[0] == 108:
+                    self.msg[qidx]=self.q[qidx]
+                    next
                 if self.q[qidx] in itl.MAP_PRS:
                     self.msg[qidx]= itl.MAP_PRS[self.q[qidx]]
                     cat=itl.MAP_PRS_TYPE[self.q[qidx]]
@@ -839,12 +857,11 @@ class IridiumSTLMessage(IridiumMessage):
                             self.fixederrs+=1
                             break
                 if self.msg[qidx] is None:
-                    self._new_error("ITL PRS #%d unknown"%qidx)
+                    self._new_error("ITL V2 PRS Q#%d unknown"%qidx)
                     raise ParserError("ITL PRS dist=%d"%mindist)
         else:
-            raise ParserError("ITL initial PRS unknown")
+            raise AssertionError("ITL version error")
 
-        self.header="V%d"%self.itl_version
         try:
             (self.sat, self.mt)= itl.map_sat(self.msg[0], self.itl_version)
         except ValueError:
@@ -871,7 +888,11 @@ class IridiumSTLMessage(IridiumMessage):
         else:
             st+=" OK P%d"%self.plane
             st+=" "+self.sat+" "+self.mt
-            st+=" "+" ".join(["{0:07b}".format(x) for x in self.msg])
+            for x in self.msg:
+                try:
+                    st+= " "+"{0:07b}".format(x)
+                except ValueError:
+                    st+= " "+x
 
         st+=self._pretty_trailer()
         return st
