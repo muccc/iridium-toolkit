@@ -21,6 +21,8 @@ def filter_voc(t_start = None, t_stop = None, f_min = None, f_max = None):
             if line_split[1] == 'VOC:':
                 oknok=int(line_split[0][len(line_split[0])-1])
                 line_split=line_split[1:]
+            else:
+                oknok= "LCW(0,T:maint,C:<silent>," in line
             oknok=['red','orange','green'][oknok]
             #ts_base = int(line[1].split('-')[1].split('.')[0])
             ts_base = 0
