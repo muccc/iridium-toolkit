@@ -35,10 +35,11 @@
 
 import argparse
 import json
-import sys
+import logging
 import select
-import time
 import socket
+import sys
+import time
 
 airframes_ingest_host = 'feed.airframes.io'
 airframes_ingest_port = 5590
@@ -46,16 +47,19 @@ debug = True
 sock = None
 sockets = {}
 
+
+logging.basicConfig(format='%(message)s', level=logging.WARNING)
+log = logging.getLogger(__name__)
+
 def send_message(message):
     global sockets
     for k, sock in sockets.items():
-        if sock:
+        if sock is not None:
             try:
                 sock.sendall(("%s\n" % message).encode('utf-8'))
-                if debug:
-                    print("Sent message to %s" % (k))
+                log.info("Sent message to %s" % (k))
             except Exception as e:
-                print('Error sending message to %s: %s' % (k, e))
+                log.error('Error sending message to %s: %s' % (k, e))
                 try:
                     sock.close()
                 except:
@@ -66,17 +70,28 @@ def send_message(message):
 
         if sock is None:
             transport, host, port = k.split(":")
-            if transport == 'tcp':
+            if transport == 'udp':
+                try:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    sock.connect((host, int(port)))
+                    sockets[output] = sock
+
+                    sock.sendall(("%s\n" % message).encode('utf-8'))
+                except Exception as e:
+                    log.error("Exception creating socket to %s: %s" % (k, e))
+                    sockets[k] = None
+                    sock = None
+
+            elif transport == 'tcp':
                 # Assume TCP socket is dead. Close and reconnect.
                 try:
                     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                     sock.connect((host, int(port)))
                     sockets[k] = sock
 
-                    # send message
                     sock.sendall(("%s\n" % message).encode('utf-8'))
                 except Exception as e:
-                    print("Error trying to reconnect to %s: %s" % (k, e))
+                    log.error("Error reconnecting to %s: %s" % (k, e))
 
                     # A None object instead of a socket will cause the script to attempt connecting in the send loop.
                     sockets[k] = None
@@ -90,17 +105,25 @@ if __name__ == '__main__':
     args_parser.add_argument(
         '--station', '-s', help='Override station ident', required=False)
     args_parser.add_argument(
+        '--verbose', '-v', help='Verbose output. Currently logs every message to stdout.', action='store_true')
+    args_parser.add_argument(
         '--debug', '-d', help='Enable debug output', action='store_true')
     args_parser.add_argument(
         '--output', '-o', help='Send output via TCP to additional destination transport:host:port (where transport is "tcp" or "udp")', default=[], action='append')
+    args_parser.add_argument(
+        '--no-airframes', help='Do not automatically add airframes.io to the list of outputs.', action='store_true')
     args = args_parser.parse_args()
 
-    debug = args.debug
-    if args.station and debug:
-        print("Overriding station ident to %s" % (args.station,))
+    if args.debug:
+        log.setLevel(logging.DEBUG)
 
-    args.output = ['tcp:%s:%d' %
-                   (airframes_ingest_host, airframes_ingest_port)] + args.output
+    if args.station:
+        logging.warn("Overriding station ident to %s" % (args.station,))
+
+    if not args.no_airframes:
+        args.output = ['tcp:%s:%d' %
+                       (airframes_ingest_host, airframes_ingest_port)] + args.output
+    
     for output in args.output:
         transport, host, port = output.split(':')
         try:
@@ -108,40 +131,50 @@ if __name__ == '__main__':
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.connect((host, int(port)))
                 sockets[output] = sock
-                if debug:
-                    print("Connected to %s:%s:%s" % (transport, host, port))
+                log.info("Connected to %s:%s:%s" % (transport, host, port))
             elif transport == 'udp':
                 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 sock.connect((host, int(port)))
                 sockets[output] = sock
-                if debug:
-                    print("Connected to %s:%s:%s" % (transport, host, port))
+                log.info("Connected to %s:%s:%s" % (transport, host, port))
             else:
-                print("Unknown transport %s" % (transport,))
+                log.error("Unknown transport %s" % (transport,))
                 sys.exit(1)
         except TimeoutError as e:
-            print("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
+            log.warn("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
             # A None object instead of a socket will cause the script to attempt connecting in the send loop.
             sockets[output] = None
         except Exception as e:
-            print("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
+            log.warn("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
             # A None object instead of a socket will cause the script to attempt connecting in the send loop.
             sockets[output] = None
 
-    while True:
-        line = sys.stdin.readline().strip()
-        if debug:
-            print("Received: %s" % (line,))
+    if len(sockets) < 1:
+        log.error("No valid outputs configured. Exiting.")
+        sys.exit(0)
 
-        try:
-            message = json.loads(line)
-        except Exception as e:
-            print("Error parsing JSON (%s): %s" % (e, line,))
-            continue
+    for line in sys.stdin:
+        line = line.strip()
 
+        if args.verbose:
+            print(line)
+        
+        if line is None or len(line) < 1:
+            log.error("Received EOF. Exiting.")
+            sys.exit(0)
+        
         if args.station:
-            if message['source'] is None:
-                message['source'] = {}
-            message['source']['station'] = args.station
+            try:
+                message = json.loads(line)
+            except Exception as e:
+                log.warning("Error parsing JSON (%s): %s" % (e, repr(line),))
+                continue
 
-        send_message(json.dumps(message))
+            if "source" not in message:
+                message["source"] = {}
+            
+            message['source']['station_id'] = args.station
+
+            line = json.dumps(message)
+
+        send_message(line)
