@@ -69,7 +69,7 @@ class ReassembleIDASBD(ReassembleIDA):
             if data[1]!=0x00:
                 print("WARN: SBD: HELLO pkt with unclear type",data.hex(":"), file=sys.stderr)
                 return
-            elif data[2] not in (0x10,0x20,0x40,0x50,0x70):
+            elif data[2] not in (0x00, 0x10,0x20,0x40,0x50,0x70):
                 print("WARN: SBD: HELLO pkt with unknown sub-type",data.hex(":"), file=sys.stderr)
                 return
 
