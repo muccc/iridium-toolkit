@@ -48,8 +48,11 @@ def cut_convert_play(t_start, t_stop, f_min, f_max):
             f_max = f_min
             f_min = tmp
 
-    f_out = open('/tmp/voice.bits', 'w')
     _, _, _, lines = filter_voc(t_start, t_stop, f_min, f_max)
+    if len(lines)==0:
+        print("No data selected")
+        return
+    f_out = open('/tmp/voice.bits', 'w')
     for line in lines:
         f_out.write(line + "\n")
     f_out.close()
