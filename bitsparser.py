@@ -306,7 +306,7 @@ class IridiumMessage(Message):
                 self.msgtype="AQ"
 
         if "msgtype" not in self.__dict__: # and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
-            if len(data)==432*2:
+            if len(data)>=170:#==432*2:
                 symbols=de_dqpsk(data)
                 bits=sym2bits(symbols)
 
@@ -766,19 +766,38 @@ class IridiumNPMessage(IridiumMessage):
         if "header" not in self.__dict__:
             self.header=""
 
-        # Re-sort bits
-        trailer=bits[800::2]+bits[801::2]
-        bits=bits[:800]
+            # Re-sort bits
+        if len(bits)<840:
+            bcnt=len(bits)//160
+            trailer=bits[160*bcnt::]
+            bits=bits[:160*bcnt]
 
-        s1s=slice(bits[0::4],40)
-        s2s=slice(bits[1::4],40)
-        s3s=slice(bits[2::4],40)
-        s4s=slice(bits[3::4],40)
+            s1s=slice(bits[0::4],40)
+            s2s=slice(bits[1::4],40)
+            s3s=slice(bits[2::4],40)
+            s4s=slice(bits[3::4],40)
 
-        blocks=list(itertools.chain.from_iterable(zip(s1s,s2s,s3s,s4s)))
+            blocks=list(itertools.chain.from_iterable(zip(s1s,s2s,s3s,s4s)))
 
-        blocks+=[trailer[:40]]
-        trailer=trailer[40:]
+#            btrail=blocks[-4:]
+#            blocks=blocks[:-4]
+#            trailer="".join(btrail)+trailer
+
+#            blocks+=[blocks[-2][-8:]+btrail[0][:32]]
+#            blocks+=[btrail[1]]
+        else:
+            trailer=bits[800::2]+bits[801::2]
+            bits=bits[:800]
+
+            s1s=slice(bits[0::4],40)
+            s2s=slice(bits[1::4],40)
+            s3s=slice(bits[2::4],40)
+            s4s=slice(bits[3::4],40)
+
+            blocks=list(itertools.chain.from_iterable(zip(s1s,s2s,s3s,s4s)))
+
+            blocks+=[trailer[:40]]
+            trailer=trailer[40:]
 
         checks=[magic_checksum(b)[0] for b in blocks]
 
