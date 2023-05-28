@@ -26,10 +26,13 @@
 #     -h, --help            show this help message and exit
 #     --station STATION, -s STATION
 #                           Override station ident
+#     --verbose, -v         Verbose output. Currently logs every message to stdout.
 #     --debug, -d           Enable debug output
 #     --output OUTPUT, -o OUTPUT
-#                           Send output to additional destination transport:host:port (where transport is "tcp" or "udp")
-#
+#                           Send output via TCP to additional destination transport:host:port
+#                           (where transport is "tcp" or "udp")
+#     --no-airframes        Do not automatically add airframes.io to the list of outputs.
+
 # For more information about Airframes, see https://app.airframes.io/about or contact kevin@airframes.io.
 #
 
@@ -41,12 +44,9 @@ import socket
 import sys
 import time
 
-airframes_ingest_host = 'feed.airframes.io'
-airframes_ingest_port = 5590
-debug = True
-sock = None
+AIRFRAMES_INGEST_HOST = 'feed.airframes.io'
+AIRFRAMES_INGEST_PORT = 5590
 sockets = {}
-
 
 logging.basicConfig(format='%(message)s', level=logging.WARNING)
 log = logging.getLogger(__name__)
@@ -97,7 +97,7 @@ def send_message(message):
                     sockets[k] = None
                     sock = None
 
-if __name__ == '__main__':
+def main():
     args_parser = argparse.ArgumentParser(
         prog='iridium-acars-to-airframes.py',
         description='Feed Iridium ACARS to Airframes.io and additional remote destinations',
@@ -122,8 +122,8 @@ if __name__ == '__main__':
 
     if not args.no_airframes:
         args.output = ['tcp:%s:%d' %
-                       (airframes_ingest_host, airframes_ingest_port)] + args.output
-    
+                       (AIRFRAMES_INGEST_HOST, AIRFRAMES_INGEST_PORT)] + args.output
+
     for output in args.output:
         transport, host, port = output.split(':')
         try:
@@ -141,11 +141,11 @@ if __name__ == '__main__':
                 log.error("Unknown transport %s" % (transport,))
                 sys.exit(1)
         except TimeoutError as e:
-            log.warn("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
+            log.warning("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
             # A None object instead of a socket will cause the script to attempt connecting in the send loop.
             sockets[output] = None
         except Exception as e:
-            log.warn("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
+            log.warning("Error connecting to output (%s:%s): %s. Will attempt connection later." % (host, port, e))
             # A None object instead of a socket will cause the script to attempt connecting in the send loop.
             sockets[output] = None
 
@@ -158,11 +158,11 @@ if __name__ == '__main__':
 
         if args.verbose:
             print(line)
-        
+
         if line is None or len(line) < 1:
             log.error("Received EOF. Exiting.")
             sys.exit(0)
-        
+
         if args.station:
             try:
                 message = json.loads(line)
@@ -172,9 +172,12 @@ if __name__ == '__main__':
 
             if "source" not in message:
                 message["source"] = {}
-            
+
             message['source']['station_id'] = args.station
 
             line = json.dumps(message)
 
         send_message(line)
+
+if __name__ == '__main__':
+    main()
