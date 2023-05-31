@@ -851,6 +851,8 @@ class IridiumNPMessage(IridiumMessage):
         # Pkt v1
         self.v1trail=trailer[:8]
         self.cs_v1=trailer[8:]
+        if self.cs_v1 == '':
+            self.cs_v1='0'
 
         self.the_crc_v1=np_crc16(bytes( [int(x,2) for x in slice(
                     hdr[-1][-8:]+
@@ -867,6 +869,8 @@ class IridiumNPMessage(IridiumMessage):
 
         self.cs_v2=self.trailer[:16]
         self.v2trail=self.trailer[16:]
+        if self.cs_v2 == '':
+            self.cs_v2='0'
 
         self.the_crc_v2=np_crc16(bytes([int(x,2) for x in slice(
                             hdr[-1][-8:]+
