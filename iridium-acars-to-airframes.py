@@ -74,7 +74,7 @@ def send_message(message):
                 try:
                     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     sock.connect((host, int(port)))
-                    sockets[output] = sock
+                    sockets[k] = sock
 
                     sock.sendall(("%s\n" % message).encode('utf-8'))
                 except Exception as e:
