@@ -1,10 +1,21 @@
+#!/bin/sh
+
 DATE=`date -Iseconds`
+files="iridium-NEXT.txt"
+[ ! -z "$1" ] && files="$file iridium.txt tle-new.txt"
 
-rm iridium.txt
-wget http://www.celestrak.com/NORAD/elements/iridium.txt
-cp iridium.txt tle/iridium-$DATE.txt
-
-rm iridium-NEXT.txt
-wget http://www.celestrak.com/NORAD/elements/iridium-NEXT.txt
-cp iridium-NEXT.txt tle/iridium-NEXT-$DATE.txt
-
+for f in $files ; do
+	if [ -f $f ] ; then
+		mv $f $f.old
+	else
+		touch $f.old
+	fi
+	curl -sLO http://celestrak.com/NORAD/elements/$f
+	if cmp -s $f.old $f ; then
+		echo "$f is unchanged"
+		rm $f.old
+	else
+		echo "Saving new version of $f"
+		cp $f tle/${f%.txt}-$DATE.txt
+	fi
+done
