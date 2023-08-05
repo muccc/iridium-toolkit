@@ -29,7 +29,7 @@ class InfoITLSatMap(Reassemble):
                 q.beam= int(m.group(2))
                 self.ira=q
         elif q.typ=="ITL:":
-            p=re.compile(r'V[12] OK P(\d+) (?:---|S(\d+)) ')
+            p=re.compile(r'V[12] OK(?:\[\d\])? P(\d+) (?:---|R\d\d|S(\d+)) ')
             m=p.search(q.data)
             if(not m):
                 print("Couldn't parse ITL: ",q.data, end=' ', file=sys.stderr)
