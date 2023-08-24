@@ -51,6 +51,93 @@ tswarning=False
 tsoffset=0
 maxts=0
 
+class MessageInterface(object):
+    parse_error = False
+    error = False
+
+    def __init__(self, timestamp, timestamp_global, frequency, snr, noise, id, confidence, level, bitsream_raw, swapped=True):
+        """Initialize a new message object.
+
+        Args:
+            timestamp (float): Timestamp of the message in ms from the start of data collection.
+            timestamp_global (int): Timestamp of the message in ns (global).
+            frequency (int): Frequency of the message in Hz.
+            snr (float): Signal-to-noise ratio of the message.
+            noise (float): Noise level of the message.
+            id (int): ID of the message.
+            confidence (int): Confidence of the message.
+            level (int): Level of the message.
+            bitsream_raw (str): Raw bitstream of the message.
+            swapped (bool): Whether the bitstream is swapped.
+
+        Returns:
+            MessageInterface: A new message object.
+        """
+        self.error = False
+        self.error_msg = []
+        self.parse_error = False
+
+        self.lineno = 0
+        self.filename = "i-0-t1"
+
+        self.swapped = swapped
+        self.timestamp = float(timestamp)
+        if self.timestamp < 0 or self.timestamp > 1000 * 60 * 60 * 24 * 999: # 999 days
+            self._new_error("Timestamp out of range")
+        self.frequency = int(frequency)
+        self.freq_print="%010d" % (self.frequency)
+        self.snr = float(snr)
+        self.noise = float(noise)
+        self.id = str(id)
+        self.confidence = int(confidence)
+        self.level = float(level)
+        self.leveldb = 20 * log(self.level, 10)
+        self.bitstream_raw = re.sub(r"[\[\]<> ]", "", bitsream_raw)
+        if self.swapped:
+            self.bitstream_raw = symbol_reverse(self.bitstream_raw)
+        self.symbols = len(self.bitstream_raw) // 2
+
+        self.fileinfo = "p-{:d}".format(timestamp_global)
+        self.globalns = timestamp_global
+
+    def upgrade(self):
+        """Upgrade the message to a more specific message type."""
+        if self.error:
+            return self
+        if self.bitstream_raw.startswith(iridium_access):
+            self.uplink = 0
+        elif self.bitstream_raw.startswith(uplink_access):
+            self.uplink = 1
+        else:
+            if uwec and len(self.bitstream_raw) >= len(iridium_access):
+                access = de_dqpsk(self.bitstream_raw[:len(iridium_access)])
+
+                if bitdiff(access, UW_DOWNLINK) < 4:
+                    self.uplink = 0
+                    self.ec_uw = bitdiff(access, UW_DOWNLINK)
+                elif bitdiff(access, UW_UPLINK) < 4:
+                    self.uplink = 1
+                    self.ec_uw = bitdiff(access, UW_UPLINK)
+                else:
+                    self._new_error("Access code distance too big: {:d}/{:d} ".format(bitdiff(access, UW_DOWNLINK), bitdiff(access, UW_UPLINK)))
+            if "uplink" not in self.__dict__:
+                self._new_error("Access code missing")
+                return self
+        try:
+            return IridiumMessage(self).upgrade()
+        except ParserError as e:
+            self._new_error(str(e), e.cls)
+            return self
+
+    def _new_error(self,msg, cls=None):
+        self.error = True
+        if cls is None:
+            msg = str(type(self).__name__) + ": " + msg
+        else:
+            msg = cls + ": " + msg
+        if not self.error_msg or self.error_msg[-1] != msg:
+            self.error_msg.append(msg)
+
 class Message(object):
     p=re.compile(r'(RAW|RWA): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
     parse_error=False
