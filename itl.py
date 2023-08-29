@@ -1,4 +1,4 @@
-from util import bitdiff, hex2bin
+from .util import bitdiff, hex2bin
 
 PRS_HDR=[
     "00000000000000000000000000000000",

@@ -5,17 +5,17 @@
 import sys
 import re
 import struct
-from bch import ndivide, nrepair, bch_repair, bch_repair1
+from .bch import ndivide, nrepair, bch_repair, bch_repair1
 import crcmod
-import rs
-import rs6
+from . import rs
+from . import rs6
 import fileinput
 import datetime
 from inspect import stack
 
-from util import *
+from .util import *
 from math import sqrt,atan2,pi,log
-import itl
+from . import itl
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
 uplink_access= "110011000011110011111100" # BPSK: 0xc4b
@@ -39,8 +39,8 @@ f_duplex  = (1625979e3 + f_doppler + f_jitter ) * (1+ sdr_ppm) # upper bound for
 
 verbose = False
 perfect = False
-uwec = False
-harder = False
+uwec = True
+harder = True
 linefilter={ 'type': 'All', 'attr': None, 'check': None }
 errorfile=None
 forcetype=None

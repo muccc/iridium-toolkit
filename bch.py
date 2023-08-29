@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # vim: set ts=4 sw=4 tw=0 et pm=:
-from fec import stringify, listify
+from .fec import stringify, listify
 
 def nndivide(poly,num): # both args as int
     if(num==0):

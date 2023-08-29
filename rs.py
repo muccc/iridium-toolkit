@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
-import reedsolo
+from . import reedsolo
 
 # IIQ/LCW3:  Message: 31B, checksum: 8B, erasure: 8B - RS(47,31) [total: 312b]
 

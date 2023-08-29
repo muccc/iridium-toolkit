@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # vim: set ts=4 sw=4 tw=0 et pm=:
 
-import reedsolo6
+from . import reedsolo6
 
 # VO6/LCW3: Message: 42*6b=31.5B, checksum: 10*6b=7.5B - RS_6(52,10) [total: 312b]
 
