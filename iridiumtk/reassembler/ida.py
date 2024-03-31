@@ -344,9 +344,16 @@ def p_facility(data):
 # type3: TV(1+)  # list of (tag, len)
 # type4: TLV     # list of tags
 # start: Tag-less elements at the beginning # list of (tag, len) -- [len<0 means it's LV]
-def p_opt_tlv(data, type1=[], type2=[], type3=[], type4=[], start=[]):
+#
+# iridium extensions:
+#   type1i: list of (tag, len), where tag is just the high nibble (like type1)
+#   type3i: list of (tag, len)
+
+def p_opt_tlv(data, type1=[], type2=[], type3=[], type4=[], start=[], type1i=[], type3i=[]):
     out = ""
-    type3_d={t:l for (t,l) in type3}
+    type3_d={t:l for (t,l) in type3+type3i}
+    type3i_d={t:l for (t,l) in type3i}
+    type1i_d={t:l for (t,l) in type1i}
     for t, l in start:
         if l<0:
             l = data[0]
@@ -364,6 +371,15 @@ def p_opt_tlv(data, type1=[], type2=[], type3=[], type4=[], start=[]):
             out+= " " + rv
             data = data[1:]
             continue
+        if data[0] & 0xf0 in type1i_d:
+            iei_len = type1i_d[data[0]&0xf0]
+            if len(data) < 1+iei_len:
+                out += "ERR:SHORT(1i):"+data.hex(":")
+                break
+            rv = p_tv((data[0]&0xf0)+0x100, data[0:1+iei_len])
+            out+= " " + rv
+            data = data[1+iei_len:]
+            continue
         if data[0] in type2:
             rv = p_tv(data[0], None)
             out+= " " + rv
@@ -376,7 +392,10 @@ def p_opt_tlv(data, type1=[], type2=[], type3=[], type4=[], start=[]):
             if len(data) < 1+iei_len:
                 out += "ERR:SHORT:"+data.hex(":")
                 break
-            rv = p_tv(data[0], data[1:1+iei_len])
+            if data[0] in type3i_d:
+                rv = p_tv(data[0]+0x100, data[1:1+iei_len])
+            else:
+                rv = p_tv(data[0], data[1:1+iei_len])
             out+= " " + rv
             data = data[1+iei_len:]
             continue
@@ -396,6 +415,58 @@ def p_opt_tlv(data, type1=[], type2=[], type3=[], type4=[], start=[]):
 def p_tv(iei, data):
     if False:
         pass
+# Type 1i/3i
+    elif iei == 0x201: # AccessDisposition + AccessDetailCode  / ff: lock?
+        ad=data[0]>>4
+        adc=data[0]&0xf
+        rv=""
+        if ad==0:
+            rv="R:ok   "
+        else:
+            rv="R:NOT[%x]"%ad
+        if adc==2:
+            rv+=" (Location Update was not accepted)"
+        elif adc==0:
+            pass
+        else:
+            rv+=" (unknown:%x)"%(data[0]&0xf)
+        return rv
+    elif iei == 0x140: # GridCode
+        pos=xyz(data, 4)
+        return "xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z'])
+    elif iei == 0x150: # Crc
+        if data[0]&0xf ==0:
+            return "crc:%02x%02x"%(data[2],data[1])
+        else:
+            return "crc[%d]:%02x%02x"%(data[0]&0x0f,data[2],data[1])
+    elif iei == 0x1d0: # UnlockKey
+        return "unlock:%s"%data.hex()
+
+    elif iei == 0x202: # AccessDisposition + AccessDenialCause
+        return "AD:%s ADC:%s"%(data[0]>>4, data[0]&0xf)
+    elif iei == 0x203: # GwInternalGeoloc (sat + beam + (c1/c6) + "usually zero")
+        return "sat:%03d beam:%02d %x %s"%(data[0],data[1],data[2],data[3:].hex()) # data[3:] usually zero
+    elif iei == 0x1e0: # ManualRegistration IEI
+        return "mre:%x"%(data[0]&0xf)
+    elif iei == 0x1a0: # TeleService support IEI
+        return "tss:%x"%(data[0]&0xf)
+    elif iei == 0x104: # Location Area Code
+        return "lac:%s"%data.hex()
+    elif iei == 0x161: # Service Control Area
+        return "sca:%s"%data.hex()
+    elif iei == 0x119: # ReRegistration distance
+        return "rrd:%s"%data.hex()
+    elif iei == 0x11a: # ReRegistration error
+        return "rre:%s"%data.hex()
+    elif iei == 0x118: # AttachEnabled prob
+        return "aep:%s"%data.hex()
+    elif iei == 0x11b: # GridCode
+        pos=xyz(data, 0)
+        if data[4]&0x4 == 0:
+            return "xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z'])
+        else:
+            return "xyz=(%+05d,%+05d,%+05d) [%d]"%(pos['x'],pos['y'],pos['z'],data[4]&0xf)
+
 # Type 1
     elif iei == 0xd0: # Repeat indicator             - 10.5.4.22
         return "repeat indi.: %d"%data
@@ -511,8 +582,8 @@ class ReassembleIDAPP(ReassembleIDA):
             "0904": "CP-ACK",
             "0910": "CP-ERROR",
             "0600": "Access Request Message", # no spec
-            "0605": "Access notification",
-            "7605": "Access notification",
+            "0605": "Access decision",
+            "7605": "Access decision",
             "7608": "downlink #1",
             "7609": "downlink #2",
             "760a": "downlink #3+",
@@ -769,59 +840,17 @@ class ReassembleIDAPP(ReassembleIDA):
                 print("ERR:len(%d!=%d)"%(len(data),addlen), end=" ", file=outfile)
 
         elif typ=="7605": # Access decision notification
-            # 00 43 b3 0e 44 e9 50 7f c0
-            #   ||COORD        |  |CRC
-            if len(data)>0:
-                if data[0]&0xf0 == 0:
-                    print("R:ok   ", end=" ", file=outfile)
-                else:
-                    print("R:NOT[%x]"%((data[0]&0xf0)>>4), end=" ", file=outfile)
+            (rv, data) = p_opt_tlv(data,
+                    start=[(0x201,1)],
+                    type1i=[(0x40,4),(0x50,2),(0xd0,9)])
+            print(rv, end=' ', file=outfile)
 
-                if data[0]&0xf == 2:
-                    print("(Location Update was not accepted)", end=" ", file=outfile)
-                elif data[0]&0xf ==0:
-                    pass
-                else:
-                    print("(unknown:%x)"%(data[0]&0xf), end=" ", file=outfile)
-                data=data[1:]
-
-            if len(data)> 4 and data[0]&0xf0 == 0x40:
-                pos=xyz(data, 4)
-                print("xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z']), end=" ", file=outfile)
-                data=data[5:]
-
-            if len(data)> 2 and data[0]&0xf0 == 0x50:
-                pktcrc=struct.unpack("<H",data[1:3])[0]
-
-                print("[%02x crc:%04x]"%(data[0],pktcrc), end=" ", file=outfile)
-                data=data[3:]
-
-        elif typ=="0605": # ?
-            # 00 5a 14 c1 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-            #   |^ |^ |  | mostly zero                                      |
-            #    |  Beam
-            #    Sat
-            # >> 04 18 c9 61 18 5d e0 19 0a 1a 4c 18 00 1b 3b 50 89 4f 50
-            #      |LAC  |  |LAC  |  |LAC  |              | COORD       |
-            if len(data)>=20:
-                print("%02x sat:%03d beam:%02d %02x"%(data[0],data[1],data[2],data[3]), end=" ", file=outfile)
-                print(data[4:21].hex(), end=" ", file=outfile)
-                data=data[21:]
-                if len(data)==19:
-                    if data[0]==4:
-                        print(data[0:1].hex(), end=" ", file=outfile)
-                        print("LAC1=%s"%data[1:3].hex(), end=" ", file=outfile)
-                        print(data[3:4].hex(), end=" ", file=outfile)
-                        print("LAC2=%s"%data[4:6].hex(), end=" ", file=outfile)
-                        print(data[6:7].hex(), end=" ", file=outfile)
-                        print("LAC3=%s"%data[7:9].hex(), end=" ", file=outfile)
-                        print(data[9:14].hex(":"), end=" ", file=outfile)
-
-                        pos=xyz(data[14:])
-                        print("xyz=(%+05d,%+05d,%+05d)"%(pos['x'],pos['y'],pos['z']), end=" ", file=outfile)
-
-                        print("[%d]"%(data[14+4]&0xf), end=" ", file=outfile)
-                        data=data[14+5:]
+        elif typ=="0605": # Access decision notification
+            (rv, data) = p_opt_tlv(data,
+                    start=[(0x202, 1),(0x203, 20)],
+                    type1i=[(0xe0,0),(0xa0,0)],
+                    type3i=[(0x04,2),(0x61,2),(0x19,1),(0x1a,1),(0x18,1),(0x1b,5),(0xa0,1)])
+            print(rv, end=' ', file=outfile)
 
 # > 0600 / 10:13:f0:10: tmsi+lac+lac+00 +bytes
 # < 0605 ?
