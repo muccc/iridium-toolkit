@@ -319,6 +319,9 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if len(q.errors)>0 and not 'showerrs' in config.args:
             return
 
+        if q.label == b'_\x7f' and 'nopings' in config.args:
+            return
+
         q.timestamp = datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S%z")
 
         while len(q.f_reg)>0 and q.f_reg[0:1]==b'.':
@@ -429,5 +432,5 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
 
 modes=[
 ["sbd",        ReassembleIDASBD,      ('perfect', 'debug') ],
-["acars",      ReassembleIDASBDACARS, ('json', 'perfect', 'showerrs') ],
+["acars",      ReassembleIDASBDACARS, ('json', 'perfect', 'showerrs', 'nopings') ],
 ]
