@@ -4,6 +4,8 @@ DATE=`date -Iseconds`
 files="iridium-NEXT.txt"
 [ ! -z "$1" ] && files="$file iridium.txt tle-new.txt"
 
+[ ! -z $(dirname $0) ] && cd $(dirname $0)
+
 for f in $files ; do
 	if [ -f $f ] ; then
 		mv $f $f.old
