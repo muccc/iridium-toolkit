@@ -1,23 +1,23 @@
 #!/bin/sh
 
 DATE=`date -Iseconds`
-files="iridium-NEXT.txt"
-[ ! -z "$1" ] && files="$file iridium.txt tle-new.txt"
+files="iridium-NEXT"
+[ ! -z "$1" ] && files="$file iridium"
 
 [ ! -z $(dirname $0) ] && cd $(dirname $0)
 
 for f in $files ; do
-	if [ -f $f ] ; then
-		mv $f $f.old
+	if [ -f $f.txt ] ; then
+		mv $f.txt $f.old
 	else
 		touch $f.old
 	fi
-	curl -sLO http://celestrak.com/NORAD/elements/$f
-	if cmp -s $f.old $f ; then
+	curl -sL -o ${f}.txt "http://celestrak.org/NORAD/elements/gp.php?GROUP=${f}&FORMAT=tle"
+	if cmp -s $f.old $f.txt ; then
 		echo "$f is unchanged"
 		rm $f.old
 	else
 		echo "Saving new version of $f"
-		cp $f tle/${f%.txt}-$DATE.txt
+		cp $f.txt tle/${f}-$DATE.txt
 	fi
 done
