@@ -24,7 +24,7 @@ speed_of_light = 299792458
 args = None
 
 def parseangle(value):
-    z = re.match(r"(?P<sign>[+-]?)(?P<deg>\d+(\.\d+)?)(°((?P<min>\d+(\.\d+)?)')?((?P<sec>\d+(\.\d+)?)\")?(?P<dir>[NESW]?))?$", value)
+    z = re.match(r"(?P<sign>[+-]?)(?P<deg>\d+(\.\d+)?)(° *((?P<min>\d+(\.\d+)?)['′] *)?((?P<sec>\d+(\.\d+)?)\")?(?P<dir>[NEOSW]?))?$", value)
 #    print(value,end=" -> ")
     if z is None:
         raise ValueError("could not convert string to angle: '%s'"%value)
@@ -44,6 +44,7 @@ assert parseangle("13°") == 13
 assert parseangle("13°30'S") == -13.5
 assert parseangle("13°30'S") == -13.5
 assert parseangle("13°30'1\"") == 13 + 30/60 + 1/3600
+assert parseangle("174° 47′ O") == 174 + 47/60
 
 def read_observer(location):
     observer = {}
@@ -230,6 +231,9 @@ if __name__ == "__main__":
     now=datetime.now(timezone.utc)
     tnow = mytsutc(now)
 
+    if len(satlist) == 0:
+        print('could not read TLE: %s'% args.tlefile, file=sys.stderr)
+        sys.exit(-1)
     sat0=satlist[0]
     days = tnow - sat0.epoch
     if args.verbose:
