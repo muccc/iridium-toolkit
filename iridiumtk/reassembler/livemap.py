@@ -93,7 +93,7 @@ class LiveMap(Reassemble):
         if q.sat not in self.ground:
             self.ground[q.sat]=[]
 
-        if q.alt>700 and q.alt<800: # Sat positions
+        if q.alt>700 and q.alt<850: # Sat positions
             dupe=False
             if len(self.positions[q.sat])>0:
                 lastpos=self.positions[q.sat][-1]
