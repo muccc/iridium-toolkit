@@ -4,7 +4,7 @@
 import sys
 import datetime
 import re
-from util import to_ascii, channelize
+from util import to_ascii
 
 from .base import *
 from .ida import ReassembleIDA
@@ -362,8 +362,8 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
             #       that we want to include in the output. For example, we could include the raw SBD message in the output.
             #       Or possibly other embedded modes if they are present in the SBD message.
 
-            out['freq'] = channelize(self.ofreq)[0] * channel_width + base_freq
-            out['level'] = f"{self.olevel:.1f}"
+            out['freq'] = self.ofreq
+            out['level'] = self.olevel
             out['header'] = q.hdr.hex()
 
             print(json.dumps(out), file=outfile)
