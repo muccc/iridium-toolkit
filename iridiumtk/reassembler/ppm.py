@@ -9,7 +9,7 @@ import math
 import os
 import socket
 from copy import deepcopy
-from util import fmt_iritime, to_ascii, slice_extra
+from util import fmt_iritime, to_ascii, slice_extra, dt
 
 from .base import *
 from ..config import config, outfile
@@ -40,13 +40,13 @@ class ReassemblePPM(Reassemble):
         m=self.r2.match(q.data)
         if not m: return
         if m.group(2):
-            q.itime = datetime.datetime.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S.%f')
+            q.itime = dt.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=datetime.timezone.utc)
         else:
-            q.itime = datetime.datetime.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S')
+            q.itime = dt.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=datetime.timezone.utc)
         return q
 
     def process(self,q):
-        q.uxtime=datetime.datetime.utcfromtimestamp(q.time)
+        q.uxtime = dt.epoch(q.time)
 
         # correct for slot:
         # 1st vs. 4th slot is 3 * (downlink + guard)
@@ -93,7 +93,7 @@ class ReassemblePPM(Reassemble):
         if (data[1]-self.cur[1]).total_seconds() > 600:
             (irun,toff,ppm)=self.onedelta(self.cur,data, verbose=False)
             if 'grafana' in config.args:
-                print("iridium.live.ppm %.5f %d"%(ppm,(data[1]-datetime.datetime.fromtimestamp(0)).total_seconds()))
+                print("iridium.live.ppm %.5f %d" % (ppm, data[1].timestamp()))
                 sys.stdout.flush()
             else:
                 print("@ %s: ppm: % 6.3f ds: % 8.5f "%(data[1],ppm,(data[1]-data[0]).total_seconds()))

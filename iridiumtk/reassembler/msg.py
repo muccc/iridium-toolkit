@@ -4,7 +4,7 @@
 import sys
 import datetime
 import re
-from util import to_ascii, slice_extra
+from util import to_ascii, slice_extra, dt
 
 from .base import *
 from ..config import config, outfile
@@ -179,7 +179,7 @@ class ReassembleMSG(Reassemble):
             if not msg.correct:
                 return
 
-        date= datetime.datetime.fromtimestamp(msg.time).strftime("%Y-%m-%dT%H:%M:%S")
+        date = dt.epoch_local(msg.time).isoformat(timespec='seconds')
         str="Message %07d %02d @%s (len:%d)"%(msg.ric, msg.seq, date, msg.pcnt)
         txt= msg.content
         if 'noburst' in config.args:

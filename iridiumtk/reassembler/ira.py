@@ -3,6 +3,7 @@
 
 import sys
 import re
+from util import dt
 
 from .base import *
 from ..config import config, outfile
@@ -35,7 +36,7 @@ class ReassembleIRA(Reassemble):
                 return q
     def process(self,q):
         q.enrich()
-        strtime=datetime.datetime.fromtimestamp(q.time,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}Z".format(int((q.time%1)*100)))
+        strtime = dt.epoch(q.time).isoformat(timespec='centiseconds')
         for x in q.pages:
             return ["%s %03d %02d %6.2f %6.2f %03d : %s %s"%(strtime, q.sat,q.beam,q.lat,q.lon,q.alt,x[0],x[1])]
     def consume(self,q):

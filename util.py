@@ -189,3 +189,48 @@ def parse_channel(fstr):
     else:
         frequency=int(fstr)
     return int(frequency)
+
+class dt(datetime.datetime):
+    def isoformat(self, sep='T', timespec='auto'):
+        """Return the time formatted according to ISO.
+
+        The full format looks like 'YYYY-MM-DD HH:MM:SS.mmmmmm'.
+        By default, the fractional part is omitted if self.microsecond == 0
+        or shortened to 'YYYY-MM-DD HH:MM:SS.mmm' if possible.
+
+        If self.tzinfo is not None, the UTC offset is also attached, giving
+        giving a full format of 'YYYY-MM-DD HH:MM:SS.mmmmmm+HHMM'.
+
+        if the UTC offset is 0, a 'Z' will be used, so the format is
+        shortened to 'YYYY-MM-DD HH:MM:SS.mmmmmmZ'.
+
+        Optional arguments exist for compability but should not be used.
+        """
+
+        if self.microsecond != 0 and self.microsecond % 1000 == 0 and timespec == 'auto':
+            timespec = 'milliseconds'
+
+        trunc = False
+        if timespec == 'centiseconds':
+            timespec = 'milliseconds'
+            trunc = True
+
+        _iso = super().isoformat(sep, timespec)
+
+        if trunc and _iso[-6] == '+' and _iso[-10] == '.':
+            _iso = _iso[:-7] + _iso[-6:]
+        if _iso[-6:] == '+00:00':
+            _iso = _iso[:-6] + 'Z'
+        if (_iso[-6] == '+' or _iso[-6] == '-') and _iso[-3] == ':':
+            _iso = _iso[:-3] + _iso[-2:]
+        return _iso
+
+    @classmethod
+    def epoch(cls, t):
+        """Construct a correct UTC datetime from a POSIX timestamp."""
+        return cls.fromtimestamp(t, datetime.timezone.utc)
+
+    @classmethod
+    def epoch_local(cls, t):
+        """Construct a datetime from a POSIX timestamp in the local timezone."""
+        return cls.fromtimestamp(t, datetime.timezone.utc).astimezone()

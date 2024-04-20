@@ -4,11 +4,13 @@
 import sys
 import re
 import collections
+from util import dt
 
 from .base import *
 from ..config import config, outfile
 
 class ReassembleIRATime(Reassemble):
+    """Check if there are IRA for the same beam quicker than 4.2 seconds"""
     def __init__(self):
         pass
     def filter(self,line):
@@ -32,7 +34,7 @@ class ReassembleIRATime(Reassemble):
     def process(self,q):
         if q.beam in self.buf[q.sat]:
             if q.time-self.buf[q.sat][q.beam] < 4.2:
-                strtime=datetime.datetime.fromtimestamp(q.time,tz=Z).strftime("%Y-%m-%dT%H:%M:%S")
+                strtime = dt.epoch(q.time).isoformat(timespec='seconds')
                 print("%3d %3d: %s %f"%(q.beam,q.sat,strtime,q.time-self.buf[q.sat][q.beam]))
 
         self.buf[q.sat][q.beam]=q.time

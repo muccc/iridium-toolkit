@@ -4,6 +4,7 @@
 import sys
 import datetime
 from copy import deepcopy
+from util import dt
 
 from .base import *
 from ..config import config, outfile, state
@@ -81,9 +82,9 @@ class LivePktStats(Reassemble):
         comment=''
         if skip:
             comment='#!'
-            print("#!@ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
+            print("#!@ %s L:"%(dt.epoch_local(ts)), file=sys.stderr)
         else:
-            print("# @ %s L:"%(datetime.datetime.fromtimestamp(ts)), file=sys.stderr)
+            print("# @ %s L:"%(dt.epoch_local(ts)), file=sys.stderr)
         for k in stats:
             for t in stats[k]:
                 print("%siridium.parsed.%s.%s %7d %8d"%(comment,k,t,stats[k][t],ts))

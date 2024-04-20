@@ -3,6 +3,7 @@
 
 import sys
 import datetime
+from util import dt
 
 from .base import *
 from .ira import ReassembleIRA
@@ -81,8 +82,7 @@ class InfoIRAMAP(ReassembleIRA):
         return closest_satellite, closest_distance
 
     def process(self,q):
-        time = datetime.datetime.utcfromtimestamp(q.time)
-        time = time.replace(tzinfo=utc)
+        time = dt.epoch(q.time)
         t = self.ts.utc(time)
         if self.first:
             self.first=False
@@ -106,8 +106,10 @@ class InfoIRAMAP(ReassembleIRA):
 
     def consume(self,q):
         if config.verbose:
-#            print("%s: sat %02d beam %02d [%d %4.2f %4.2f %s] matched %-20s @ %5.2f°"%( datetime.datetime.utcfromtimestamp(q.time), q.sat,q.beam,q.time,q.lat,q.lon,q.alt,q.name,q.sep))
-            print("%s: sat %02d beam %02d [%d %8.4f %8.4f %s] matched %-20s @ %5fkm"%( datetime.datetime.utcfromtimestamp(q.time), q.sat,q.beam,q.time,q.lat,q.lon,q.alt,q.name,q.sep))
+            #print("%s: sat %02d beam %02d [%d %8.2f %8.2f %s] matched %-20s @ %5.2f°" %
+            print("%s: sat %02d beam %02d [%d %8.4f %8.4f %s] matched %-20s @ %5fkm" %
+                  (dt.epoch(q.time), q.sat, q.beam, q.time, q.lat, q.lon, q.alt, q.name, q.sep))
+
         if q.sep > self.MAX_DIST:
             q.name="NONE"
         if not q.sat in self.sats:

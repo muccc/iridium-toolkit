@@ -4,7 +4,7 @@
 import sys
 import datetime
 import re
-from util import to_ascii
+from util import to_ascii, dt
 
 from .base import *
 from .ida import ReassembleIDA
@@ -210,11 +210,11 @@ class ReassembleIDASBD(ReassembleIDA):
 
         if len(q.data)>0:
             print("%s %-99s %s | %s"%(
-                        datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S"),
+                        dt.epoch_local(int(q.time)).isoformat(),
                         hdr,q.data.hex(" "),to_ascii(q.data, dot=True)), file=outfile)
         else:
             print("%s %s"%(
-                        datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S"),
+                        dt.epoch_local(int(q.time)).isoformat(),
                         hdr), file=outfile)
 
 acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
