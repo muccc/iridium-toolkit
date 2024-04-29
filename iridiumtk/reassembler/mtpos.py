@@ -49,16 +49,16 @@ class ReassembleIDAMap(ReassembleIDA):
 
 
         if m_type == "7605":
-            if data[2] == 0 and data[3]&0xf0 == 0x40:
+            if len(data) > 5 and data[2] == 0 and data[3]&0xf0 == 0x40:
                 type = 'sbd'
                 pos=xyz(data[3:], 4)
-            elif data[3] == 0x50: # ack only
+            elif len(data) > 3 and data[3] == 0x50: # ack only
                 return
             else: # no match
                 return
         elif m_type == "0605":
             off = (2+1+20+1+3+3+2+2+2)
-            if len(data) > off and data[off] == 0x1b:
+            if len(data) > off+2 and data[off] == 0x1b:
                 type = 'gsm'
                 pos=xyz(data[off+1:], 0)
                 #lac_o=2+1+20
