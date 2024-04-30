@@ -1432,21 +1432,29 @@ class IridiumBCMessage(IridiumECCMessage):
         self.assignments=[]
         for data in blocks: # Parse assignments (if any)
             assignment={
-                'unknown1':        data[ 0: 3],
-                'random_id':   int(data[ 3:11], 2),
-                'timeslot':  1+int(data[11:13], 2),
-                'ul_sb':       int(data[13:18], 2), # uplink_subband
-                'dl_sb':       int(data[18:23], 2), # downlink_subband
-                'access':    1+int(data[23:26], 2),
-                'dtoa':        int(data[26:34], 2),
-                'dfoa':        int(data[34:40], 2),
-                'unknown4':        data[40:42],
+                'type':      int(data[ 0: 3], 2),
             }
-
-            if assignment['dtoa'] > 128:
-                assignment['dtoa']=assignment['dtoa']-256
-            if(data == '111000000000000000000000000000000000000000'):
+            if assignment['type'] == 0: # "classic" assignment
+                assignment = {
+                    **assignment,
+                    'random_id':   int(data[ 3:11], 2),
+                    'timeslot':  1+int(data[11:13], 2),
+                    'ul_sb':       int(data[13:18], 2), # uplink_subband
+                    'dl_sb':       int(data[18:23], 2), # downlink_subband
+                    'access':    1+int(data[23:26], 2),
+                    'dtoa':        int(data[26:34], 2),
+                    'dfoa':        int(data[34:40], 2),
+                    'unknown4':        data[40:42],
+                }
+                if assignment['dtoa'] > 128:
+                    assignment['dtoa']=assignment['dtoa']-256
+            elif data == '111000000000000000000000000000000000000000':
                 assignment['empty']=True
+            else:
+                assignment = {
+                    **assignment,
+                    'unknown': data[3:42],
+                }
             self.assignments.append(assignment)
 
     def upgrade(self):
@@ -1486,12 +1494,14 @@ class IridiumBCMessage(IridiumECCMessage):
                     str += ' st:%02d '%self.type
                     str += self.type_data
 
-        str="%-210s"%str
+        str="%-214s"%str
         for a in self.assignments:
             if 'empty' in a:
                 str += ' []'
+            elif a['type'] == 0:
+                str += ' [%d Rid:%03d ts:%d ul_sb:%02d dl_sb:%02d access:%d dtoa:%+04d dfoa:%02d %s]' % (a['type'], a['random_id'], a['timeslot'], a['ul_sb'], a['dl_sb'], a['access'], a['dtoa'], a['dfoa'], a['unknown4'])
             else:
-                str += ' [%s Rid:%03d ts:%d ul_sb:%02d dl_sb:%02d access:%d dtoa:%+04d dfoa:%02d %s]' % (a['unknown1'], a['random_id'], a['timeslot'], a['ul_sb'], a['dl_sb'], a['access'], a['dtoa'], a['dfoa'], a['unknown4'])
+                str += ' [%s %s]                     ' % (a['type'], a['unknown'])
 
         str+=self._pretty_trailer()
         return str
