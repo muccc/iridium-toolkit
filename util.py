@@ -175,15 +175,34 @@ def channelize_str(freq):
     else:
         return f"{sb:02}.{fa:1}|{freq_off:+06.0f}"
 
+
+def get_channel(subband, fa, strict=True):
+    """Convert subband & frequency_access to frequency"""
+
+    if subband == 'S': # "simplex" frequencies
+        subband = 31
+
+    if strict:
+        if not 0 <= int(subband) <= 31:
+            raise ValueError(f"subband {subband} out of range S or 1-30")
+
+        if int(subband) == 31 and not 0 <= int(fa) <= 12:
+            raise ValueError(f"frequency access {fa} out of range 1-12 for simplex")
+
+        if int(subband) != 31 and not 0 <= int(fa) <= 8:
+            raise ValueError(f"frequency access {fa} out of range 1-8")
+
+    return round(base_freq + channel_width / 2 +
+                 channel_width * 8 * (int(subband)-1) +
+                 channel_width * (int(fa)-1))
+
+
 def parse_channel(fstr):
     if "|" in fstr:
         chan, off=fstr.split('|')
         if '.' in chan:
             sb, fa=chan.split('.')
-            if sb=='S':
-                frequency=base_freq+channel_width*(int(fa)-1+8*30)+int(off)+channel_width/2
-            else:
-                frequency=base_freq+channel_width*(int(fa)-1+8*(int(sb)-1))+int(off)+channel_width/2
+            frequency = get_channel(sb, fa, strict=False) + int(off)
         else:
             frequency=base_freq+channel_width*int(chan)+int(off)+channel_width/2
     else:
