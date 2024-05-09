@@ -1,7 +1,9 @@
-# DL:
-#
+# GSM:
 # 03: Call Control - OK
+# 03.01 CC: Alerting
+# 03.02 CC: Call Proceeding
 # 03.05 CC: Setup (Number)
+# 03.07 CC: Connect
 # 03.0f CC: Connect Acknowledge
 # 03.25 CC: Disconnect
 # 03.2a CC: Release Complete
@@ -13,19 +15,10 @@
 # 05.12 MM: Authentication Request (RAND)
 # 05.18 MM: Identity request
 # 05.1a MM: TMSI Reallocation Command (LAC, TIMSI)
+# > 05.1b MM: TMSI Reallocation Complete
 # 05.21 MM: CM Service Accept
 # 05.22 MM: CM Service Reject
-#
-# 06: Radio Resource Management - eher b0rk
-# 06.05 RRM: System Information Type 5bis (extradata)
-# 06.07 RRM: System Information Type 2quater
-# 06.3a RRM: Immediate assigment reject
-# 06.3b RRM: Additional Assignment (broken)
-#
-# 08: GPRS Mobility Management - eher b0rk
-# 08.05 GPRS MM: Detach Request (extradata)
-# 08.39 GPRS MM: Unknown
-# 08.3a GPRS MM: Unknown
+# > 05.24 MM: CM Service Request
 #
 # 09: SMS Messages - OK
 # 09.01 SMS CP-DATA (Number, SMS)
@@ -33,11 +26,28 @@
 # 09.10 SMS CP-ERROR
 #
 # 0b: Non call related SS messages
+# 0b.2a Release Complete
 # 0b.3b Register
 
-# 76: Other
-# 76.05 (unknown)
-# 76.08 SBD
-# 76.09 SBD+
-# 76.0a SBD++
-
+# non-GSM:
+# 06: (Radio Resource Management)
+# > 06.00 Access Request Message
+# 06.05 Access decision
+# 06.07 <empty>
+# > 06.35
+# 06.3a <empty>
+# 06.3b
+#
+# 76: SBD
+# 76.05 Access decision
+# 76.08 SBD DL1
+# 76.09 SBD DL2
+# 76.0a SBD DL3+
+# > 76.0c SBD UL1
+# > 76.0d SBD UL2
+# > 76.0e SBD UL3+
+#
+# 08: ?
+# 08.05 ?
+# 08.39 ?
+# 08.3a <empty>
