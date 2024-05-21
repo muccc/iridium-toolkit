@@ -635,7 +635,7 @@ class IridiumLCWMessage(IridiumMessage):
             elif self.lcw_code == 3:
                 code="handoff_resp"
                 code+="[cand:%s,denied:%d,ref:%d,slot:%d,sband_up:%d,sband_dn:%d,access:%d]"%(['P','S'][int(self.lcw3[2:3],2)],int(self.lcw3[3:4],2),int(self.lcw3[4:5],2),1+int(self.lcw3[6:8],2),int(self.lcw3[8:13],2),int(self.lcw3[13:18],2),1+int(self.lcw3[18:21],2))
-                lcw3bits="%s"%(self.lcw3[0:2])
+                lcw3bits="%s,%s"%(self.lcw3[0:2],self.lcw3[5:6])
             elif self.lcw_code == 15:
                 code="<silent>"
             else:
