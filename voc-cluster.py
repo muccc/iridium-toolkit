@@ -50,9 +50,12 @@ for call in calls[::-1]:
 
     filename = "call-%04d.parsed" % call_id
     open(filename, "w").writelines(samples)
-    is_voice = os.system('check-sample ' + filename) == 0
+    rv = os.system('check-sample ' + filename) >> 8
+    if rv not in (0, 1):
+        print(f"Problem running check-sample: {rv}", file=sys.stderr)
+        break
+    is_voice = rv == 0
 
     if not is_voice:
-        os.system('mv ' + filename + ' fail-%d.parsed' % call_id)
+        os.system('mv ' + filename + ' fail-%04d.parsed' % call_id)
     call_id += 1
-
