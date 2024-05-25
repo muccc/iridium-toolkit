@@ -197,6 +197,15 @@ def get_channel(subband, fa, strict=True):
                  channel_width * (int(fa)-1))
 
 
+def parse_handoff(lcwstr):
+    """Parse handoff response out of LCW string"""
+    # LCW(7,T:hndof,C:handoff_resp[cand:P,denied:0,ref:0,slot:3,sband_up:16,sband_dn:16,access:4],00)
+    fields = lcwstr[lcwstr.index("["):lcwstr.index("]")][1:].split(',')
+    handoff = dict(f.split(':') for f in fields)
+    handoff.update({k: int(v) for k, v in handoff.items() if v.isdecimal()})
+    return handoff
+
+
 def parse_channel(fstr):
     if "|" in fstr:
         chan, off=fstr.split('|')
