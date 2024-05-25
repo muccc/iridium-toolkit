@@ -3,7 +3,7 @@
 
 import sys
 import os
-from util import parse_channel
+from util import parse_channel, parse_handoff, get_channel
 
 class Frame:
     def __init__(self, f, f_alt, ts, line):
@@ -26,13 +26,9 @@ for line in open(sys.argv[1]):
 
             # If the last frame is not more than 20 kHz and 20 seconds "away"
             if (last_frame.f_alt and abs(last_frame.f_alt - frame.f) < 40 or abs(last_frame.f - frame.f) < 20) and abs(last_frame.ts - frame.ts) < 20:
-
                 if "handoff_resp" in sl[8]:
-                    fields = sl[8].split(',')
-                    sband_dn = int(fields[7].split(':')[1])
-                    access = int(fields[8].split(':')[1].split(']')[0])
-                    #print sband_dn, access
-                    frame.f_alt = (1616000000 + 333333 * (sband_dn - 1) + 41666 * (access - 0.5) + 52000) / 1000
+                    ho = parse_handoff(sl[8])
+                    frame.f_alt = get_channel(ho['sband_dn'], ho['access']) / 1000 + 52
 
                 call.append(frame)
                 # First call that matches wins
