@@ -335,6 +335,8 @@ def perline(q):
     elif args.output == "zmq":
         socket.send_string(q.pretty())
     elif args.output == "sigmf":
+        if q.parse_error:
+            return
         try:
             sr=sigmfjson['global']["core:sample_rate"]
             center=sigmfjson['captures'][0]["core:frequency"]
