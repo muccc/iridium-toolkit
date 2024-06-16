@@ -63,6 +63,7 @@ class ReassembleIDA(Reassemble):
         self.otime=m.time
         self.odata=m.data
         self.ofreq=m.frequency
+        self.olevel=m.level
 
         ok=False
         for (idx,(freq,time,ctr,dat,cont,ul)) in enumerate(self.buf[:]):

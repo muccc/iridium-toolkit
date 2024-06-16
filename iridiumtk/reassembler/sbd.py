@@ -365,6 +365,8 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
             #       that we want to include in the output. For example, we could include the raw SBD message in the output.
             #       Or possibly other embedded modes if they are present in the SBD message.
 
+            out['freq'] = self.ofreq
+            out['level'] = self.olevel
             out['header'] = q.hdr.hex()
 
             print(json.dumps(out), file=outfile)
