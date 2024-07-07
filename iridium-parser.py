@@ -33,8 +33,6 @@ filters.add_argument("-g", "--good",      action="store_const", const=90, dest='
                      help="drop if confidence < 90")
 filters.add_argument("--confidence", type=int, dest="min_confidence", metavar='MIN',
                      help="drop if confidence < %(metavar)s")
-filters.add_argument("--interesting",     action="store_true",
-                     help="drop uninteresting packets")
 filters.add_argument("-p", "--perfect",   action="store_true",
                      help="drop lines which only parsed after applying error correction")
 filters.add_argument("-e", "--errorfree", action="store_true",
@@ -283,10 +281,6 @@ def perline(q):
     if args.dosatclass is True:
         sat=satclass.classify(q.frequency,q.globaltime)
         q.satno=int(sat.name)
-    if args.interesting:
-        if q.error or type(q).__name__ in ("IridiumMessage","IridiumECCMessage","IridiumBCMessage","Message","IridiumSYMessage","IridiumMSMessage"):
-            return
-        del q.descramble_extra
     if q.error:
         if isinstance(args.errorstats, collections.abc.Mapping):
             msg=q.error_msg[0]
