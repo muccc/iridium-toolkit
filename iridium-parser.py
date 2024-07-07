@@ -73,6 +73,10 @@ parser.add_argument("remainder", nargs='*',
 
 args = parser.parse_args()
 
+# sanity check
+if args.perfect and (args.harder or args.uwec):
+    print("WARN: --perfect contradicts --harder or --uw-ec", file=sys.stderr)
+
 # push options into bitsparser
 bitsparser.set_opts(args)
 
