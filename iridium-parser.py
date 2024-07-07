@@ -52,9 +52,7 @@ parser.add_argument("-s", "--satclass",    action="store_true", dest='dosatclass
                     help="enable sat classification")
 parser.add_argument("--plot", type=parse_comma, dest='plotargs', default='time,frequency', metavar='ARGS'
                     )
-parser.add_argument("-i", "--input",  default='raw', metavar='MODE',
-                    help="input mode")
-parser.add_argument("-o", "--output", default='line', metavar='MODE', choices=['dump', 'json', 'sigmf', 'zmq', 'line', 'plot', 'err', 'sat'],
+parser.add_argument("-o", "--output", default='line', metavar='MODE', choices=['json', 'sigmf', 'zmq', 'line', 'plot', 'err', 'sat'],
                     help="output mode")
 parser.add_argument("--errorfile", metavar='FILE',
                     help="divert unparsable lines to separate file")
@@ -80,10 +78,6 @@ bitsparser.set_opts(args)
 
 if args.sigmffile:
     args.output="sigmf"
-
-if args.input == "dump" or args.output == "dump":
-    import pickle as pickle
-    dumpfile="pickle.dump"
 
 if args.output == "sigmf":
     import json
@@ -142,9 +136,6 @@ if (args.linefilter['type'] != 'All') and args.harder:
 
 if args.errorfile is not None:
     args.errorfile=open(args.errorfile,"w")
-
-if args.output == "dump":
-    file=open(dumpfile,"wb")
 
 if args.output == "plot":
     import matplotlib.pyplot as plt
@@ -243,8 +234,9 @@ def openhook(filename, mode):
     else:
         return open(filename, 'rt')
 
-def do_input(type):
-    if type=="raw":
+
+def do_input():
+    if True:
         if args.do_stats:
             stats['files']=len(args.remainder)
             stats['fileno']=0
@@ -265,14 +257,6 @@ def do_input(type):
                 perline(q.upgrade())
             else:
                 perline(bitsparser.Message(line.strip()).upgrade())
-    elif type=="dump":
-        file=open(dumpfile,"rb")
-        try:
-            while True:
-                q=pickle.load(file)
-                perline(q)
-        except EOFError:
-            pass
     else:
         print("Unknown input mode.", file=sys.stderr)
         exit(1)
@@ -314,8 +298,6 @@ def perline(q):
     elif args.output == "sat":
         if not q.error:
             selected.append(q)
-    elif args.output == "dump":
-        pickle.dump(q,file,1)
     elif args.output == "plot":
         selected.append(q)
     elif args.output == "line":
@@ -374,7 +356,7 @@ if args.do_stats:
     sthread.start()
 
 try:
-    do_input(args.input)
+    do_input()
 except KeyboardInterrupt:
     pass
 except BrokenPipeError as e:

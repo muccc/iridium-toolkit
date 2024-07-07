@@ -137,13 +137,9 @@ You can view the annotated sigmf recording in [inspectrum](https://github.com/mi
 
 Currently no effect
 
-##### --input=
-
-Could be "dump", but mostly unsupported.
-
 ##### --output=
 
-Default is "line", other valid options are "err", "sat", "dump", "plot", "rxstats".
+Default is "line", other valid options are "err", "sat", "plot", "rxstats".
 
 ##### --forcetype=
 
