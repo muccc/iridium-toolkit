@@ -27,6 +27,11 @@ def parse_filter(arg):
     return linefilter
 
 
+class NegateAction(argparse.Action):
+    def __call__(self, parser, ns, values, option):
+        setattr(ns, self.dest, option[2:4] != 'no')
+
+
 filters = parser.add_argument_group('filters')
 
 filters.add_argument("-g", "--good",      action="store_const", const=90, dest='min_confidence',
@@ -66,7 +71,7 @@ parser.add_argument("--format", type=parse_comma, dest='ofmt'
                     )
 parser.add_argument("--sigmf-annotate", dest='sigmffile'
                     )
-parser.add_argument("--stats", action="store_true", dest="do_stats",
+parser.add_argument("--stats", "--no-stats", action=NegateAction, dest="do_stats", nargs=0,
                     help='enable incremental statistics on stderr')
 parser.add_argument("remainder", nargs='*',
                     help=argparse.SUPPRESS)
@@ -95,6 +100,13 @@ if args.output is None:
     else:
         args.output = 'file'
 
+if args.do_stats is None:
+    args.do_stats = True
+    if not sys.stderr.isatty():
+        args.do_stats = False
+    elif args.output == 'line':
+        args.do_stats = False
+
 # optional dependencies
 if args.output == "json":
     import json
@@ -103,7 +115,6 @@ if args.output == "sigmf":
     import json
 
 if args.output == "zmq":
-    args.do_stats=True
     args.errorfree=True
 
 if args.do_stats:
