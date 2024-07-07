@@ -123,10 +123,6 @@ You can view the annotated sigmf recording in [inspectrum](https://github.com/mi
 
    Only output lines without errors (both uncorrectable & correctable)
 
-##### --interesting
-
-   Omit certain uninteresting packets from output (e.g. ISY, IBC)
-
 ##### --errorfile=
 
    Diverts output lines with uncorrectable errors into the specified file. If no filename is specified, it is automatically generated based off of the input filename.
