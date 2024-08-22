@@ -432,7 +432,55 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
 
         print(out, file=outfile)
 
+
+class ReassembleIDASBDlibACARS(ReassembleIDASBD):
+    def __init__(self):
+        global libacars, la_msg_dir
+        from libacars import libacars, la_msg_dir
+        super().__init__()
+
+    def consume_l2(self, q):
+        if len(q.data) <= 2: # No contents
+            return
+
+        if q.data[0] != 1: # prelim. check for ACARS
+            return
+
+        if q.ul:
+            d = la_msg_dir.LA_MSG_DIR_AIR2GND
+        else:
+            d = la_msg_dir.LA_MSG_DIR_GND2AIR
+
+        o = libacars(q.data, d, q.time)
+
+        if o.is_err() and 'showerrs' not in config.args:
+            return
+
+        if o.is_ping() and 'nopings' in config.args:
+            return
+
+        if 'json' in config.args:
+            print(o.json())
+            return
+
+        q.timestamp = dt.epoch(q.time).isoformat(timespec='seconds')
+        print(q.timestamp, end=" ")
+
+        if q.ul:
+            print("UL", end=" ")
+        else:
+            print("DL", end=" ")
+
+        if q.data[1] == 0x3: # header of unknown meaning
+            print("[hdr: %s]"%q.data[1:9].hex(), end=" ")
+
+        if o.is_interesting():
+            print("INTERESTING", end=" ")
+        print(o)
+
+
 modes=[
 ["sbd",        ReassembleIDASBD,      ('perfect', 'debug') ],
 ["acars",      ReassembleIDASBDACARS, ('json', 'perfect', 'showerrs', 'nopings') ],
+["libacars",   ReassembleIDASBDlibACARS, ('json', 'perfect', 'showerrs', 'nopings') ],
 ]
