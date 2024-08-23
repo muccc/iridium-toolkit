@@ -437,6 +437,9 @@ class ReassembleIDASBDlibACARS(ReassembleIDASBD):
     def __init__(self):
         global libacars, la_msg_dir
         from libacars import libacars, la_msg_dir
+        if 'json' in config.args:
+            global json
+            import json
         super().__init__()
 
     def consume_l2(self, q):
@@ -459,11 +462,21 @@ class ReassembleIDASBDlibACARS(ReassembleIDASBD):
         if o.is_ping() and 'nopings' in config.args:
             return
 
+        q.timestamp = dt.epoch(q.time).isoformat(timespec='seconds')
+
         if 'json' in config.args:
-            print(o.json())
+            out = {}
+
+            out['app'] = { 'name': 'iridium-toolkit', 'version': '0.0.2' }
+            out['source'] = { 'transport': 'iridium', 'parser': 'libacars', 'version': libacars.version }
+            out['timestamp'] = q.timestamp
+            out['link_direction'] = 'uplink' if q.ul else 'downlink'
+            if config.station:
+                out['source']['station_id'] = config.station
+            out['acars']=json.loads(o.json())['acars']
+            print(json.dumps(out), file=outfile)
             return
 
-        q.timestamp = dt.epoch(q.time).isoformat(timespec='seconds')
         print(q.timestamp, end=" ")
 
         if q.ul:
