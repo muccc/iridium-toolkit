@@ -322,7 +322,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if q.label == b'_\x7f' and 'nopings' in config.args:
             return
 
-        q.timestamp = datetime.datetime.fromtimestamp(q.time).strftime("%Y-%m-%dT%H:%M:%S%z")
+        q.timestamp = dt.epoch(q.time).isoformat(timespec='seconds')
 
         while len(q.f_reg)>0 and q.f_reg[0:1]==b'.':
             q.f_reg=q.f_reg[1:]
