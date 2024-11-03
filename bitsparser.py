@@ -1903,10 +1903,12 @@ class IridiumMessagingBCD(IridiumMSMessageBody):
         return str
 
 def symbol_reverse(bits):
-    r = ''
-    for x in range(0,len(bits)-1,2):
-        r += bits[x+1] + bits[x+0]
-    return r
+    r = bytearray(bits.encode("us-ascii"))
+    for x in range(0,len(r)-1,2):
+        i=r[x+0]
+        r[x+0]=r[x+1]
+        r[x+1]=i
+    return r.decode("us-ascii")
 
 def de_interleave(group):
     symbols = [group[z+1]+group[z] for z in range(0,len(group),2)]
