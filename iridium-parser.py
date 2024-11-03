@@ -176,6 +176,8 @@ if args.output == "plot":
     cl=[]
     sl=[]
 
+poller = None
+
 if args.output == "zmq":
     import zmq
 
@@ -187,10 +189,13 @@ if args.output == "zmq":
     socket.bind(url)
 
     stats['clients']=0
-    def zmq_thread(socket, stats):
+    poller = zmq.Poller()
+    poller.register(socket, zmq.POLLIN)
+
+    def zmq_xpub(poller, stats):
         try:
-            while True:
-                event = socket.recv()
+            while len(rv:=poller.poll(0))>0:
+                event = rv[0][0].recv()
                  # Event is one byte 0=unsub or 1=sub, followed by topic
                 if event[0] == 1:
                     log("new subscriber for", event[1:])
@@ -204,10 +209,6 @@ if args.output == "zmq":
     def log(*msg):
         s=time.strftime("%Y-%m-%d %H:%M:%S",time.localtime())
         print("%s:"%s,*msg, end=eolnl, file=statsfile)
-
-    from threading import Thread
-    zthread = Thread(target = zmq_thread, args = [socket, stats], daemon= True, name='zmq')
-    zthread.start()
 
 def stats_thread(stats):
     ltime=time.time()
@@ -278,12 +279,14 @@ def do_input():
             stats['files']=len(args.remainder)
             stats['fileno']=0
         for line in fileinput.input(args.remainder, openhook=openhook):
-            if args.do_stats:
+            if args.do_stats or poller is not None:
                 if fileinput.isfirstline():
                     stats['fileno']+=1
                     stat=os.fstat(fileinput.fileno())
                     stats['size']=stat.st_size
                 stats['in']+=1
+                if poller is not None and len(poller.poll(0))>0:
+                    zmq_xpub(poller, stats)
             if args.min_confidence is not None:
                 q=bitsparser.Message(line.strip())
                 try:
