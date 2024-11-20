@@ -141,10 +141,14 @@ if args.sigmffile is not None:
     except FileNotFoundError:
         print("WARN: no sigmf-meta source file. Using (probably-wrong) hardcoded defaults", file=sys.stderr)
         sigmfjson={
-            "global":
-                {"core:datatype": "cf32_le", "core:sample_rate": 10e6, "core:version": "0.0.1"},
+            "global": {
+                    "core:datatype": "cf32_le",
+                    "core:sample_rate": 10e6,
+                    "core:version": "0.0.1",
+                    "core:description": "iridium-extractor auto-generated metafile",
+                    },
             "captures": [
-                {"core:sample_start": 0, "core:frequency": 1626000000}
+                {"core:sample_start": 0, "core:frequency": 1622000000}
             ]
         }
     sigmfout=open(args.sigmffile+'.tmp','w')
@@ -368,8 +372,9 @@ def perline(q):
             sr=sigmfjson['global']["core:sample_rate"]
             center=sigmfjson['captures'][0]["core:frequency"]
         except TypeError:
-            sr=10e6
-            center=1626000000
+            print("Failed to get sample_rate or frequency from sigmf.", file=sys.stderr)
+            sr=10e7
+            center=1622000000
         SYMBOLS_PER_SECOND = 25000
         if q.error:
             desc=q.error_msg[0]
@@ -384,7 +389,7 @@ def perline(q):
             desc=type(q).__name__
         print(json.dumps({
             "core:comment": "Frame #%d: "%int(q.id)+type(q).__name__,
-            "core:description": desc+"#%d"%int(q.id),
+            "core:description": desc,
             "core:freq_lower_edge": q.frequency-20e3,
             "core:freq_upper_edge": q.frequency+20e3,
             "core:sample_count": int(q.symbols * (sr/SYMBOLS_PER_SECOND)),
@@ -424,7 +429,8 @@ if args.output=='zmq':
 if args.sigmffile is not None:
     print("{}]}", file=sigmfout)
     sigmfout.close()
-    os.rename(args.sigmffile,        args.sigmffile+".bak")
+    if os.path.isfile(args.sigmffile):
+        os.rename(args.sigmffile,        args.sigmffile+".bak")
     os.rename(args.sigmffile+".tmp", args.sigmffile)
 
 if args.output == "sat":
