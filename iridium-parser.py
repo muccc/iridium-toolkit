@@ -189,12 +189,13 @@ if args.output == "zmq":
 
     context = zmq.Context()
     socket = context.socket(zmq.XPUB)
-    socket.setsockopt(zmq.XPUB_VERBOSE, True)
+    if args.do_stats:
+        socket.setsockopt(zmq.XPUB_VERBOSE, True)
+        stats['clients']=0
+        poller = zmq.Poller()
+        poller.register(socket, zmq.POLLIN)
     socket.bind(url)
 
-    stats['clients']=0
-    poller = zmq.Poller()
-    poller.register(socket, zmq.POLLIN)
 
     def zmq_xpub(poller, stats):
         try:
@@ -283,7 +284,7 @@ def do_input():
             stats['files']=len(args.remainder)
             stats['fileno']=0
         for line in fileinput.input(args.remainder, openhook=openhook):
-            if args.do_stats or poller is not None:
+            if args.do_stats:
                 if fileinput.isfirstline():
                     stats['fileno']+=1
                     stat=os.fstat(fileinput.fileno())
