@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+import sys
 import argparse
 import json
 import datetime
@@ -23,7 +24,7 @@ def Annotation(**kwargs):
     for a in kwargs:
         t[a] = kwargs[a]
 
-    return {"core:"+k: v for k, v in t.items()}
+    return dict({"core:"+k: v for k, v in t.items()})
 
 
 parser = argparse.ArgumentParser()
@@ -33,6 +34,7 @@ parser.add_argument("-v", "--verbose",     action="store_true",
 parser.add_argument("-d", "--debug",     action="store_true")
 parser.add_argument("-w", "--write",     help="write new file")
 parser.add_argument("-p", "--peaks",     help="add peaks from file")
+parser.add_argument("--numbers",     action="store_true", help="add numbers to annotations")
 
 filters = parser.add_argument_group('filters')
 filters.add_argument("--f-min", metavar="freq",    type=int, help="minmum frequency")
@@ -53,20 +55,25 @@ assert(data["captures"])
 
 rate = int(data["global"]["core:sample_rate"])
 dt = data["captures"][0]["core:datetime"]
-freq = int(data["captures"][0]["core:frequency"])
+bfreq = int(data["captures"][0]["core:frequency"])
 
-print(f'{args.metafile}: [{data["global"]["core:datatype"]}] {rate/1e6:.9g}Msps @{freq/1e9:.9g}GHz')
+print(f'{args.metafile}: [{data["global"]["core:datatype"]}] {rate/1e6:.9g}Msps @{bfreq/1e9:.9g}GHz')
+
+if "annotations" not in data:
+    data["annotations"] = []
 
 # Remove empty annotations
 ann = [a for a in data["annotations"] if len(a) > 0]
 
 print(f'in  {len(ann)} annotations')
 
+ann_ctr = 0
+
 if args.peaks is not None:
     with open(args.peaks) as f:
         for line in f:
             try:
-                sample, fftbin, _ = line.split(",")
+                sample, fftbin, t = line.strip().split(",")
                 sample = int(sample)
                 fftbin = int(fftbin)
             except main:
@@ -74,10 +81,19 @@ if args.peaks is not None:
 
             bins = 8192
 
-            freq = freq + rate * (fftbin / bins - 0.5)
+            freq = bfreq + rate * (fftbin / bins - 0.5)
             width = rate / bins
 
-            a = Annotation(comment="Peak", description="", freq=freq, width=width, start=sample, count=bins)
+            if t == "x": # Peak
+                a = Annotation(comment="Peak", description="", freq=freq, width=width, start=sample, count=bins)
+            elif t == "y": # Possible Frame
+                a = Annotation(comment="Frame", description="", freq=freq, width=1e7/(30*8), start=sample, count=8.28 * rate / 1e3)
+            else:
+                print("Unknown peak type:", t, file=sys.stderr)
+
+            if args.numbers:
+                ann_ctr += 1
+                a["core:comment"] += " [" + str(ann_ctr) + "]"
 
             ann.append(a)
 
@@ -96,10 +112,14 @@ if args.c_max is not None:
 
 data["annotations"] = ann
 
-fmin = min([a["core:freq_lower_edge"] for a in data["annotations"]])
-fmax = max([a["core:freq_upper_edge"] for a in data["annotations"]])
-tmin = min([a["core:sample_start"] for a in data["annotations"]])
-tmax = max([a["core:sample_start"] for a in data["annotations"]])
+try:
+    fmin = min([a["core:freq_lower_edge"] for a in data["annotations"]])
+    fmax = max([a["core:freq_upper_edge"] for a in data["annotations"]])
+    tmin = min([a["core:sample_start"] for a in data["annotations"]])
+    tmax = max([a["core:sample_start"] for a in data["annotations"]])
+except ValueError:
+    fmin = fmax = 0
+    tmin = tmax = 0
 
 if False:
     for a in data["annotations"]:
@@ -114,9 +134,6 @@ def s2t(samples):  # convert samples to time
 print(f'out {len(data["annotations"])} annotations')
 print(f'   {fmin/1e9:.6f} - {fmax/1e9:.6f} GHz / {s2t(tmin):.3f} - {s2t(tmax):.3f} sec')
 
-
 if args.write:
-    os.rename(args.metafile, args.metafile+".bak")
-
-    with open(args.metafile, "w") as f:
+    with open(args.write, "w") as f:
         json.dump(data, f, indent=0)
