@@ -74,11 +74,9 @@ class ReassemblePPM(Reassemble):
         m=self.r2.match(q.data)
         if not m: return
         if m.group(2):
-<<<<<<< HEAD
-            q.itime = dt.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=datetime.timezone.utc)
-=======
+            #print("case 1", m.group(1))
             q.itime = numpy.datetime64(m.group(1))
->>>>>>> incomplete port to 64bit datetime
+            #print(q.itime)
         else:
             q.itime = numpy.datetime64(m.group(1))
 
@@ -88,13 +86,14 @@ class ReassemblePPM(Reassemble):
 
         if q.sat not in self.sv_pos: return None
         # Only accept IBC with a very recent position update via IRA
-        dt = float(q.mstime) - self.sv_pos[q.sat]['mstime']
-        if dt > 90: return None
+        ira_dt = float(q.mstime) - self.sv_pos[q.sat]['mstime']
+        if ira_dt > 90: return None
 
         return q
 
     def process(self,q):
-        q.uxtime = dt.epoch(q.time)
+        #print(type(q.time), q.time)
+        q.uxtime = numpy.datetime64(int(q.time * 1e9), '[ns]')
 
         # correct for slot:
         # 1st vs. 4th slot is 3 * (downlink + guard)
