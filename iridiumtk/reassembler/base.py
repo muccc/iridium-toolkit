@@ -39,7 +39,14 @@ class MyObject(object):
             self.ftype = self.starttime = self.attr = ''
 
         self.confidence=int(self.confidence.strip("%"))
-        self.mstime=float(self.mstime)
+
+        # conversion without precision loss
+        ms, _, frac = self.mstime.partition('.')
+        assert(len(frac) <= 6)
+        frac += '0'*(6-len(frac))
+        self.nstime = int(ms) * 1000000 + int(frac)
+
+        self.mstime = float(self.mstime)
 
         if '|' in self.level:
             self.level, self.noise, self.snr = self.level.split('|')
@@ -61,7 +68,6 @@ class MyObject(object):
             self.time=float(self.starttime)+self.mstime/1000
         elif self.ftype=='j': # deperec
             self.time=self.mstime
-            self.timens=int(self.mstime*(10**9))
         else:
             try:
                 # XXX: Does not handle really old time format.
