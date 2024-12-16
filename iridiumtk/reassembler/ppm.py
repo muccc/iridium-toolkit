@@ -88,18 +88,18 @@ class ReassemblePPM(Reassemble):
         if tdelta > self.tmax:
             self.tmax=tdelta
         if 'tdelta' in config.args:
-            print("tdelta %sZ %f"%(data[0].isoformat(),tdelta))
+            print("tdelta %sZ %f"%(data[0], tdelta))
 
         # "interactive" statistics per INVTL(600)
         if (data[1]-self.cur[1]) / SECOND > 600:
             (irun,toff,ppm)=self.onedelta(self.cur,data, verbose=False)
             if 'grafana' in config.args:
-                print("iridium.live.ppm %.5f %d" % (ppm, data[1].timestamp()))
+                print("iridium.live.ppm %.5f %d" % (ppm, data[1].astype('datetime64[s]').astype(np.int64)))
                 sys.stdout.flush()
             else:
                 print("@ %s: ppm: % 6.3f ds: % 8.5f "%(data[1], ppm, (data[1]-data[0]) / SECOND))
             self.cur=data
-        elif (data[1]-self.cur[1]) < 0:
+        elif (data[1]-self.cur[1]) / SECOND < 0:
             self.cur=data
 
     def onedelta(self, start, end, verbose=False):
