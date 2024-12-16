@@ -38,33 +38,13 @@ parser.add_argument("--station",           default=None,
 parser.add_argument("remainder", nargs='*',
         help=argparse.SUPPRESS)
 
-config=parser.parse_args()
+config, remaining = parser.parse_known_args()
 
 if config.stats:
     import curses
     curses.setupterm(fd=sys.stderr.fileno())
     eol=(curses.tigetstr('el')+curses.tigetstr('cr')).decode("ascii")
 
-
-if config.input is None:
-    if not config.remainder:
-        config.input = "/dev/stdin"
-    else:
-        config.input = config.remainder[0]
-
-config.outbase, _= splitext(config.input)
-if config.outbase.startswith('/dev'):
-    config.outbase=basename(config.outbase)
-
-if config.output is None:
-    outfile=sys.stdout
-elif config.output == "" or config.output == "=":
-    config.output="%s.%s" % (config.outbase, config.mode)
-    outfile=open(config.output,"w")
-else:
-    outfile=open(config.output,"w")
-
-config.outfile=outfile
 
 state=None
 if 'state' in config.args:
@@ -80,7 +60,6 @@ if 'state' in config.args:
 validargs=()
 zx=None
 
-iridiumtk.config.outfile=config.outfile
 iridiumtk.config.config=config
 
 plugins = iridiumtk.reassembler.get_plugins(iridiumtk.reassembler)
@@ -114,6 +93,32 @@ if len(modes[config.mode])>2:
 for x in config.args:
     if x not in validargs:
         raise Exception("unknown -a option: "+x)
+
+if getattr(zx, "args", None) is not None:
+    config = zx.args(parser)
+
+if config.input is None:
+    if not config.remainder:
+        config.input = "/dev/stdin"
+    else:
+        config.input = config.remainder[0]
+
+config.outbase, _= splitext(config.input)
+if config.outbase.startswith('/dev'):
+    config.outbase=basename(config.outbase)
+
+if config.output is None:
+    outfile=sys.stdout
+elif config.output == "" or config.output == "=":
+    config.output="%s.%s" % (config.outbase, config.mode)
+    outfile=open(config.output,"w")
+else:
+    outfile=open(config.output,"w")
+
+if getattr(zx, "outfile", None) is not None:
+    zx.outfile=config.outfile
+if getattr(zx, "config", None) is not None:
+    zx.config=config
 
 if config.input.startswith("zmq:"):
     try:
