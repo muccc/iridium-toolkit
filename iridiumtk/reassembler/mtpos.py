@@ -22,6 +22,7 @@ class ReassembleIDAMap(ReassembleIDA):
     last_output = 0
 
     mt_pos = []
+    mt_heat = {}
 
     def __init__(self):
         super().__init__()
@@ -32,6 +33,16 @@ class ReassembleIDAMap(ReassembleIDA):
             global eol
             eol = curses_eol()
 
+    def args(self, parser):
+        global config
+
+        parser.add_argument("--uplink", "--ul", action='store_true', help="do uplink positions instead")
+        parser.add_argument("--heatmap", action='store_true', help="produce json for heatmap instead")
+        config = parser.parse_args()
+
+        return config
+
+
     def consume(self, q):
         (data, time, ul, _, freq) = q
         if len(data) < 2:
@@ -39,13 +50,11 @@ class ReassembleIDAMap(ReassembleIDA):
 
         m_type = data[:2].hex()
 
-        if m_type != "0605" and m_type != "7605":
+        if m_type != "0605" and m_type != "7605" and not config.uplink:
             return
 
-        if ul:
-            ul = "UL"
-        else:
-            ul = "DL"
+        if m_type != "0600" and config.uplink:
+            return
 
         if m_type == "7605":
             if len(data) > 5 and data[2] == 0 and data[3]&0xf0 == 0x40:
@@ -67,8 +76,30 @@ class ReassembleIDAMap(ReassembleIDA):
                 #    print("sca=",data[lac_o+4:lac_o+6].hex())
             else: # no match
                 return
+        elif m_type == "0600": # UL
+            off = 16+2
+            if data[0+2] in (0x10, 0x40, 0x70) and len(data) > off+2 and data[off-1] == 0x01:
+                type = 'ul'
+                pos = xyz(data[off:], 0)
+            else:
+                return
         else:
             raise ValueError
+
+        if config.heatmap:
+            key = str([pos['x'], pos['y'], pos['z']])
+            if key not in self.mt_heat:
+                p = [pos['x']*4000+2000, pos['y']*4000+2000, pos['z']*4000+2000]
+                self.mt_heat[key] = {"type": "Feature", "geometry": {"type": "Point", "coordinates": p}, "properties": {"weight": 0}}
+            if self.mt_heat[key]["properties"]["weight"] < 10:
+                self.mt_heat[key]["properties"]["weight"] += 1
+            if config.stats:
+                if time >= self.last_output + self.intvl*10:
+                    self.last_output = time
+                    sts = dt.epoch(int(time))
+                    mts = len(self.mt_heat)
+                    print("%s: %d MTs" % (sts, mts), end=eol, file=sys.stderr)
+            return
 
         self.mt_pos.append({"xyz": [pos['x']*4+2, pos['y']*4+2, pos['z']*4+2], "type": type, "ts": int(time)})
 
@@ -87,6 +118,18 @@ class ReassembleIDAMap(ReassembleIDA):
                 sts = dt.epoch(int(time))
                 mts = len(self.mt_pos)
                 print("%s: %d MTs" % (sts, mts), end=eol, file=sys.stderr)
+
+    def end(self):
+        if config.stats:
+            print("", file=sys.stderr)
+        if config.heatmap:
+            ofile = config.output
+            if ofile is None:
+                ofile = "mt-heat.json"
+            temp_file_path = "%s.tmp" % (ofile)
+            with open(temp_file_path, "w") as f:
+                print(json.dumps({"type": "FeatureCollection", "features": list(self.mt_heat.values())}, separators=(',', ':')), file=f)
+            os.rename(temp_file_path, ofile)
 
 
 modes = [
