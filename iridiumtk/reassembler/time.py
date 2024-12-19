@@ -50,6 +50,7 @@ def lbfc_str(ts, start=0):
     return f"{lbfc_c:03d}∆{lbfc_o:+03.0f}#{slot}"
 
 
+simplex = ("IRA:", "ITL:", "INP:", "IMS:", "MSG:")
 class ReassembleTIME(Reassemble):
     toff = None
 
@@ -65,10 +66,15 @@ class ReassembleTIME(Reassemble):
 
     def process(self, q):
         q.enrich(channelize=True)
-        if self.toff is None and q.typ in ("IRA:", "ITL:", "INP:", "IMS:", "MSG:"):
-            self.toff = q.mstime
         q.uxtime = np.datetime64(int(q.starttime), 's')
         q.uxtime += np.timedelta64(q.nstime, 'ns')
+        if q.typ in ("IBC:", ) + simplex: # has a longer preamble
+            q.uxtime -= np.timedelta64((64-16)*(1000000//25000), 'us')
+            q.mstime -= (64-16)/25000 * 1000
+
+        if self.toff is None and q.typ in simplex:
+            self.toff = q.mstime
+
         strtime = str(q.uxtime)[:-2]
         if False:
             lbfc_c = (q.mstime-self.toff+45)//90
