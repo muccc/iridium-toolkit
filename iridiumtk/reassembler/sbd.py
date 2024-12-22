@@ -20,6 +20,7 @@ class SBDObject(object):
 
 verb2=False
 class ReassembleIDASBD(ReassembleIDA):
+    outfile = sys.stdout
     multi=[]
     sbd_short=0
     sbd_single=0
@@ -211,11 +212,11 @@ class ReassembleIDASBD(ReassembleIDA):
         if len(q.data)>0:
             print("%s %-99s %s | %s"%(
                         dt.epoch_local(int(q.time)).isoformat(),
-                        hdr,q.data.hex(" "),to_ascii(q.data, dot=True)), file=outfile)
+                        hdr,q.data.hex(" "),to_ascii(q.data, dot=True)), file=self.outfile)
         else:
             print("%s %s"%(
                         dt.epoch_local(int(q.time)).isoformat(),
-                        hdr), file=outfile)
+                        hdr), file=self.outfile)
 
 acars_labels={ # ref. http://www.hoka.it/oldweb/tech_info/systems/acarslabel.htm
     b"_\x7f": "Demand mode",
@@ -369,7 +370,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
             out['level'] = self.olevel
             out['header'] = q.hdr.hex()
 
-            print(json.dumps(out), file=outfile)
+            print(json.dumps(out), file=self.outfile)
             return
 
         # PRETTY-PRINT (ascii)
@@ -430,7 +431,7 @@ class ReassembleIDASBDACARS(ReassembleIDASBD):
         if len(q.errors)>0:
             out+=" " + " ".join(q.errors)
 
-        print(out, file=outfile)
+        print(out, file=self.outfile)
 
 
 class ReassembleIDASBDlibACARS(ReassembleIDASBD):
@@ -474,7 +475,7 @@ class ReassembleIDASBDlibACARS(ReassembleIDASBD):
             if config.station:
                 out['source']['station_id'] = config.station
             out['acars']=json.loads(o.json())['acars']
-            print(json.dumps(out), file=outfile)
+            print(json.dumps(out), file=self.outfile)
             return
 
         print(q.timestamp, end=" ")

@@ -96,6 +96,8 @@ for x in config.args:
 
 if getattr(zx, "args", None) is not None:
     config = zx.args(parser)
+else:
+    config = parser.parse_args()
 
 if config.input is None:
     if not config.remainder:
@@ -114,6 +116,8 @@ elif config.output == "" or config.output == "=":
     outfile=open(config.output,"w")
 else:
     outfile=open(config.output,"w")
+
+config.outfile = outfile
 
 if getattr(zx, "outfile", None) is not None:
     zx.outfile=config.outfile
