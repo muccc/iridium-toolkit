@@ -443,10 +443,25 @@ class IridiumMessage(Message):
             else:
                 self.header=""
 
+            # Duplex slot packets have a maximum length of 179 symbols
+            # but IBC have a 64 sym preamble instead of 16 sym, which reduces
+            # their max len to 131 sym.
+
+            ibclen = 131 * 2
+
             self.descrambled=[]
-            (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
+            (blocks,self.descramble_extra)=slice_extra(data[hdrlen:ibclen],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
+            self.descramble_extra += data[ibclen:]
+
+            # gr-iridium enforces the general 179 sym length, but this means
+            # that IBC can have extra symbols at the end.
+            # Remove them here.
+
+            if len(self.descrambled) == 8:
+                self.symbols -= len(self.descramble_extra)//2
+                self.descramble_extra = ""
         elif self.msgtype=="LW":
             lcwlen=46
             (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
