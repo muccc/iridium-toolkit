@@ -469,11 +469,38 @@ class ReassembleIDASBDlibACARS(ReassembleIDASBD):
 
             out['app'] = { 'name': 'iridium-toolkit', 'version': '0.0.2' }
             out['source'] = { 'transport': 'iridium', 'parser': 'libacars', 'version': libacars.version }
-            out['timestamp'] = q.timestamp
-            out['link_direction'] = 'uplink' if q.ul else 'downlink'
             if config.station:
                 out['source']['station_id'] = config.station
             out['acars']=json.loads(o.json())['acars']
+            out['acars']['timestamp'] = q.timestamp
+            out['acars']['link_direction'] = 'uplink' if q.ul else 'downlink'
+            out['acars']['errors'] = int(out["acars"]["err"] == 'true')
+
+            for key in ('reg:tail', 'label', 'blk_id:block_id', 'msg_num_seq:message_number', 'ack', 'msg_text:text', 'more:block_end'):
+                old, _, new = key.partition(':')
+                if new == '': new = old
+                if old in out['acars'].keys():
+                    val = out['acars'][old]
+                    if isinstance(val, bytes):
+                        val = val.decode('ascii')
+                    if old == 'label':
+                        val = val.replace('_\u007f', '_d')
+                    if old == 'ack':
+                        val = val.replace('\u0015', '!')
+                    if old == 'reg':
+                        while len(val)>0 and val[0:1]=='.':
+                            val = val[1:]
+                    if old == 'more':
+                        val = not val
+                    out['acars'][new] = val
+            
+            out['freq'] = self.ofreq
+            out['level'] = self.olevel
+            if q.data[1] == 0x3:
+                out['header'] = q.data[1:9].hex()
+            else:
+                out['header'] = ""
+
             print(json.dumps(out), file=outfile)
             return
 
