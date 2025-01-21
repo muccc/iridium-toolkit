@@ -47,6 +47,9 @@ frames['VO6'] = [colors[12], 'o', 1]
 
 frames['IRI'] = ['purple',   'x', 0]
 frames['RAW'] = ['grey',     'x', 0]
+frames['NC1'] = ['grey',     'x', 0]
+
+frames['NXT'] = [colors[ 6], 'x', 1]
 
 data=collections.OrderedDict()
 for t in frames:

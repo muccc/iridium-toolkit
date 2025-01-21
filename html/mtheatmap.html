@@ -1,0 +1,174 @@
+<!doctype html>
+<meta content="text/html;charset=utf-8" http-equiv="Content-Type">
+<meta content="utf-8" http-equiv="encoding">
+<link rel="shortcut icon" href="favicon.ico" />
+<html lang="en">
+  <head>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css" type="text/css" integrity="sha384-PpyAaiUdY+s8ycCAmYsYkyq9cQgPWrtjtiv4/NzjY5FHo+7R5wdgdpqPAOl+No0J" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol-ext@4.0.18/dist/ol-ext.min.css" integrity="sha384-P3rje4kvN3abflinwnEm/qFnQdXNe0Q0/zkL2LsNzHGmq9u3r1aydjY880SN8Us3" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+
+    <style>
+	  .map {
+		position: absolute;
+		top: 0;
+		left: 0;
+		height: 100%;
+		width: 100%;
+      }
+	  .center-map {
+		top: 65px;
+		left: .5em;
+	  }
+	  .ol-touch .center-map {
+		top: 80px;
+	  }
+	  .ovl {
+		position: absolute;
+		top: 5px;
+		right: 5px;
+		background: white;
+		z-index: 1000;
+	   }
+
+	  .ol-control.ol-legend {
+		bottom: 1.5em;
+		left: auto;
+		right: .5em;
+	  }
+
+	  .ol-button i {
+		color: inherit;
+	  }
+
+	  .ol-control.ol-bar .ol-toggle.ol-active > button {
+		background-color: #fff;
+		color: inherit;
+	  }
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js" integrity="sha384-SD/ncgTfeuQTb89UTe6nsqPzp0mGjAZ1E3ieIxVnvJBw5hk+Ppc4FdkUBpALqTjL" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/proj4@2.11.0/dist/proj4.min.js" integrity="sha384-Ua2mIaFXxfu2jpwEj6aO+7FS4fghlnXujM7X0xxgIX7E5S03Y78r0j5iHuOj3DVg" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/ol-ext@4.0.18/dist/ol-ext.min.js" integrity="sha384-W1a9XBd7x3B3gcyPlNrsCnnyZVtJ4Nr5D5+fYIsw6cf73QTJ+wICxbfSToT3goMA" crossorigin="anonymous"></script>
+    <title>Iridium MT heatmap</title>
+  </head>
+  <body>
+    <h3 id="title">Iridium Map</h3>
+    <div id="map" class="map" tabindex="0"><div id="info"></div><div id="time" class="ovl">(loading...)</div></div>
+    <script type="text/javascript">
+//
+// Config
+//
+
+// Define & add our geocentric projection
+proj4.defs(
+	'geocent',
+	'+proj=geocent +datum=WGS84 +ellps=WGS84 +units=m +no_defs'
+);
+ol.proj.proj4.register(proj4);
+
+
+// start map with custom tiles
+const tileLayer = new ol.layer.Tile({
+		source: new ol.source.OSM({
+		  url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+		  attributions: 'Tiles &copy; Esri'
+		})
+	  });
+
+var map = new ol.Map({
+	target: 'map',
+	layers: [tileLayer],
+	view: new ol.View({
+		center: ol.proj.fromLonLat([0.00, 0.00]),
+		zoom: 4
+	})
+});
+
+// add "graphics" layer
+var vectorSource = new ol.source.Vector({
+			url: 'mt-heat.json',
+			format: new ol.format.GeoJSON({
+						dataProjection: "geocent",
+						featureProjection: map.getView().getProjection()
+					})
+		});
+var heatmapLayer = new ol.layer.Heatmap({ source: vectorSource });
+map.addLayer(heatmapLayer);
+
+// Add some controls
+var mainbar = new ol.control.Bar({
+    className: "mainbar",
+});
+map.addControl(mainbar);
+mainbar.setPosition("top-left");
+
+// Center Button
+let centerCtrl = new ol.control.Button({
+    html: '<i class="fa fa-square-o"></i>',
+    className: "center",
+    title: "Center",
+    handleClick: function () {
+        centerMap();
+    }
+});
+
+mainbar.addControl(centerCtrl);
+mainbar.addControl (new ol.control.FullScreen());
+
+//
+// Helper functions
+//
+
+function centerMap() {
+    // layer magic - center map on tracks
+    let extent = ol.extent.createEmpty();
+    map.getLayers().forEach(function (layer) {
+        if (layer instanceof ol.layer.Heatmap) {
+            source = layer.getSource()
+            source.getFeatures().forEach(function (feature) {
+                ol.extent.extend(extent, feature.getGeometry().getExtent());
+            })
+//			ol.extent.extend(extent, layer.getSource().getFeatures().getGeometry().getExtent());
+        }
+    });
+	try {
+		map.getView().fit(extent, { padding: [25, 10, 50, 10], maxZoom: 6 }); // top, _, bottom, _
+	} catch(e) { // extent could be empty
+		return;
+	}
+//	map.getView().animate({ center: extent, duration: 1000, });
+}
+
+// Proper ISO timestamp (with timezone)
+Date.prototype.toISOString = function() {
+	var tzo = -this.getTimezoneOffset(),
+		dif = tzo >= 0 ? '+' : '-',
+		pad = function(num) {
+			var norm = Math.floor(Math.abs(num));
+			return (norm < 10 ? '0' : '') + norm;
+		};
+	return this.getFullYear() +
+		'-' + pad(this.getMonth() + 1) +
+		'-' + pad(this.getDate()) +
+		'T' + pad(this.getHours()) +
+		':' + pad(this.getMinutes()) +
+		':' + pad(this.getSeconds()) +
+		dif + pad(tzo / 60) +
+		':' + pad(tzo % 60);
+}
+
+timeElement = document.getElementById('time');
+timeElement.textContent = "heatmap";
+
+
+//
+// Startup
+//
+
+console.log("1 px =",ol.proj.getPointResolution('EPSG:4326', 1, [48, 13], 'm'))
+document.getElementById('map').focus();
+
+    </script>
+  </body>
+</html>

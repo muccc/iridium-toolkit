@@ -19,8 +19,12 @@ import itl
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
 uplink_access= "110011000011110011111100" # BPSK: 0xc4b
+next_access_dl = "110011110011111111111100" # 0xdab
+next_access_ul = "001111000000000011111111" # 0x40a
 UW_DOWNLINK = [0,2,2,2,2,0,0,0,2,0,0,2]
 UW_UPLINK   = [2,2,0,0,0,2,0,0,2,0,2,2]
+NXT_UW_DOWNLINK = [2,2,0,2,2,0,2,0,2,0,2,2]
+NXT_UW_UPLINK   = [0,2,0,0,0,0,0,0,2,0,2,0]
 header_messaging="00110011111100110011001111110011" # 0x9669 in BPSK
 header_time_location="11"+"0"*94
 messaging_bch_poly=1897
@@ -52,7 +56,7 @@ tsoffset=0
 maxts=0
 
 class Message(object):
-    p=re.compile(r'(RAW|RWA): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
+    p = re.compile(r'(RAW|RWA|NC1): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
     parse_error=False
     error=False
     def __init__(self,line):
@@ -65,7 +69,8 @@ class Message(object):
             self._new_error("Couldn't parse: "+line)
             self.parse_error=True
             return
-        self.swapped=(m.group(1)=="RAW")
+        self.swapped = (m.group(1) != "RWA")
+        self.next = (m.group(1) == "NC1")
         self.filename=m.group(2)
         if self.filename=="/dev/stdin":
             self.filename="-";
@@ -152,20 +157,32 @@ class Message(object):
 
     def upgrade(self):
         if self.error: return self
-        if(self.bitstream_raw.startswith(iridium_access)):
+        if(not self.next and self.bitstream_raw.startswith(iridium_access)):
             self.uplink=0
-        elif(self.bitstream_raw.startswith(uplink_access)):
+        elif(not self.next and self.bitstream_raw.startswith(uplink_access)):
             self.uplink=1
+        elif(self.bitstream_raw.startswith(next_access_dl)):
+            self.uplink = 0
+            self.next = True
+        elif(self.bitstream_raw.startswith(next_access_ul)):
+            self.uplink = 1
+            self.next = True
         else:
             if args.uwec and len(self.bitstream_raw)>=len(iridium_access):
                 access=de_dqpsk(self.bitstream_raw[:len(iridium_access)])
 
-                if bitdiff(access,UW_DOWNLINK) <4:
+                if not self.next and bitdiff(access, UW_DOWNLINK) < 4:
                     self.uplink=0
                     self.ec_uw=bitdiff(access,UW_DOWNLINK)
-                elif bitdiff(access,UW_UPLINK) <4:
+                elif not self.next and bitdiff(access, UW_UPLINK) < 4:
                     self.uplink=1
                     self.ec_uw=bitdiff(access,UW_UPLINK)
+                elif self.next and bitdiff(access, NXT_UW_DOWNLINK) < 4:
+                    self.uplink = 0
+                    self.ec_uw = bitdiff(access, NXT_UW_DOWNLINK)
+                elif self.next and bitdiff(access, NXT_UW_UPLINK) < 4:
+                    self.uplink = 1
+                    self.ec_uw = bitdiff(access, NXT_UW_UPLINK)
                 else:
                     self._new_error("Access code distance too big: %d/%d "%(bitdiff(access,UW_DOWNLINK),bitdiff(access,UW_UPLINK)))
             if("uplink" not in self.__dict__):
@@ -215,7 +232,11 @@ class Message(object):
     def pretty(self):
         if self.parse_error:
             return "ERR: "
-        str= "RAW: "+self._pretty_header()
+        if "next" in self.__dict__ and self.next:
+            str = "NC1: "
+        else:
+            str = "RAW: "
+        str += self._pretty_header()
         bs=self.bitstream_raw
         if "uplink" in self.__dict__:
             str+= " %03d"%(self.symbols-len(iridium_access)//2)
@@ -234,7 +255,13 @@ class Message(object):
 class IridiumMessage(Message):
     def __init__(self,msg):
         self.__dict__=msg.__dict__
-        if (self.uplink):
+        if self.next:
+            data = self.bitstream_raw[len(next_access_dl):]
+            self.msgtype = "NX"
+            self.header = self.bitstream_raw[:len(next_access_dl)]
+            self.descrambled = data
+            return
+        elif self.uplink:
             data=self.bitstream_raw[len(uplink_access):]
         else:
             data=self.bitstream_raw[len(iridium_access):]
@@ -416,10 +443,25 @@ class IridiumMessage(Message):
             else:
                 self.header=""
 
+            # Duplex slot packets have a maximum length of 179 symbols
+            # but IBC have a 64 sym preamble instead of 16 sym, which reduces
+            # their max len to 131 sym.
+
+            ibclen = 131 * 2
+
             self.descrambled=[]
-            (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
+            (blocks,self.descramble_extra)=slice_extra(data[hdrlen:ibclen],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
+            self.descramble_extra += data[ibclen:]
+
+            # gr-iridium enforces the general 179 sym length, but this means
+            # that IBC can have extra symbols at the end.
+            # Remove them here.
+
+            if len(self.descrambled) == 8:
+                self.symbols -= len(self.descramble_extra)//2
+                self.descramble_extra = ""
         elif self.msgtype=="LW":
             lcwlen=46
             (o_lcw1,o_lcw2,o_lcw3)=de_interleave_lcw(data[:lcwlen])
@@ -457,6 +499,8 @@ class IridiumMessage(Message):
                 return IridiumAQMessage(self).upgrade()
             elif self.msgtype in ("MS", "RA", "BC"):
                 return IridiumECCMessage(self).upgrade()
+            elif self.msgtype == "NX":
+                return IridiumNXTMessage(self).upgrade()
             raise AssertionError("unknown frame type encountered")
         except ParserError as e:
             self._new_error(str(e), e.cls)
@@ -1901,6 +1945,34 @@ class IridiumMessagingBCD(IridiumMSMessageBody):
         str+= " BCD: %-65s"%self.bcd
         str+= self._pretty_trailer()
         return str
+
+
+class IridiumNXTMessage(IridiumMessage):
+    def __init__(self, imsg):
+        self.__dict__ = imsg.__dict__
+        self.fixederrs = 0
+        if len(self.descrambled) < 233:
+            self._new_error("next frame too short")
+
+        # fixed pattern of 30 "1"s
+        ones = self.descrambled[176:206]
+        zeroes = ones.count("0")
+        if zeroes > 0:
+            self.fixederrs += 1
+
+    def upgrade(self):
+        if self.error: return self
+        return self
+
+    def pretty(self):
+        st = "NXT: " + self._pretty_header()
+        st += " " + group(self.descrambled[:32], 8)
+        st += " | "
+        st += group(self.descrambled[32:36], 2)
+        st += " > "
+        st += group(self.descrambled[36:], 10)
+        st += self._pretty_trailer()
+        return st
 
 def symbol_reverse(bits):
     r = bytearray(bits.encode("us-ascii"))

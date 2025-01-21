@@ -99,7 +99,8 @@ sub argb {
 }
 
 sub rainbow {
-	my ($cur,$max)=@_;
+	my ($cur,$max,$min)=@_;
+	if (!$min){ $min=0; }
 	$cur=$max if $cur>$max;
 	my $h=$cur/$max*2/3;
 	my ($s,$v)=(1,1);
@@ -165,15 +166,16 @@ sub do_heatmap{
 	};
 
 	# Find maxima for scaling
-	my ($maxval,$maxcnt)=(0,0);
+	my ($maxval,$maxcnt,$minval)=(0,0,999);
 	for my $x (keys %heatcnt){
 		for my $y (keys %{$heatcnt{$x}}){
 			$heatval{$x}{$y}=$heatval{$x}{$y}/$heatcnt{$x}{$y}; # AVERAGE
+			$minval=$heatval{$x}{$y} if ( $heatval{$x}{$y} < $minval);
 			$maxval=$heatval{$x}{$y} if ( $heatval{$x}{$y} > $maxval);
 			$maxcnt=$heatcnt{$x}{$y} if ( $heatcnt{$x}{$y} > $maxcnt);
 		};
 	};
-	printf STDERR "$name maxval: %.3f\n",$maxval;
+	printf STDERR "heatmap $name: $sc pos, maxcnt: $maxcnt, minval: %.3f, maxval: %.3f\n", $minval, $maxval;
 	$maxval*=0.9;
 
 	print "\t<Folder>";
@@ -188,7 +190,7 @@ sub do_heatmap{
 				my $cnt=$heatcnt{$x}{$y};
 
 #				my $color=rainbow($cnt,$maxcnt);
-				my $color=rainbow($val,$maxval);
+				my $color=rainbow($val,$maxval, $minval);
 #				next if $cnt < $maxcnt/2;
 
 				$cnt*=3*100;
@@ -314,7 +316,8 @@ sub do_beams{
 my $broken=0;
 sub read_line{
 	my ($data,$line)=@_;
-	if(/^IRA: (\S+) ([\d.]+) \d+\s+(\d+)%\s+[0-9.|-]+([0-9.]+).* sat:(\d+) beam:(\d+) (?:xyz=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+)/){
+
+	if(/^IRA: (\S+) ([\d.]+) \S+\s+(\d+)%\s+[0-9.|-]+?([0-9.]+) .* sat:(\d+) beam:(\d+) (?:xyz=\S+ )?pos=.([+-][0-9.]+)\/([+-][0-9.]+). alt=(-?\d+)/){
 
 		my ($fn,$t,$conf,$str,$sat,$beam,$x,$y,$h)=($1,$2,$3,$4,$5,$6,$7,$8,$9);
 		# fn: filename, t: time, str: signal level

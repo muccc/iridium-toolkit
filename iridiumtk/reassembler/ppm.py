@@ -8,11 +8,14 @@ import struct
 import math
 import os
 import socket
+import numpy as np
 from copy import deepcopy
 from util import fmt_iritime, to_ascii, slice_extra, dt
 
 from .base import *
 from ..config import config, outfile
+
+SECOND = np.timedelta64(1, 's')
 
 class ReassemblePPM(Reassemble):
     def __init__(self):
@@ -20,7 +23,7 @@ class ReassemblePPM(Reassemble):
         pass
 
     r1=re.compile(r'.* slot:(\d)')
-    r2=re.compile(r'.* time:([0-9:T-]+(\.\d+)?)Z')
+    r2=re.compile(r'.* time:([0-9:T-]+(?:\.\d+)?)Z')
 
     def filter(self,line):
         q=super().filter(line)
@@ -39,27 +42,25 @@ class ReassemblePPM(Reassemble):
 
         m=self.r2.match(q.data)
         if not m: return
-        if m.group(2):
-            q.itime = dt.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S.%f').replace(tzinfo=datetime.timezone.utc)
-        else:
-            q.itime = dt.strptime(m.group(1), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=datetime.timezone.utc)
+        q.itime = np.datetime64(m.group(1))
         return q
 
     def process(self,q):
-        q.uxtime = dt.epoch(q.time)
+        q.uxtime = np.datetime64(int(q.starttime), 's')
+        q.uxtime += np.timedelta64(q.nstime, 'ns')
 
         # correct for slot:
         # 1st vs. 4th slot is 3 * (downlink + guard)
-        q.itime+=datetime.timedelta(seconds=q.slot*(3 * float(8.28 + 0.1))/1000)
+        q.itime += np.timedelta64(q.slot*(3 * (8280 + 100)), 'us')
 
         # correct to beginning of frame:
         # guard + simplex + guard + 4*(uplink + guard) + extra_guard
-        q.itime+=datetime.timedelta(seconds=(1 + 20.32 + 1.24 + 4 * float(8.28 + 0.22) + 0.02)/1000)
+        q.itime += np.timedelta64(1000 + 20320 + 1240 + 4 * (8280 + 220) + 20, 'us')
 
         # correct to beginning of signal:
         # our timestamp is "the middle of the first symbol of the 12-symbol BPSK Iridium sync word"
         # so correct for 64 symbols preamble & one half symbol.
-        q.itime+=datetime.timedelta(seconds=(64.5/25000))
+        q.itime += np.timedelta64(64500//25, 'us')
 
         # no correction (yet?) for signal travel time: ~ 2.6ms-10ms (780-3000 km)
 
@@ -67,7 +68,7 @@ class ReassemblePPM(Reassemble):
 
     ini=None
     def consume(self, data):
-        tdelta=(data[0]-data[1]).total_seconds()
+        tdelta = (data[0]-data[1]) / SECOND
         if self.ini is None: # First PKT
             self.idx=0
             self.ini=[data]
@@ -87,23 +88,23 @@ class ReassemblePPM(Reassemble):
         if tdelta > self.tmax:
             self.tmax=tdelta
         if 'tdelta' in config.args:
-            print("tdelta %sZ %f"%(data[0].isoformat(),tdelta))
+            print("tdelta %sZ %f"%(data[0], tdelta))
 
         # "interactive" statistics per INVTL(600)
-        if (data[1]-self.cur[1]).total_seconds() > 600:
+        if (data[1]-self.cur[1]) / SECOND > 600:
             (irun,toff,ppm)=self.onedelta(self.cur,data, verbose=False)
             if 'grafana' in config.args:
-                print("iridium.live.ppm %.5f %d" % (ppm, data[1].timestamp()))
+                print("iridium.live.ppm %.5f %d" % (ppm, data[1].astype('datetime64[s]').astype(np.int64)))
                 sys.stdout.flush()
             else:
-                print("@ %s: ppm: % 6.3f ds: % 8.5f "%(data[1],ppm,(data[1]-data[0]).total_seconds()))
+                print("@ %s: ppm: % 6.3f ds: % 8.5f "%(data[1], ppm, (data[1]-data[0]) / SECOND))
             self.cur=data
-        elif (data[1]-self.cur[1]).total_seconds() <0:
+        elif (data[1]-self.cur[1]) / SECOND < 0:
             self.cur=data
 
     def onedelta(self, start, end, verbose=False):
-        irun=(end[1]-start[1]).total_seconds()
-        urun=(end[0]-start[0]).total_seconds()
+        irun = (end[1]-start[1]) / SECOND
+        urun = (end[0]-start[0]) / SECOND
         toff=urun-irun
         if irun==0: return (0,0,0)
         ppm=toff/irun*1000000
