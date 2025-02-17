@@ -712,7 +712,7 @@ def map_sat(num, version):
         elif num == 111:
             return ("---", "N%02d"%(8))
         else:
-            return ("---",num)
+            return ("---", "%03d"%(num))
             raise ValueError
     elif version==1:
         if num<88:
