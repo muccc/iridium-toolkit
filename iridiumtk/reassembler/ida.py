@@ -807,12 +807,10 @@ class ReassembleIDAPP(ReassembleIDA):
                     # 5: number of messages waiting to be delivered / backlog
                     # 6+7: "ack request" (answer: <50:xx:xx>) -- only for <26>
 
-                    if data[0]==0x26:
-#                        prehdr=data[:7]
+                    if data[0] == 0x26 or (data[0] == 0x20 and data[7] == 0x10):
                         prehdr="<%02x MTMSN=(%02x%02x) msgct:%d backlog=%d mid=(%02x:%02x)>"%(data[0],data[1],data[2],data[3],data[4],data[5],data[6])
                         data=data[7:]
                     elif data[0]==0x20:
-#                        prehdr=data[:5]
                         prehdr="<%02x MTMSN=(%02x%02x) msgct:%d backlog=%d>"%(data[0],data[1],data[2],data[3],data[4])
                         data=data[5:]
                     else:
