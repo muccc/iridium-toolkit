@@ -846,11 +846,11 @@ class IridiumSTLMessage(IridiumMessage):
                 if x in itl.MAP_PRS:
                     self.msg.append(itl.MAP_PRS[x])
                 else:
-                    if i==0 or self.msg[0] != 108: # special message does not contain normal PRS
+                    if i == 0 or self.msg[0] not in (108, 109): # special message does not contain normal PRS
                         raise ParserError("ITL V2 PRS Q#%d unknown"%i)
                     self.msg.append(x)
 
-            if self.msg[0] != 108:
+            if self.msg[0] not in (108, 109):
                 #sanity check the PRS sequence order
                 sanity = "".join([str(itl.MAP_PRS_TYPE[x]) for x in self.q])
                 if self.plane%2 == 0:
@@ -878,7 +878,7 @@ class IridiumSTLMessage(IridiumMessage):
             cat=None
             for qidx in range(len(self.q)):
                 mindist=999
-                if qidx > 0 and self.msg[0] == 108:
+                if qidx > 0 and self.msg[0] in (108, 109):
                     self.msg[qidx]=self.q[qidx]
                     next
                 if self.q[qidx] in itl.MAP_PRS:
