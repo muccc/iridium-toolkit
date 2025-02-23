@@ -328,8 +328,13 @@ class IridiumMessage(Message):
             return
 
         if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency < f_duplex) and self.uplink:
-            if len(data)>=2*26 and len(data)<2*50:
+            plen = 26
+            if len(data) >= 2*plen and len(data) <= 2*(plen+4): # Decoder adds at least 3 symbols
                 self.msgtype="AQ"
+            elif len(data) >= 2*plen and len(data) <= 2*(54): # Longer only if valid BPSK
+                sym = [['0', 'e', 'e', '1'][int(data[2*x])*2 + int(data[2*x+1])] for x in range(26)]
+                if 'e' not in sym:
+                    self.msgtype = "AQ"
 
         if "msgtype" not in self.__dict__:
             if args.harder:
@@ -738,12 +743,17 @@ class IridiumAQMessage(IridiumMessage):
         for x in range(0,len(bits)-1,2):
             self.sym.append(imap[int(bits[x+0])*2 + int(bits[x+1])])
 
-        if 'e' in self.sym:
+        if 'e' in self.sym[:12]:
             raise ParserError("IAQ content not BPSK")
 
         self.rid=int(self.sym[4]+self.sym[6]+self.sym[8]+self.sym[10]+self.sym[5]+self.sym[7]+self.sym[9]+self.sym[11],2)
         self.val=bytes([int("".join(self.sym[:4]),2),int("".join(self.sym[4:12]),2)])
-        self.ridcrc=int("".join(self.sym[12:]),2)
+
+        if 'e' in self.sym[12:]:
+            self._new_error("IAQ crc not BPSK")
+            self.ridcrc = "".join(self.sym[12:])
+        else:
+            self.ridcrc = int("".join(self.sym[12:]), 2)
 
         self.crcval=iaq_crc16( bytes(self.val)) >>2
 
@@ -756,6 +766,8 @@ class IridiumAQMessage(IridiumMessage):
         st+= " " + "Rid:%03d"%self.rid
         if self.ridcrc==self.crcval:
             st+= " " + "CRC:OK"
+        elif type(self.ridcrc) is str:
+            st += " " + "CRC:no[%s/%s]"%(self.ridcrc, '{0:08b}'.format(self.crcval))
         else:
             st+= " " + "CRC:no[%04x]"%self.ridcrc
 
