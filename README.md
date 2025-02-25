@@ -203,7 +203,7 @@ Supported modes are currently:
 * `lap` - GSM-compatible L3 messages as GSMtap compatible `.pcap`
 * `page` - paging requests (Ring Alert Channel)
 * `msg` - Pager messages
-* `butst` - "Global Data Burst" messages assembled from pager messages
+* `burst` - "Global Data Burst" messages assembled from pager messages
 * `sbd` - Short Burst Data messages
 * `acars` - parsed ACARS SBD messages
 * `ppm` - estimation of receiving SDRs PPM frequency offset
