@@ -54,6 +54,7 @@ def hex2bin(hexstr):
 
 def fmt_iritime(iritime):
     # Different Iridium epochs that we know about:
+    # ERA3: 2025-02-14T18:14:17Z : 1739556857 planned for 2026-01-14
     # ERA2: 2014-05-11T14:23:55Z : 1399818235 active since 2015-03-03T18:00:00Z
     # ERA1: 2007-03-08T03:50:21Z : 1173325821
     #       1996-06-01T00:00:11Z :  833587211 the original one (~1997-05-05)

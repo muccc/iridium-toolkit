@@ -992,6 +992,9 @@ class ReassembleIDALAP(ReassembleIDA):
 
         fchan, foff = channelize(freq)
 
+        if fchan < 0: # Can happen if frequencies are off
+            fchan += 0x2000
+
         # GSMTAP:
         #
         #struct gsmtap_hdr {
