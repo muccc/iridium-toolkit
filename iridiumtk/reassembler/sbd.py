@@ -59,11 +59,11 @@ class ReassembleIDASBD(ReassembleIDA):
         if data[0]==0x76:
             if ul:
                 if data[1]<0x0c or data[1]>0x0e:
-                    print("WARN: SBD: ul pkt with unclear type",data.hex(":"), file=sys.stderr)
+                    #print("WARN: SBD: ul pkt with unclear type",data.hex(":"), file=sys.stderr)
                     return
             else:
                 if data[1]<0x08 or data[1]>0x0b:
-                    print("WARN: SBD: dl pkt with unclear type",data.hex(":"), file=sys.stderr)
+                    #print("WARN: SBD: dl pkt with unclear type",data.hex(":"), file=sys.stderr)
                     return
 
         if data[0]==0x06:
