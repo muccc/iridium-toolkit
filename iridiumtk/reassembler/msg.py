@@ -4,6 +4,8 @@
 import sys
 import datetime
 import re
+import base64
+import crcmod
 from util import to_ascii, slice_extra, dt
 
 from .base import *
@@ -67,12 +69,8 @@ class ReassembleMSG(Reassemble):
         self.err=re.compile(r' ERR:')
         self.msg=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) (?:C:(..)\S*|[01 ]+) (\d)/(\d) csum:([0-9a-f][0-9a-f]) msg:([0-9a-f]*)\.([01]*) ')
         self.ms3=re.compile(r'.* ric:(\d+) fmt:(\d+) seq:(\d+) [01]+ \d BCD: ([0-9a-f]+)')
-        if 'noburst' in config.args:
-            global base64
-            import base64
-            import crcmod
-            self.crc16 = crcmod.predefined.mkPredefinedCrcFun("xmodem")
-            self.BURST_TRANS = bytes.maketrans(b'*-',b'/=')
+        self.crc16 = crcmod.predefined.mkPredefinedCrcFun("xmodem")
+        self.BURST_TRANS = bytes.maketrans(b'*-', b'/=')
 
     def filter(self,line):
         q=super().filter(line)
@@ -182,15 +180,18 @@ class ReassembleMSG(Reassemble):
         date = dt.epoch_local(msg.time).isoformat(timespec='seconds')
         str="Message %07d %02d @%s (len:%d)"%(msg.ric, msg.seq, date, msg.pcnt)
         txt= msg.content
-        if 'noburst' in config.args:
-            try:
-                ct = txt.translate(self.BURST_TRANS)
-                dec = base64.b64decode(ct)
-                crcv = self.crc16(dec)
-                if crcv == 0:
-                    return
-            except Exception:
-                pass
+        try:
+            msg.burst = False
+            ct = txt.translate(self.BURST_TRANS)
+            dec = base64.b64decode(ct)
+            crcv = self.crc16(dec)
+            if crcv == 0:
+                msg.burst = True
+        except Exception:
+            pass
+
+        if 'noburst' in config.args and msg.burst:
+            return
 
         if msg.fmt==5:
             out=to_ascii(txt, escape=True)
@@ -198,7 +199,12 @@ class ReassembleMSG(Reassemble):
         elif msg.fmt==3:
             out=txt
             str+= " BCD"
-        str+= (" fail:","   OK:")[msg.correct]
+        if msg.burst and msg.correct:
+            str += "  GDB:"
+        elif msg.correct:
+            str += "   OK:"
+        else:
+            str += " fail:"
         str+= " %s"%(out)
         print(str, file=outfile)
 
