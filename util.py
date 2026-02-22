@@ -54,13 +54,13 @@ def hex2bin(hexstr):
 
 def fmt_iritime(iritime):
     # Different Iridium epochs that we know about:
-    # ERA3: 2025-02-14T18:14:17Z : 1739556857 planned for 2026-01-14
+    # ERA3: 2025-02-14T18:14:17Z : 1739556857 active since 2026-01-14T18:08:00Z
     # ERA2: 2014-05-11T14:23:55Z : 1399818235 active since 2015-03-03T18:00:00Z
     # ERA1: 2007-03-08T03:50:21Z : 1173325821
     #       1996-06-01T00:00:11Z :  833587211 the original one (~1997-05-05)
     uxtime = float(iritime)*90/1000+1739556857
-    if uxtime>1435708799: uxtime-=1 # Leap second: 2015-06-30 23:59:59
-    if uxtime>1483228799: uxtime-=1 # Leap second: 2016-12-31 23:59:59
+#    if uxtime>1435708799: uxtime-=1 # Leap second: 2015-06-30 23:59:59
+#    if uxtime>1483228799: uxtime-=1 # Leap second: 2016-12-31 23:59:59
     strtime = datetime.datetime.fromtimestamp(uxtime,tz=Z).strftime("%Y-%m-%dT%H:%M:%S.{:02.0f}Z".format((uxtime%1)*100))
     return (uxtime, strtime)
 
