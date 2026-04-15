@@ -994,7 +994,14 @@ class IridiumNPMessage(IridiumMessage):
         if all(checks[:-3]) and not any(checks[-3:]):
             self.type=3
 
-        self.header+=":%05d"%(int(s2s[0][10:24],2))
+        # source_id: 14-bit field at s2s[0][10:24]. In captures the value
+        # partitions as [sv_id:8][beam_id:6]; the split is heuristic (partial
+        # empirical support only), so pretty() marks both fields with "?"
+        # to discourage treating them as authoritative.
+        self.source_id=int(s2s[0][10:24],2)
+        self.sv_id_guess=(self.source_id>>6) & 0xff
+        self.beam_id_guess=self.source_id & 0x3f
+        self.header+=":%05d"%self.source_id
         return
 
     def upgrade(self):
@@ -1003,6 +1010,7 @@ class IridiumNPMessage(IridiumMessage):
     def pretty(self):
         st= "INP: "+self._pretty_header()
 
+        st+= " sv?:%03d bm?:%02d"%(self.sv_id_guess, self.beam_id_guess)
         st+= " H:%d"%self.hdr_type
         st+= " T:%d"%self.type
 

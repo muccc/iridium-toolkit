@@ -178,7 +178,23 @@ Notes:
 
 ### INP: "new packet"
 
-Work in progress.
+Work in progress. Simplex-DL burst format distinct from Block1 channels, seen in captures on 1626.40-1626.52 MHz. Each burst carries a 96-bit header (three 32-bit hdr words), up to 18 data blocks of 40 bits, and a 24-bit trailer.
+
+Header variants (selected by `hdr[1][4:8]`):
+
+- `H:1` (`hdr_id in {1000, 0111}`): `[hdr0:32][hdr1:32][data:16][CRC8][tail:8]`. CRC scope = 80 bits.
+- `H:2` (`hdr_id == 0110`): `[hdr0:32][hdr1:32][CRC8][tail:24]`. CRC scope = 72 bits. Source IDs observed so far are disjoint from H:1, suggesting a distinct beam/sat role.
+- `H:0`: any other `hdr_id`, layout not yet resolved.
+
+Types v1/v2/v3 depend on which CRC variant validates; see `IridiumNPMessage` for the exact logic.
+
+#### source_id split heuristic
+
+The `:NNNNN` value after the frame header is a 14-bit `source_id` extracted from `s2s[0][10:24]`. In our captures it partitions cleanly as `[sv_id:8][beam_id:6]`, i.e. `sv_id = source_id >> 6` and `beam_id = source_id & 0x3f`. This split is heuristic and not universally validated - some `hdr[0]` values span many sv_ids - so the fields are printed with a `?` marker:
+
+    INP: ... :04294 sv?:067 bm?:06 H:2 T:0 h<...>
+
+Consumers should treat `sv?` / `bm?` as best-effort interpretation, not authoritative decode.
 
 ### IC1 / IC2 / IC8: Iridium Certus (NEXT / EBBS) traffic bursts
 
