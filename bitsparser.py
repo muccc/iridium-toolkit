@@ -299,10 +299,10 @@ class IridiumMessage(Message):
             return
 
         # Certus (EBBS / NEXT) traffic burst recognition. Classify by symbol count on the
-        # simplex DL band - the bits themselves are not meaningful (wrong demod path for
-        # coherent QPSK + Turbo) but labeling them prevents the frame dropping to "unknown".
-        if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
-            # symbols field counts total symbols including the 12-symbol UW; subtract it for payload length.
+        # simplex DL band. Guarded on self.next so we only claim frames that used
+        # next_access_dl sync - stops us stealing IRA/VOC bursts that happen to have
+        # matching symbol counts on iridium_access.
+        if "msgtype" not in self.__dict__ and self.next and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
             payload_syms = self.symbols - (len(iridium_access) // 2)
             if payload_syms == 200:
                 self.msgtype="C1"  # NEXT C1 30ksps QPSK 4/5, 320 payload bits
@@ -452,7 +452,8 @@ class IridiumMessage(Message):
                         self.msgtype="MS"
 
                 # try Certus traffic bursts by length alone under --harder
-                if "msgtype" not in self.__dict__ and not (args.freqclass and self.uplink):
+                # guarded on self.next so we don't steal IRA/VOC bursts on iridium_access sync
+                if "msgtype" not in self.__dict__ and self.next and not (args.freqclass and self.uplink):
                     payload_syms = self.symbols - (len(iridium_access) // 2)
                     if payload_syms == 200:
                         self.ec_lcw=1
