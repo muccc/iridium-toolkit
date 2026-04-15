@@ -180,6 +180,36 @@ Notes:
 
 Work in progress.
 
+### IC1 / IC2 / IC8: Iridium Certus (NEXT / EBBS) traffic bursts
+
+Recognizer for Iridium NEXT Certus traffic channel bursts carrying user voice or IP data. Same 0x789 unique word as Block1 channels, but the rest of the waveform uses coherent QPSK (or 16APSK) with Turbo FEC instead of DEQPSK with BCH. The Block1-oriented demod pipeline emits differentially-decoded bits that are not directly meaningful for these bursts, so we classify them by symbol count alone and expose the raw (wrongly-decoded) bits for diagnostic purposes.
+
+Symbol counts and modulations consistent with publicly documented Certus bearers:
+
+| Tag | Symbol count | Modulation | Code | Payload bits |
+|---|---|---|---|---|
+| `IC1` | 200 | QPSK 4/5 | Turbo rate 4/5 | 320 |
+| `IC2` | 432 | QPSK 2/3 | Turbo rate 2/3 | 576 |
+| `IC8` | 1824 | QPSK 2/3 or 16APSK 2/3 | Turbo rate 2/3 | 2432 or 4848 |
+
+Example:
+
+    IC2: [...] 432 DL raw:0011001111110011 0011001101100011 [...]
+
+Column|Content|Example|Comment
+--:|-|-|-
+8|Length in symbols|432|200 for C1, 432 for C2, 1824 for C8
+9|Direction|DL|Certus L-band simplex downlink (1626.1-1626.5 MHz)
+10|raw:|raw:\<all bits\>|Raw demod output - NOT directly decodable in this form
+
+Notes and caveats:
+
+1. These bits are not the payload. The gr-iridium demodulator applies differential decoding unconditionally. That is correct for Block1 DEQPSK but wrong for coherent-QPSK Certus. Proper decoding requires a gr-iridium patch to expose the coherent-QPSK symbols before differential decode, followed by the Iridium-specific Turbo decoder and interleaver.
+2. Interleaver not public. The Iridium-NEXT-specific interleaver and puncturing patterns are not publicly documented; without them, Turbo decoding will not recover user data even with the correct bits.
+3. The recognizer only covers NEXT traffic (C1/C2/C8). DBCCH and other new broadcast channels are not currently detected.
+4. The current recognizer does not distinguish 16APSK-modulated C8 bursts from QPSK-modulated variants - both produce the same per-symbol count in the demod output.
+5. The paper "Systematic Security Analysis of the Iridium Satellite Radio Link" (Jedermann et al., USENIX Security 2026, arXiv:2603.12062) covers the Iridium radio link in depth and is a recommended follow-up reference.
+
 ### IBC: Broadcast
 
     IBC: [...] bc:0 sat:028 cell:32 0 slot:0 sv_blkn:0 aq_cl:1111111111111111 aq_sb:22 aq_ch:2 00 0000 tmsi_expiry:2020-06-25T14:18:30.44Z [0 Rid:119 ts:1 ul_sb:22 dl_sb:22 access:3 dtoa:001 dfoa:00 00] []

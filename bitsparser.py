@@ -27,6 +27,18 @@ NXT_UW_DOWNLINK = [2,2,0,2,2,0,2,0,2,0,2,2]
 NXT_UW_UPLINK   = [0,2,0,0,0,0,0,0,2,0,2,0]
 header_messaging="00110011111100110011001111110011" # 0x9669 in BPSK
 header_time_location="11"+"0"*94
+# Iridium Certus (NEXT / EBBS) traffic bursts. Same 0x789 unique word as all other
+# Iridium channels, but coherent QPSK + Turbo coding (not DEQPSK + BCH).
+# Symbol counts per publicly documented NEXT traffic bearers:
+#   C1 30ksps QPSK 4/5: 320 payload bits -> 400 coded -> 200 symbols
+#   C2 60ksps QPSK 2/3: 576 payload bits -> 864 coded -> 432 symbols
+#   C8 240ksps QPSK 2/3: 2432 payload bits -> 3648 coded -> 1824 symbols
+# The raw bits we see here are the *differentially-decoded* form of the coherent
+# QPSK symbols (diff-decode is applied unconditionally in gr-iridium). That's
+# wrong for Certus - the underlying demodulation is coherent, not differential -
+# so these bits are not directly payload-recoverable without a gr-iridium patch.
+# We recognize them by symbol count and simplex-DL band alone; the payload is left
+# as-is for future research (Turbo decoding + correct interleaver required).
 messaging_bch_poly=1897
 ringalert_bch_poly=1207
 acch_bch_poly=3545 # 1207 also works?
@@ -285,6 +297,23 @@ class IridiumMessage(Message):
             self._new_error("filtered message")
             return
 
+        # Certus (EBBS / NEXT) traffic burst recognition. Classify by symbol count on the
+        # simplex DL band - the bits themselves are not meaningful (wrong demod path for
+        # coherent QPSK + Turbo) but labeling them prevents the frame dropping to "unknown".
+        if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
+            # symbols field counts total symbols including the 12-symbol UW; subtract it for payload length.
+            payload_syms = self.symbols - (len(iridium_access) // 2)
+            if payload_syms == 200:
+                self.msgtype="C1"  # NEXT C1 30ksps QPSK 4/5, 320 payload bits
+            elif payload_syms == 432:
+                self.msgtype="C2"  # NEXT C2 60ksps QPSK 2/3, 576 payload bits
+            elif payload_syms == 1824:
+                self.msgtype="C8"  # NEXT C8 240ksps QPSK 2/3 (or 16APSK 2/3), 2432 / 4848 payload bits
+
+        if "msgtype" not in self.__dict__ and args.linefilter['type'] == "IridiumCertusMessage":
+            self._new_error("filtered message")
+            return
+
         if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency < f_duplex) and not (args.freqclass and self.uplink):
             hdrlen=6
             blocklen=64
@@ -390,6 +419,19 @@ class IridiumMessage(Message):
                         self.ec_lcw=1
                         self.msgtype="MS"
 
+                # try Certus traffic bursts by length alone under --harder
+                if "msgtype" not in self.__dict__ and not (args.freqclass and self.uplink):
+                    payload_syms = self.symbols - (len(iridium_access) // 2)
+                    if payload_syms == 200:
+                        self.ec_lcw=1
+                        self.msgtype="C1"
+                    elif payload_syms == 432:
+                        self.ec_lcw=1
+                        self.msgtype="C2"
+                    elif payload_syms == 1824:
+                        self.ec_lcw=1
+                        self.msgtype="C8"
+
         if "msgtype" not in self.__dict__:
             if len(data)<64:
                 raise ParserError("Iridium message too short")
@@ -409,6 +451,14 @@ class IridiumMessage(Message):
             (blocks,self.descramble_extra)=slice_extra(data[hdrlen:],64)
             for x in blocks:
                 self.descrambled+=de_interleave(x)
+        elif self.msgtype in ("C1", "C2", "C8"):
+            # Certus (NEXT / EBBS) traffic burst - carry raw bits through unchanged.
+            # The differential decoding that gr-iridium applies is incorrect for
+            # coherent-QPSK Certus waveforms, so these bits are not directly decodable.
+            # We still expose them so downstream tooling can look at them.
+            self.header=""
+            self.descrambled=data
+            self.descramble_extra=""
         elif self.msgtype=="AQ":
             datalen=2*26
             self.header=""
@@ -499,6 +549,8 @@ class IridiumMessage(Message):
                 return IridiumAQMessage(self).upgrade()
             elif self.msgtype in ("MS", "RA", "BC"):
                 return IridiumECCMessage(self).upgrade()
+            elif self.msgtype in ("C1", "C2", "C8"):
+                return IridiumCertusMessage(self)
             elif self.msgtype == "NX":
                 return IridiumNXTMessage(self).upgrade()
             raise AssertionError("unknown frame type encountered")
@@ -1971,6 +2023,68 @@ class IridiumNXTMessage(IridiumMessage):
         st += group(self.descrambled[32:36], 2)
         st += " > "
         st += group(self.descrambled[36:], 10)
+        st += self._pretty_trailer()
+        return st
+
+# Inverse of gr-iridium's decode_deqpsk(), so callers can recover the original
+# coherent QPSK symbols from a .bits capture. gr-iridium applies diff-decode to
+# every burst unconditionally, which is correct for Block1 DEQPSK but wrong for
+# coherent-QPSK Certus. Since check_sync_word() in gr-iridium has already
+# validated the unique word against the coherent symbols (phase locked via PLL),
+# the diff-decode is a deterministic bijection and invertible from the bits alone.
+#
+# Forward (gr-iridium decode_deqpsk): out[i] = _DEQ_FWD[ (s[i] - s[i-1]) % 4 ]
+# Inverse:                            s[i] = (s[i-1] + _DEQ_INV[out[i]]) % 4
+_DEQ_FWD = (0, 2, 3, 1)
+_DEQ_INV = tuple(_DEQ_FWD.index(x) for x in range(4))  # (0, 3, 1, 2)
+
+def un_deqpsk(bits, seed_symbol=0):
+    """Invert decode_deqpsk on a bit string (2 bits per symbol, MSB-first).
+    seed_symbol is the coherent symbol that preceded the first bit pair - for
+    payload bits stripped of the UW, this is the last UW coherent symbol (=2
+    for UW_DL and UW_UL, both of which end with symbol 2).
+    Returns a bit string of the same length representing coherent QPSK symbols.
+    """
+    old = seed_symbol
+    out = []
+    for i in range(0, len(bits) - 1, 2):
+        sym_out = (int(bits[i]) << 1) | int(bits[i+1])
+        diff = _DEQ_INV[sym_out]
+        s = (old + diff) & 3
+        out.append('1' if s & 2 else '0')
+        out.append('1' if s & 1 else '0')
+        old = s
+    if len(bits) & 1:
+        out.append(bits[-1])  # stray bit pass-through (shouldn't happen)
+    return ''.join(out)
+
+class IridiumCertusMessage(IridiumMessage):
+    # Iridium Certus (NEXT / EBBS) traffic burst - coherent QPSK + Turbo-coded.
+    # Identified by symbol count on the simplex DL band:
+    #   C1 = 200 symbols, NEXT C1 30ksps QPSK 4/5 (320 payload bits)
+    #   C2 = 432 symbols, NEXT C2 60ksps QPSK 2/3 (576 payload bits)
+    #   C8 = 1824 symbols, NEXT C8 240ksps QPSK 2/3 or 16APSK 2/3 (2432 or 4848 payload bits)
+    #
+    # gr-iridium emits diff-decoded bits that are correct for Block1 DEQPSK but
+    # wrong for these. We recover the coherent QPSK symbols in un_deqpsk() and
+    # expose them as the payload. Turbo decoding of the resulting stream is left
+    # as future work (requires the Iridium-specific interleaver, puncturing
+    # pattern, and Turbo polynomial, none of which are publicly documented).
+    def __init__(self, imsg):
+        self.__dict__ = imsg.__dict__
+        # Seed from the last coherent UW symbol (UW_DL[11] = UW_UL[11] = 2).
+        self.coherent = un_deqpsk(self.descrambled, seed_symbol=2)
+
+    def upgrade(self):
+        if self.error: return self
+        return self
+
+    def pretty(self):
+        st = "I" + self.msgtype + ": " + self._pretty_header()   # "IC1:", "IC2:", "IC8:"
+        # Emit coherent QPSK bits (recovered), grouped per symbol-pair for
+        # readability. These are the actual transmitted QPSK symbols,
+        # pre-Turbo-decoded, in the 2-bits-per-symbol form Iridium uses.
+        st += " coh:" + group(self.coherent, 16)
         st += self._pretty_trailer()
         return st
 
