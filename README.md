@@ -91,7 +91,9 @@ Enable error correction in the uniq word. Increases processing time.
 
 ##### --harder
 
-Try to decode packets with correctable bit errors at the beginning. Significantly increases processing time.
+Relax the BCH gate so bursts with 1-2 correctable bit errors in the header get decoded instead of falling through to `RAW`. In practice this recovers a large fraction of downlink LCW traffic: on typical multi-hour captures 15-25% of the RAW bucket moves into `IRI`, `IBC`, `IIU`, `IME`, `ITL`, `IRA`, and `LW` (individual channels can see 3x more hits than without `--harder`). Stats comparisons between captures are only meaningful when both sides use the same setting.
+
+Significantly increases processing time. The parser prints a one-line hint on stderr at the end of the run when `--harder` is off and the RAW fraction looks inflated.
 
 ##### --disable-freqclass
 
