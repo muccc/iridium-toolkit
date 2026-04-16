@@ -59,11 +59,11 @@ class ReassembleIDASBD(ReassembleIDA):
         if data[0]==0x76:
             if ul:
                 if data[1]<0x0c or data[1]>0x0e:
-                    print("WARN: SBD: ul pkt with unclear type",data.hex(":"), file=sys.stderr)
+                    #print("WARN: SBD: ul pkt with unclear type",data.hex(":"), file=sys.stderr)
                     return
             else:
                 if data[1]<0x08 or data[1]>0x0b:
-                    print("WARN: SBD: dl pkt with unclear type",data.hex(":"), file=sys.stderr)
+                    #print("WARN: SBD: dl pkt with unclear type",data.hex(":"), file=sys.stderr)
                     return
 
         if data[0]==0x06:
@@ -97,6 +97,12 @@ class ReassembleIDASBD(ReassembleIDA):
                 elif data[0]==0x20:
                     prehdr=data[:5]
                     data=data[5:]
+                    # sometimes it seems to be 7 bytes long
+                    if len(data) >= 2 and data[2] == 0x10:
+                        # first DL Message will have 0x01 in data[2], so
+                        # there should be no danger of misclassification
+                        prehdr += data[:2]
+                        data = data[2:]
                 else:
                     print("WARN: SBD: DL pkt with unclear header",data.hex(":"), file=sys.stderr)
                     prehdr=data[:7]

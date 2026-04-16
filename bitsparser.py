@@ -7,6 +7,7 @@ import re
 import struct
 import fileinput
 import datetime
+import itertools
 from math import sqrt,atan2,pi,log
 
 import crcmod
@@ -357,8 +358,39 @@ class IridiumMessage(Message):
             return
 
         if "msgtype" not in self.__dict__ and (not args.freqclass or self.frequency < f_duplex) and self.uplink:
-            if len(data)>=2*26 and len(data)<2*50:
+            plen = 26
+            if len(data) >= 2*plen and len(data) <= 2*(plen+4): # Decoder adds at least 3 symbols
                 self.msgtype="AQ"
+            elif len(data) >= 2*plen and len(data) <= 2*(54): # Longer only if valid BPSK
+                sym = [['0', 'e', 'e', '1'][int(data[2*x])*2 + int(data[2*x+1])] for x in range(26)]
+                if 'e' not in sym:
+                    self.msgtype = "AQ"
+
+        if "msgtype" not in self.__dict__: # and (not args.freqclass or self.frequency > f_simplex) and not (args.freqclass and self.uplink):
+            if len(data)>=170:#==432*2:
+                symbols=de_dqpsk(data)
+                bits=sym2bits(symbols)
+
+                bits=bits[:160]
+                h1=bits[0::4]
+                h2=bits[1::4]
+                #            1         2         3            1         2         3
+                #  01234567890123456789012345678901 01234567890123456789012345678901
+                #h<01000010001101001100011001101110 00011000000000001111011000000000
+                #h<11000010011101000100011001111110 00010110000000110110110101000000
+                #    ++++++    ++++   ++++++   ++++ +++     ++                ++++++
+                h1_id=h1[2:8]+","+h1[12:16]+","+h1[19:25]+","+h1[28:32]
+                h2_id=h2[0:3]+","+h2[8:10]+","+h2[26:32]
+                if h1_id=="000010,0100,001100,1110" and h2_id=="000,00,000000":
+                    self.msgtype="NP"
+                elif args.harder:
+                    h3=bits[2::4]
+                    ok1,_ = magic_checksum(h1)
+                    ok2,_ = magic_checksum(h2)
+                    ok3,_ = magic_checksum(h3)
+                    if ok1 and ok2 and ok3:
+                        self.ec_lcw=1
+                        self.msgtype="NP"
 
         if "msgtype" not in self.__dict__:
             if args.harder:
@@ -469,6 +501,10 @@ class IridiumMessage(Message):
             self.header=data[:hdrlen]
             self.descrambled=data[hdrlen:hdrlen+(256*3)]
             self.descramble_extra=data[hdrlen+(256*3):]
+        elif self.msgtype=="NP":
+#            self.header=""
+            self.descrambled=data[:432*2]
+            self.descramble_extra=data[(432*2):]
         elif self.msgtype=="RA":
             firstlen=3*32
             if len(data)<firstlen:
@@ -545,6 +581,8 @@ class IridiumMessage(Message):
                 return IridiumLCWMessage(self).upgrade()
             elif self.msgtype=="TL":
                 return IridiumSTLMessage(self).upgrade()
+            elif self.msgtype=="NP":
+                return IridiumNPMessage(self).upgrade()
             elif self.msgtype=="AQ":
                 return IridiumAQMessage(self).upgrade()
             elif self.msgtype in ("MS", "RA", "BC"):
@@ -790,12 +828,17 @@ class IridiumAQMessage(IridiumMessage):
         for x in range(0,len(bits)-1,2):
             self.sym.append(imap[int(bits[x+0])*2 + int(bits[x+1])])
 
-        if 'e' in self.sym:
+        if 'e' in self.sym[:12]:
             raise ParserError("IAQ content not BPSK")
 
         self.rid=int(self.sym[4]+self.sym[6]+self.sym[8]+self.sym[10]+self.sym[5]+self.sym[7]+self.sym[9]+self.sym[11],2)
         self.val=bytes([int("".join(self.sym[:4]),2),int("".join(self.sym[4:12]),2)])
-        self.ridcrc=int("".join(self.sym[12:]),2)
+
+        if 'e' in self.sym[12:]:
+            self._new_error("IAQ crc not BPSK")
+            self.ridcrc = "".join(self.sym[12:])
+        else:
+            self.ridcrc = int("".join(self.sym[12:]), 2)
 
         self.crcval=iaq_crc16( bytes(self.val)) >>2
 
@@ -808,6 +851,8 @@ class IridiumAQMessage(IridiumMessage):
         st+= " " + "Rid:%03d"%self.rid
         if self.ridcrc==self.crcval:
             st+= " " + "CRC:OK"
+        elif type(self.ridcrc) is str:
+            st += " " + "CRC:no[%s/%s]"%(self.ridcrc, '{0:08b}'.format(self.crcval))
         else:
             st+= " " + "CRC:no[%04x]"%self.ridcrc
 
@@ -815,6 +860,252 @@ class IridiumAQMessage(IridiumMessage):
         st+=self._pretty_trailer()
         return st
 
+
+np_crc16=crcmod.mkCrcFun(poly=0x1755b,initCrc=0,rev=False,xorOut=0)
+np_crc8=crcmod.mkCrcFun(poly=0x12f,initCrc=0,rev=False,xorOut=0)
+
+class IridiumNPMessage(IridiumMessage):
+    def __init__(self,imsg):
+        self.__dict__=imsg.__dict__
+
+        symbols=de_dqpsk(self.descrambled)
+        bits=sym2bits(symbols)
+
+        if "header" not in self.__dict__:
+            self.header=""
+
+            # Re-sort bits
+        if len(bits)<840:
+            bcnt=len(bits)//160
+            trailer=bits[160*bcnt::]
+            bits=bits[:160*bcnt]
+
+            s1s=slice(bits[0::4],40)
+            s2s=slice(bits[1::4],40)
+            s3s=slice(bits[2::4],40)
+            s4s=slice(bits[3::4],40)
+
+            blocks=list(itertools.chain.from_iterable(zip(s1s,s2s,s3s,s4s)))
+
+#            btrail=blocks[-4:]
+#            blocks=blocks[:-4]
+#            trailer="".join(btrail)+trailer
+
+#            blocks+=[blocks[-2][-8:]+btrail[0][:32]]
+#            blocks+=[btrail[1]]
+        else:
+            trailer=bits[800::2]+bits[801::2]
+            bits=bits[:800]
+
+            s1s=slice(bits[0::4],40)
+            s2s=slice(bits[1::4],40)
+            s3s=slice(bits[2::4],40)
+            s4s=slice(bits[3::4],40)
+
+            blocks=list(itertools.chain.from_iterable(zip(s1s,s2s,s3s,s4s)))
+
+            blocks+=[trailer[:40]]
+            trailer=trailer[40:]
+
+        checks=[magic_checksum(b)[0] for b in blocks]
+
+        ### magic debug
+        ok=""
+        for b in blocks:
+            good, r = magic_checksum(b)
+#            print(b[32:],"%02x"%(r))
+            if good and b[32:]=="00000000":
+                ok+="o"
+            elif good:
+                ok+="O"
+            else:
+                ok+="n"
+        self.magic=ok
+        ### end magic
+
+        if not all(checks[:3]): # "INP"
+            raise ParserError("INP header not valid")
+
+        hdr=[b[:32] for b in blocks[:3]]
+        blocks=blocks[3:]
+        checks=checks[3:]
+
+        hdr_id=hdr[1][4:8]
+
+        if hdr_id in ('1000','0111'):
+            self.hdr_type=1
+        elif hdr_id in ('0110',):
+            self.hdr_type=2
+        else:
+            self.hdr_type=0
+
+        # H1
+        self.hdr_crc1=np_crc8(bytes( [int(x,2) for x in slice(
+                    hdr[0]+hdr[1]+hdr[2][:-8]
+                ,8)]))
+
+        # H2
+        self.hdr_crc2=np_crc8(bytes( [int(x,2) for x in slice(
+                    hdr[0]+hdr[1]+hdr[2][:8]
+                ,8)]))
+
+        # Begin pkts
+        self.type=0
+        self.hdr=hdr         # 3 blocks a 32 bits
+        self.trailer=trailer # 24 bits
+        self.blocks=blocks   # 18 blocks a 40 bits
+        self.checks=checks
+
+        # Pkt v1
+        self.v1trail=trailer[:8]
+        self.cs_v1=trailer[8:]
+        if self.cs_v1 == '':
+            self.cs_v1='0'
+
+        self.the_crc_v1=np_crc16(bytes( [int(x,2) for x in slice(
+                    hdr[-1][-8:]+
+                    "".join(blocks)+
+                    trailer
+                ,8)]))
+
+        if self.the_crc_v1==0:
+            self.type=1
+
+        # Pkt v2
+        csblocks=[b[:32] for b in blocks]
+        self.csblocks=csblocks
+
+        self.cs_v2=self.trailer[:16]
+        self.v2trail=self.trailer[16:]
+        if self.cs_v2 == '':
+            self.cs_v2='0'
+
+        self.the_crc_v2=np_crc16(bytes([int(x,2) for x in slice(
+                            hdr[-1][-8:]+
+                            "".join(csblocks)+
+                            trailer[:16]
+                        ,8)]))
+
+        if self.the_crc_v2==0:
+            self.type=2
+
+        # Pkt v3
+        if all(checks[:-3]) and not any(checks[-3:]):
+            self.type=3
+
+        self.header+=":%05d"%(int(s2s[0][10:24],2))
+        return
+
+    def upgrade(self):
+        return self
+
+    def pretty(self):
+        st= "INP: "+self._pretty_header()
+
+        st+= " H:%d"%self.hdr_type
+        st+= " T:%d"%self.type
+
+        st+= " h<"
+        if self.hdr_type == 1:
+            st+= self.hdr[0] + " " + self.hdr[1] + " " + self.hdr[2][:-16]
+            st+=" CRC=%02x"%int(self.hdr[2][-16:-8],2)
+            if self.hdr_crc1==0:
+                st+="[OK]"
+            else:
+                st+="[no]"
+            st+= " "
+            st+= self.hdr[2][-8:]
+        elif self.hdr_type == 2:
+            st+= self.hdr[0] + " " + self.hdr[1]
+            st+=" CRC=%02x"%int(self.hdr[2][:8],2)
+            if self.hdr_crc2==0:
+                st+="[OK]"
+            else:
+                st+="[no]"
+            st+= " "
+            st+= " " # alignment
+            st+= self.hdr[2][8:] # 24 bit
+        else:
+            st+= self.hdr[0] + " " + self.hdr[1] + " " + self.hdr[2]
+        st+=">"
+
+        if self.type==1:
+            st+= " d<"
+            for x in self.blocks:
+                st+= "".join(slice(x,8))
+                st+= " "
+            st=st[:-1]
+            st+=">"
+
+            st+= " t<"+self.v1trail+">"
+            st+= " CRC=%04x"%int(self.cs_v1,2)
+            if self.the_crc_v1==0:
+                st+="[OK]"
+            else:
+                st+="[no]"
+            st+= "       " # alignment
+        elif self.type==2:
+            st+= " d<"
+            for x in self.csblocks:
+                st+= "".join(slice(x,8))
+                st+= " "
+                st+= "        " # alignment
+            st=st[:-1]
+            st+=">"
+
+            st+= " CRC=%04x"%int(self.cs_v2,2)
+            if self.the_crc_v2==0:
+                st+="[OK]"
+            else:
+                st+="[no]"
+
+            st+= " t<"+self.v2trail +">"
+            # Trailer checksum 'steals' two bytes from the previous block
+            ok, _=magic_checksum(self.blocks[-1][-16:]+self.trailer)
+            if ok:
+                st+="OK"
+            else:
+                st+="no"
+
+            if all(self.checks):
+                st+=" MAGC"
+            else:
+                st+=" nomg"
+        elif self.type==3:
+            st+= " d<"
+            for x in self.csblocks[:-3]:
+                st+= "".join(slice(x,8))
+                st+= " "
+                st+= "        " # alignment
+            for x in self.blocks[-3:]:
+                st+= "".join(slice(x,8))
+                st+= " "
+            st=st[:-1]
+            st+=">"
+
+            st+= " t<"+" ".join(slice(self.trailer,8))+">"
+        else:
+            st+= " d<"
+            for i,x in enumerate(self.blocks):
+                if self.checks[i]:
+                    st+= "".join(slice(x[:32],8))
+                    st+= "        " # alignment
+                else:
+                    st+= "".join(slice(x,8))
+                st+= " "
+            st=st[:-1]
+            st+=">"
+
+            st+= " t<"+" ".join(slice(self.trailer,8))+">"
+
+        st+= " v1=%04x"%(self.the_crc_v1)
+        st+= " v2=%04x"%(self.the_crc_v2)
+        st+= " h1=%02x"%(self.hdr_crc1)
+        st+= " h2=%02x"%(self.hdr_crc2)
+        st+= " magic=%s"%(self.magic)
+
+        st+=self._pretty_trailer()
+        return st
 
 class IridiumSTLMessage(IridiumMessage):
     def __init__(self,imsg):
@@ -886,11 +1177,11 @@ class IridiumSTLMessage(IridiumMessage):
                 if x in itl.MAP_PRS:
                     self.msg.append(itl.MAP_PRS[x])
                 else:
-                    if i==0 or self.msg[0] != 108: # special message does not contain normal PRS
+                    if i == 0 or self.msg[0] not in (108, 109): # special message does not contain normal PRS
                         raise ParserError("ITL V2 PRS Q#%d unknown"%i)
                     self.msg.append(x)
 
-            if self.msg[0] != 108:
+            if self.msg[0] not in (108, 109):
                 #sanity check the PRS sequence order
                 sanity = "".join([str(itl.MAP_PRS_TYPE[x]) for x in self.q])
                 if self.plane%2 == 0:
@@ -918,7 +1209,7 @@ class IridiumSTLMessage(IridiumMessage):
             cat=None
             for qidx in range(len(self.q)):
                 mindist=999
-                if qidx > 0 and self.msg[0] == 108:
+                if qidx > 0 and self.msg[0] in (108, 109):
                     self.msg[qidx]=self.q[qidx]
                     next
                 if self.q[qidx] in itl.MAP_PRS:
@@ -2139,6 +2430,41 @@ def de_dqpsk(bits):
         symbols[c]=(symbols[c-1]+symbols[c])%4
 
     return symbols
+
+def sym2bits(symbols):
+    bits=""
+    omap=["00","10","11","01"]
+    omap=["11","01","00","10"] # XXX: Negate everything.
+    bits="".join([omap[sym] for sym in symbols])
+    return bits
+
+# calculate "Magic" checksum
+#
+# Input is 40 bits. 32 bits "data" and 8 bits "checksum"
+#
+# No idea how it is inteded to work, but it is
+# completely linear from input bits, so we can check it that
+# way, even if it is a bit convoluted.
+#
+# Checksum uses only lower 7 bits.
+#
+# Initial/Zero value is bits 4&5.
+#
+def magic_checksum(bits):
+    cv=int(bits[32:],2)
+    bits=bits[:32]
+
+    magic=[87, 7, 91, 107, 11, 115, 19, 35, 28, 44, 76, 52, 84, 100, 104, 56, 22, 70, 26, 42, 74, 50, 82, 98, 93, 109, 13, 117, 21, 37, 41, 121]
+
+    check=0
+    for i, bit in enumerate(bits):
+        if bit=="1":
+            check^=magic[i]
+
+    # bit 4 & 5 are the "check value"
+    if (check^cv) == 0b11000:
+        return True, check^cv
+    return False, check^cv
 
 def split_qpsk(symbols):
     i_list=""

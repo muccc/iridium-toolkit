@@ -54,7 +54,7 @@ class ReassembleMSGBurst(ReassembleMSG):
     multi = {}
 
     def process_l2(self, msg):
-        if not msg.correct:
+        if not msg.correct or not msg.fmt == 5:
             return
 
         ct = msg.content
