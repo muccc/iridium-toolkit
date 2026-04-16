@@ -50,7 +50,7 @@ parser.add_argument("-v", "--verbose",     action="store_true",
 parser.add_argument("--uw-ec",             action="store_true", dest='uwec',
                     help="enable error correction on unique word")
 parser.add_argument("--harder",            action="store_true",
-                    help="try harder to parse input")
+                    help="relax BCH gate - recover bursts with correctable bit errors (otherwise lost to RAW). Slower, but can move 15-25%% of RAW into IRI/IBC/IIU/etc.")
 parser.add_argument("--disable-freqclass", action="store_false", dest='freqclass',
                     help="turn frequency classificiation off")
 parser.add_argument("-s", "--satclass",    action="store_true", dest='dosatclass',
@@ -337,6 +337,10 @@ def perline(q):
         return
     if args.do_stats:
         stats["out"]+=1
+        # bursts that never upgraded to a known msgtype print as "RAW:"; track
+        # them so we can hint at --harder when the fraction looks inflated.
+        if type(q).__name__ == 'Message':
+            stats["raw"]+=1
     if args.output == "err":
         if q.error:
             selected.append(q)
@@ -408,6 +412,7 @@ if args.do_stats:
     stats['start']=time.time()
     stats['in']=0
     stats['out']=0
+    stats['raw']=0
     stats['stop']= Event()
     sthread = Thread(target = stats_thread, args = [stats], daemon= True, name= 'stats')
     sthread.start()
@@ -422,6 +427,19 @@ except BrokenPipeError as e:
 if args.do_stats:
     stats['stop'].set()
     sthread.join()
+
+    # Accuracy hint: many bursts that end up as RAW are actually decodable
+    # DL frames that hit the strict BCH gate with 1-2 bit errors. --harder
+    # relaxes that gate and recovers them as IRI/IBC/IIU/etc. Only hint on
+    # unfiltered runs where the signal is clear, and only once per run.
+    if (not args.harder
+            and args.linefilter['type'] == 'All'
+            and stats['out'] >= 1000
+            and stats['raw'] / stats['out'] >= 0.15):
+        raw_pct = 100.0 * stats['raw'] / stats['out']
+        print("NOTE: %.0f%% of output frames are RAW. Try --harder to recover "
+              "LCW-shaped bursts (expect 15-25%% of RAW to move into IRI/IBC/"
+              "IIU/etc.)." % raw_pct, file=sys.stderr)
 
 if args.output=='zmq':
     socket.close()
