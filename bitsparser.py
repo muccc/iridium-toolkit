@@ -566,12 +566,13 @@ class IridiumLCWMessage(IridiumMessage):
                 self.payload_r+=[int(x[::-1],2)]
         elif self.ft==2: # DAta (SBD) - Mission control data - ISU/SV
             self.msgtype="DA"
-            blocks=slice(data,124)
-            end=blocks.pop()
+            (blocks, end) = slice_extra(data, 124)
             for x in blocks:
                 (b1,b2)=de_interleave(x)
                 (b1,b2,b3,b4)=slice(b1+b2,31)
                 self.descrambled+=[b4,b2,b3,b1]
+            if len(end)%2 == 1:
+                end = end[:-1]
             (b1,b2)=de_interleave(end)
             self.descrambled+=[b2[1:],b1[1:]] # Throw away the extra bit
         elif self.ft==7: # Synchronisation
