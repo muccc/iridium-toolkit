@@ -25,12 +25,12 @@ Unless otherwise noted in a file, everything here is (c) Sec & schneider and lic
 
 ## Tools
 
-This is an oveview over the most relevant scripts in this repo. More detailed information on how to use some of them can be found later on in this README
+This is an overview over the most relevant scripts in this repo. More detailed information on how to use some of them can be found later on in this README.
 
 ### iridium-parser.py
 Main tool to 'parse' raw iridium bits. Output is an ascii line-based representation of the information contained in each frame.
 
-The output format is described in (FORMAT.md)[FORMAT.md]
+The output format is described in [FORMAT.md](FORMAT.md)
 
 #### Example usage
 
@@ -66,7 +66,7 @@ There is a legacy (python2) implementation in the  [extractor-python](extractor-
 # Main Tools
 ## iridium-parser
 
-Takes the demodulated bits produced by `iridium-extractor` and tries to parse them into a readable format. For a description of the output ofrmat, see [FORMAT.md](FORMAT.md)
+Takes the demodulated bits produced by `iridium-extractor` and tries to parse them into a readable format. For a description of the output format, see [FORMAT.md](FORMAT.md)
 
 
 ### Usage:
@@ -167,7 +167,7 @@ example:
 ##### --channelize
 
 replace frequency field with `SB.FA|±offset` where SB (subband) is either `S` for Simplex or a number from 1-30 and FA (frequency access) is a number from 1 to 8 (1 to 12 for the simplex SB)
-See (parse_channel())[https://github.com/muccc/iridium-toolkit/blob/8505bc5a5a6d6983b078da635794ae5357309304/util.py#L178] for conversion back to frequency.
+See [parse_channel()](https://github.com/muccc/iridium-toolkit/blob/8505bc5a5a6d6983b078da635794ae5357309304/util.py#L178) for conversion back to frequency.
 
 `frequency = 1615604164 + (FA + 8*SB) * 41667 + offset`
 
@@ -258,7 +258,7 @@ and then run
 ## beam-reception-plotter
 This will generate a reception pattern for each spot beam of a given satellite
 
-This will require a `locations.ini`with your receiver position in it to work properly.
+This will require a `locations.ini` with your receiver position in it to work properly.
 
 Run as
 
