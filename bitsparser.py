@@ -19,8 +19,8 @@ import itl
 
 iridium_access="001100000011000011110011" # Actually 0x789h in BPSK
 uplink_access= "110011000011110011111100" # BPSK: 0xc4b
-next_access_dl = "110011110011111111111100" # 0xdab
-next_access_ul = "001111000000000011111111" # 0x40a
+next_access_dl = "1100111100111111111111001100111111000000111100001111110011"
+next_access_ul = "0011110000000000111111110000110000110011001100001111001100"
 UW_DOWNLINK = [0,2,2,2,2,0,0,0,2,0,0,2]
 UW_UPLINK   = [2,2,0,0,0,2,0,0,2,0,2,2]
 NXT_UW_DOWNLINK = [2,2,0,2,2,0,2,0,2,0,2,2]
@@ -259,7 +259,19 @@ class IridiumMessage(Message):
             data = self.bitstream_raw[len(next_access_dl):]
             self.msgtype = "NX"
             self.header = self.bitstream_raw[:len(next_access_dl)]
-            self.descrambled = data
+
+            symbols = de_dqpsk(data, 2)
+
+            pilot = [0, 2] * 8 # 16 symbols
+
+            sync_errors = sum(
+                symbol != p
+                for symbol, p in zip(symbols[70:86], pilot)
+            )
+
+            self.fixederrs = sync_errors
+            payload_symbols = symbols[0:70]+symbols[86:216]
+            self.descrambled = qpsk2bits(payload_symbols)
             return
         elif self.uplink:
             data=self.bitstream_raw[len(uplink_access):]
@@ -1963,15 +1975,12 @@ class IridiumMessagingBCD(IridiumMSMessageBody):
 class IridiumNXTMessage(IridiumMessage):
     def __init__(self, imsg):
         self.__dict__ = imsg.__dict__
-        self.fixederrs = 0
-        if len(self.descrambled) < 233:
-            self._new_error("next frame too short")
 
-        # fixed pattern of 30 "1"s
-        ones = self.descrambled[176:206]
-        zeroes = ones.count("0")
-        if zeroes > 0:
-            self.fixederrs += 1
+        if len(self.descrambled) != 400:
+            raise ParserError("raw next frame has %d bits, expected 400" % len(self.descrambled))
+
+        self.header = ""
+        self.deinterleaved = nxt_deinterleave(self.descrambled)
 
     def upgrade(self):
         if self.error: return self
@@ -1979,13 +1988,20 @@ class IridiumNXTMessage(IridiumMessage):
 
     def pretty(self):
         st = "NXT: " + self._pretty_header()
-        st += " " + group(self.descrambled[:32], 8)
-        st += " | "
-        st += group(self.descrambled[32:36], 2)
-        st += " > "
-        st += group(self.descrambled[36:], 10)
+        st += " " + group(self.deinterleaved, 10)
         st += self._pretty_trailer()
         return st
+
+
+def nxt_deinterleave(bits):
+    output = [""] * 400
+    for index in range(400):
+        column = index % 21
+        start = 0 if column == 0 else 1 + 19 * column
+        source = start + index // 21
+        output[source] = bits[index]
+    return "".join(output)
+
 
 def symbol_reverse(bits):
     r = bytearray(bits.encode("us-ascii"))
@@ -2026,14 +2042,24 @@ def checksum_16(msg):
     csum=((csum&0xffff) + (csum>>16))
     return csum^0xffff
 
-def de_dqpsk(bits):
+
+def qpsk2bits(symbols):
+    bits = ""
+    omap = ("00", "10", "11", "01")
+    bits = "".join([omap[sym] for sym in symbols])
+    return bits
+
+
+def de_dqpsk(bits, phase=0):
     symbols=[]
+    if len(bits) == 0: return symbols
     imap=[0,1,3,2]
     # back into bpsk symbols
     for x in range(0,len(bits)-1,2):
         symbols.append(imap[int(bits[x+0])*2 + int(bits[x+1])])
 
     # undo differential decoding
+    symbols[0] = (symbols[0] + phase)%4
     for c in range(1,len(symbols)):
         symbols[c]=(symbols[c-1]+symbols[c])%4
 
