@@ -1981,6 +1981,7 @@ class IridiumNXTMessage(IridiumMessage):
 
         self.header = ""
         self.deinterleaved = nxt_deinterleave(self.descrambled)
+        self.extracted = nxt_extract_systematic(self.deinterleaved)
 
     def upgrade(self):
         if self.error: return self
@@ -1988,7 +1989,7 @@ class IridiumNXTMessage(IridiumMessage):
 
     def pretty(self):
         st = "NXT: " + self._pretty_header()
-        st += " " + group(self.deinterleaved, 10)
+        st += " " + group(self.extracted, 10)
         st += self._pretty_trailer()
         return st
 
@@ -2042,6 +2043,16 @@ def checksum_16(msg):
     csum=((csum&0xffff) + (csum>>16))
     return csum^0xffff
 
+
+def nxt_extract_systematic(bits):
+    output = []
+    offset = 0
+    for couple in range(160):
+        output.extend(bits[offset:offset + 2])
+        offset += 2
+        if couple % 4 == 0:
+            offset += 2
+    return "".join(output)
 
 def qpsk2bits(symbols):
     bits = ""
