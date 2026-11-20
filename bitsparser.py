@@ -1984,13 +1984,19 @@ class IridiumNXTMessage(IridiumMessage):
         self.extracted = nxt_extract_systematic(self.deinterleaved) # 320 bits
         self.bits = nxt_descramble(self.extracted)
 
+        self.payload_bits = self.bits[:310]
+        self.crc_received = int(self.bits[310:], 2)
+        self.crc_calculated = nxt_crc10_bits(self.payload_bits)
+        self.crc_ok = self.crc_received == self.crc_calculated
+
     def upgrade(self):
         if self.error: return self
         return self
 
     def pretty(self):
         st = "NXT: " + self._pretty_header()
-        st += " " + group(self.bits, 8)
+        st += " " + group(self.payload_bits, 8)
+        st += " %03X/%03X %s"%(self.crc_received,self.crc_calculated,["no","OK"][self.crc_ok])
         st += self._pretty_trailer()
         return st
 
@@ -2013,6 +2019,13 @@ def nxt_descramble(bits):
         output.append(str(int(bit) ^ feedback))
         register = [feedback] + register[:14]
     return "".join(output)
+
+# crcmod can only do 16bit, so we pad the poly
+nxt_crc10 = crcmod.mkCrcFun(poly=0x193c0, initCrc=0, rev=False, xorOut=0)
+def nxt_crc10_bits(bits):
+    padded = "00" + bits # make input whole bytes
+    data = int(padded, 2).to_bytes(len(padded) // 8, byteorder="big")
+    return nxt_crc10(data) >> 6 # chop back to 10 bits
 
 
 def symbol_reverse(bits):
