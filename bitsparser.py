@@ -1981,7 +1981,8 @@ class IridiumNXTMessage(IridiumMessage):
 
         self.header = ""
         self.deinterleaved = nxt_deinterleave(self.descrambled)
-        self.extracted = nxt_extract_systematic(self.deinterleaved)
+        self.extracted = nxt_extract_systematic(self.deinterleaved) # 320 bits
+        self.bits = nxt_descramble(self.extracted)
 
     def upgrade(self):
         if self.error: return self
@@ -1989,7 +1990,7 @@ class IridiumNXTMessage(IridiumMessage):
 
     def pretty(self):
         st = "NXT: " + self._pretty_header()
-        st += " " + group(self.extracted, 10)
+        st += " " + group(self.bits, 8)
         st += self._pretty_trailer()
         return st
 
@@ -2001,6 +2002,16 @@ def nxt_deinterleave(bits):
         start = 0 if column == 0 else 1 + 19 * column
         source = start + index // 21
         output[source] = bits[index]
+    return "".join(output)
+
+
+def nxt_descramble(bits):
+    register = [1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0]
+    output = []
+    for bit in bits:
+        feedback = register[13] ^ register[14]
+        output.append(str(int(bit) ^ feedback))
+        register = [feedback] + register[:14]
     return "".join(output)
 
 
