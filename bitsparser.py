@@ -56,7 +56,7 @@ tsoffset=0
 maxts=0
 
 class Message(object):
-    p = re.compile(r'(RAW|RWA|NC1): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) ([\[\]<> 01]+)(.*)')
+    p = re.compile(r'(RAW|RWA|NC1|NXD|NXU): ([^ ]*) (-?[\d.]+) (\d+) (?:N:([+-]?\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)|A:(\w+)) [IL]:(\w+) +(\d+)% ([\d.]+|inf|nan) +(\d+) (NC. )?([\[\]<> 01]+)(.*)')
     parse_error=False
     error=False
     def __init__(self,line):
@@ -69,8 +69,12 @@ class Message(object):
             self._new_error("Couldn't parse: "+line)
             self.parse_error=True
             return
-        self.swapped = (m.group(1) != "RWA")
-        self.next = (m.group(1) == "NC1")
+        self.swapped = (m.group(1) == "RAW" or m.group(1) == "NC1")
+        self.block1 = (m.group(1) == "RAW" or m.group(1) == "RWA")
+        self.rawnext = (m.group(1) == "NC1")
+        self.next = (m.group(1) == "NXD" or m.group(1) == "NXU")
+        if self.next:
+            self.uplink = (m.group(1) == "NXU")
         self.filename=m.group(2)
         if self.filename=="/dev/stdin":
             self.filename="-";
@@ -98,12 +102,16 @@ class Message(object):
             self.level=float(m.group(10)+"1")
         self.leveldb=20*log(self.level,10)
 #        self.raw_length=m.group(11)
-        self.bitstream_raw=(re.sub(r"[\[\]<> ]","",m.group(12))) # raw bitstring with correct symbols
+        self.bitstream_raw=(re.sub(r"[\[\]<> ]","",m.group(13))) # raw bitstring with correct symbols
         if self.swapped:
             self.bitstream_raw=symbol_reverse(self.bitstream_raw)
+        if self.next:
+            self.nextmod = m.group(12)[:-1] # remove space
+        elif self.rawnext:
+            self.nextmod = m.group(1)
         self.symbols=len(self.bitstream_raw)//2
-        if m.group(13):
-            self.extra_data=m.group(13)
+        if m.group(14):
+            self.extra_data=m.group(14)
             self._new_error("There is crap at the end in extra_data")
 
         # Make a "global" timestamp - needs to be an int to avoid precision loss
@@ -157,37 +165,52 @@ class Message(object):
 
     def upgrade(self):
         if self.error: return self
-        if(not self.next and self.bitstream_raw.startswith(iridium_access)):
-            self.uplink=0
-        elif(not self.next and self.bitstream_raw.startswith(uplink_access)):
-            self.uplink=1
-        elif(self.bitstream_raw.startswith(next_access_dl)):
-            self.uplink = 0
-            self.next = True
-        elif(self.bitstream_raw.startswith(next_access_ul)):
-            self.uplink = 1
-            self.next = True
-        else:
-            if args.uwec and len(self.bitstream_raw)>=len(iridium_access):
+        if self.block1:
+            if self.bitstream_raw.startswith(iridium_access):
+                self.uplink = 0
+            elif self.bitstream_raw.startswith(uplink_access):
+                self.uplink = 1
+            elif args.uwec and len(self.bitstream_raw)>=len(iridium_access):
+                access=de_dqpsk(self.bitstream_raw[:len(iridium_access)])
+                if bitdiff(access, UW_DOWNLINK) < 4:
+                    self.uplink = 0
+                    self.ec_uw=bitdiff(access,UW_DOWNLINK)
+                elif bitdiff(access, UW_UPLINK) < 4:
+                    self.uplink = 1
+                    self.ec_uw=bitdiff(access,UW_UPLINK)
+                else:
+                    self._new_error("Access code distance too big: %d/%d "%(bitdiff(access, UW_DOWNLINK),bitdiff(access,UW_UPLINK)))
+            else:
+                self._new_error("Access code missing")
+                return self
+        elif self.rawnext:
+            if self.bitstream_raw.startswith(next_access_dl):
+                self.uplink = 0
+            elif self.bitstream_raw.startswith(next_access_ul):
+                self.uplink = 1
+            elif args.uwec and len(self.bitstream_raw)>=len(iridium_access):
                 access=de_dqpsk(self.bitstream_raw[:len(iridium_access)])
 
-                if not self.next and bitdiff(access, UW_DOWNLINK) < 4:
-                    self.uplink=0
-                    self.ec_uw=bitdiff(access,UW_DOWNLINK)
-                elif not self.next and bitdiff(access, UW_UPLINK) < 4:
-                    self.uplink=1
-                    self.ec_uw=bitdiff(access,UW_UPLINK)
-                elif self.next and bitdiff(access, NXT_UW_DOWNLINK) < 4:
+                if bitdiff(access, NXT_UW_DOWNLINK) < 4:
                     self.uplink = 0
                     self.ec_uw = bitdiff(access, NXT_UW_DOWNLINK)
-                elif self.next and bitdiff(access, NXT_UW_UPLINK) < 4:
+                elif bitdiff(access, NXT_UW_UPLINK) < 4:
                     self.uplink = 1
                     self.ec_uw = bitdiff(access, NXT_UW_UPLINK)
                 else:
-                    self._new_error("Access code distance too big: %d/%d "%(bitdiff(access,UW_DOWNLINK),bitdiff(access,UW_UPLINK)))
-            if("uplink" not in self.__dict__):
+                    self._new_error("Access code distance too big: %d/%d "%(bitdiff(access,NXT_UW_DOWNLINK),bitdiff(access,NXT_UW_UPLINK)))
+            else:
                 self._new_error("Access code missing")
                 return self
+        elif self.next:
+            pass
+        else:
+            self._new_error("Unknown record format %s"%self._t)
+            return self
+
+        if("uplink" not in self.__dict__):
+            self._new_error("Access code missing")
+            return self
         try:
             return IridiumMessage(self).upgrade()
         except ParserError as e:
@@ -232,7 +255,7 @@ class Message(object):
     def pretty(self):
         if self.parse_error:
             return "ERR: "
-        if "next" in self.__dict__ and self.next:
+        if "next" in self.__dict__ and self.rawnext:
             str = "NC1: "
         else:
             str = "RAW: "
@@ -255,15 +278,14 @@ class Message(object):
 class IridiumMessage(Message):
     def __init__(self,msg):
         self.__dict__=msg.__dict__
-        if self.next:
+        if self.rawnext:
             data = self.bitstream_raw[len(next_access_dl):]
-            self.msgtype = "NX"
+            self.msgtype = "NR"
             self.header = self.bitstream_raw[:len(next_access_dl)]
 
             symbols = de_dqpsk(data, 2)
 
             pilot = [0, 2] * 8 # 16 symbols
-
             sync_errors = sum(
                 symbol != p
                 for symbol, p in zip(symbols[70:86], pilot)
@@ -271,8 +293,10 @@ class IridiumMessage(Message):
 
             self.fixederrs = sync_errors
             payload_symbols = symbols[0:70]+symbols[86:216]
-            self.descrambled = qpsk2bits(payload_symbols)
-            return
+            data = qpsk2bits(payload_symbols)
+        elif self.next:
+            self.msgtype = "NX"
+            data = self.bitstream_raw
         elif self.uplink:
             data=self.bitstream_raw[len(uplink_access):]
         else:
@@ -417,7 +441,34 @@ class IridiumMessage(Message):
         if "msgtype" not in self.__dict__:
             raise ParserError("unknown Iridium message type")
 
-        if self.msgtype=="MS":
+        if self.msgtype == "NX":
+            self.header = self.nextmod
+            self.descrambled = data
+        elif self.msgtype == "NR":
+            if len(data) < 400:
+                self._new_error("raw next frame too short")
+                raise ParserError("has %d bits, expected 400" % len(data))
+
+            self.header = ""
+            deinterleaved = nxt_deinterleave(data)
+            extracted = nxt_extract_systematic(deinterleaved) # 320 bits now
+            bits = nxt_descramble(extracted)
+
+            self.descrambled = bits[:310]
+            self.crc_received = int(bits[310:], 2)
+            self.crc_calculated = nxt_crc10_bits(self.descrambled)
+            self.crc_ok = self.crc_received == self.crc_calculated
+
+            if not self.crc_ok:
+                self.ec_lcw = 1
+
+            if self.crc_ok or args.uwec:
+                self.next = True
+                self.msgtype = "NX"
+                self.header = self.nextmod
+            else:
+                self._new_error("NC1 crc10 failure")
+        elif self.msgtype == "MS":
             hdrlen=32
             self.header=data[:hdrlen]
             if self.header==header_messaging:
@@ -1976,27 +2027,13 @@ class IridiumNXTMessage(IridiumMessage):
     def __init__(self, imsg):
         self.__dict__ = imsg.__dict__
 
-        if len(self.descrambled) != 400:
-            raise ParserError("raw next frame has %d bits, expected 400" % len(self.descrambled))
-
-        self.header = ""
-        self.deinterleaved = nxt_deinterleave(self.descrambled)
-        self.extracted = nxt_extract_systematic(self.deinterleaved) # 320 bits
-        self.bits = nxt_descramble(self.extracted)
-
-        self.payload_bits = self.bits[:310]
-        self.crc_received = int(self.bits[310:], 2)
-        self.crc_calculated = nxt_crc10_bits(self.payload_bits)
-        self.crc_ok = self.crc_received == self.crc_calculated
-
     def upgrade(self):
         if self.error: return self
         return self
 
     def pretty(self):
         st = "NXT: " + self._pretty_header()
-        st += " " + group(self.payload_bits, 8)
-        st += " %03X/%03X %s"%(self.crc_received,self.crc_calculated,["no","OK"][self.crc_ok])
+        st += " " + group(self.descrambled, 8)
         st += self._pretty_trailer()
         return st
 
